@@ -49,6 +49,8 @@ export default function CallPage() {
   const nextStartTimeRef = useRef(0);
   // startRef lets audio callbacks call start() without stale closure
   const startRef = useRef<() => void>(() => {});
+  const pendingModeRef = useRef<"normal" | "callMode" | null>(null);
+  const pendingEndRef = useRef(false);
   const router = useRouter();
   const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock();
 
@@ -251,6 +253,22 @@ export default function CallPage() {
   // Keep startRef in sync — this is what playChunk uses
   useEffect(() => { startRef.current = start; }, [start]);
 
+  // Execute pending transitions when idle
+  useEffect(() => {
+    if (callState !== "idle") return;
+    if (pendingEndRef.current) {
+      pendingEndRef.current = false;
+      generateReport();
+      return;
+    }
+    if (pendingModeRef.current) {
+      const pending = pendingModeRef.current;
+      pendingModeRef.current = null;
+      if (pending === "callMode") startCallMode();
+      if (pending === "normal") stopCallMode();
+    }
+  }, [callState]);
+
   // ── Translation ──────────────────────────────────────────
   const translateMessage = async (text: string, index: number) => {
     if (translations[index]) {
@@ -312,6 +330,10 @@ export default function CallPage() {
 
   // ── Call mode start ──────────────────────────────────────
   const startCallMode = async () => {
+    if (callState !== "idle") {
+      pendingModeRef.current = "callMode";
+      return;
+    }
     if (navigator.vibrate) navigator.vibrate(40);
     _callModeActive = true;
     _isSending = false;
@@ -327,7 +349,12 @@ export default function CallPage() {
 
   // ── Call mode stop ───────────────────────────────────────
   const stopCallMode = () => {
-    _callModeActive = false;
+    _callModeActive = false; // stop auto-restart immediately
+    if (callState === "speaking" || callState === "thinking") {
+      pendingModeRef.current = "normal";
+      setCallMode(false);
+      return;
+    }
     _isSending = false;
     setCallMode(false);
     stop();
@@ -338,6 +365,11 @@ export default function CallPage() {
 
   // ── End session ──────────────────────────────────────────
   const generateReport = () => {
+    if (callState === "speaking" || callState === "thinking") {
+      _callModeActive = false; // stop call mode restart
+      pendingEndRef.current = true;
+      return;
+    }
     if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
     // Stop everything
     _callModeActive = false;
@@ -382,7 +414,9 @@ export default function CallPage() {
           <Link href="/progress" className={styles.navLink}>Stats</Link>
           <Link href="/profile" className={styles.navLink}>Profil</Link>
           {messages.length > 1 && (
-            <button className={styles.endBtn} onClick={generateReport}>Ende</button>
+            <button className={styles.endBtn} onClick={generateReport}>
+              {pendingEndRef.current ? "..." : "Ende"}
+            </button>
           )}
           <button
             onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
@@ -468,13 +502,13 @@ export default function CallPage() {
             onClick={stopCallMode}
             style={{ flex: 1, padding: "10px", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", background: !callMode ? "var(--accent-glow)" : "none", color: !callMode ? "var(--accent)" : "var(--text-muted)", border: "none", borderRight: "0.5px solid var(--border)", letterSpacing: "0.04em", transition: "all 0.2s" }}
           >
-            Normal
+            {pendingModeRef.current === "normal" ? "..." : "Normal"}
           </button>
           <button
             onClick={startCallMode}
             style={{ flex: 1, padding: "10px", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", background: callMode ? "var(--accent-glow)" : "none", color: callMode ? "var(--accent)" : "var(--text-muted)", border: "none", letterSpacing: "0.04em", transition: "all 0.2s" }}
           >
-            Call Mode
+            {pendingModeRef.current === "callMode" ? "..." : "Call Mode"}
           </button>
         </div>
 
