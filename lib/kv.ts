@@ -83,6 +83,56 @@ export async function getUnpracticedWords(userId: string, limit = 10): Promise<s
     .map((w) => w.word);
 }
 
+export async function markWordsUsedByUser(userId: string, words: string[]): Promise<void> {
+  if (!words.length) return;
+  const key = `vocab:${userId}`;
+  try {
+    const data = await redis.get<string>(key);
+    if (!data) return;
+    const vocab: Record<string, VocabWord> = typeof data === "string" ? JSON.parse(data) : data;
+    for (const word of words) {
+      const k = word.toLowerCase();
+      if (vocab[k]) vocab[k].usedByUser = true;
+    }
+    await redis.set(key, JSON.stringify(vocab));
+  } catch {}
+}
+
+export async function getNewWordsForSession(userId: string, sessionMessages: import("./types").Message[]): Promise<string[]> {
+  // Get all words Maya used in this session
+  const mayaText = sessionMessages
+    .filter(m => m.role === "assistant")
+    .map(m => m.content)
+    .join(" ");
+
+  const userText = sessionMessages
+    .filter(m => m.role === "user")
+    .map(m => m.content.toLowerCase())
+    .join(" ");
+
+  const wordPattern = /[a-zA-ZäöüÄÖÜß]{4,20}/g;
+  const mayaWords = Array.from(new Set(mayaText.match(wordPattern) || []));
+  const userWordSet = new Set((userText.match(/[a-zA-ZäöüÄÖÜß]{3,}/g) || []).map(w => w.toLowerCase()));
+
+  const stopwords = new Set(["dass","eine","einen","einem","einer","nicht","auch","noch","oder","aber","dein","mein","sein","haben","waren","wird","sind","hast","habe","kann","wenn","dann","mehr","sehr","sich","wäre","hallo","schön","gerne","immer","etwas","heute","jetzt","ihre","beim","nach","über","doch","hier","dort","wann","weil","denn","dich","mich","ihn","ihr","wie","was","wer","nur","mal","aus","mit","von","zum","zur","das","die","der","ein","und","ist","hat","bin","war","ich","sie","wir","man","dem","den"]);
+
+  // Words Maya used that user never said in this session
+  const newInSession = mayaWords
+    .filter(w => w.length >= 4 && w.length <= 20)
+    .filter(w => /^[a-zA-ZäöüÄÖÜß]+$/.test(w))
+    .filter(w => !userWordSet.has(w.toLowerCase()))
+    .filter(w => !stopwords.has(w.toLowerCase()))
+    .filter(w => /[A-ZÄÖÜ]/.test(w[0]) || w.length >= 6);
+
+  // Also check against ALL previous sessions from DB
+  const vocab = await getVocab(userId);
+  const practicedBefore = new Set(vocab.filter(v => v.usedByUser).map(v => v.word.toLowerCase()));
+
+  return newInSession
+    .filter(w => !practicedBefore.has(w.toLowerCase()))
+    .slice(0, 15);
+}
+
 // ── User Profile ──────────────────────────────────────────
 
 export async function saveUserProfile(profile: UserProfile): Promise<void> {

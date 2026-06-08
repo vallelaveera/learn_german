@@ -292,26 +292,21 @@ export default function CallPage() {
 
   const generateReport = () => {
     if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-    const userText = messages.filter(m => m.role === "user").map(m => m.content.toLowerCase()).join(" ");
-    const felixText = messages.filter(m => m.role === "assistant").map(m => m.content).join(" ");
-    // Extract individual words only — split on spaces and punctuation
-    const wordPattern = /\b[a-zA-ZäöüÄÖÜß]{4,20}\b/g;
-    const felixWords = Array.from(new Set(felixText.match(wordPattern) || []));
-    const userWords = new Set((userText.match(/\b[a-zA-ZäöüÄÖÜß]{3,}\b/g) || []).map(w => w.toLowerCase()));
-    const common = new Set(["dass","eine","einen","einem","einer","nicht","auch","noch","oder","aber","dein","mein","sein","haben","waren","wird","sind","hast","habe","kann","wenn","dann","mehr","sehr","sich","wäre","hallo","schön","gerne","immer","etwas","heute","jetzt","ihre","ihre","beim","nach","über","doch","hier","dort","dann","wann","weil","denn","dich","mich","ihn","ihr","wie","was","wer","wo","nur","mal","aus","mit","von","zum","zur","das","die","der","ein","und","ist","hat","bin","war"]);
-
-    const words = felixWords
-      .filter(w => w.length >= 4 && w.length <= 20)
-      .filter(w => /^[a-zA-ZäöüÄÖÜß]+$/.test(w))
-      .filter(w => !userWords.has(w.toLowerCase()))
-      .filter(w => !common.has(w.toLowerCase()))
-      .filter(w => /[A-ZÄÖÜ]/.test(w[0]) || w.length >= 6)
-      .slice(0, 15);
-    setNewWords(words);
+    // New words will come from DB via extract API
+    setNewWords([]);
     setShowReport(true);
     stop(); stopAudio(); setCallState("idle");
     releaseWakeLock();
-    fetch("/api/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages }) });
+    // Get new words from DB, then extract facts
+    fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.newWords?.length) setNewWords(data.newWords);
+    });
     setSaved(true);
   };
 
