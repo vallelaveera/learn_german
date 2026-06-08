@@ -58,7 +58,7 @@ export default function LoginPage() {
           </div>
           <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
             {step === "email"
-              ? "Your personal German friend is waiting."
+              ? "Your German tutor is waiting."
               : "What should Maya call you?"}
           </p>
         </div>
