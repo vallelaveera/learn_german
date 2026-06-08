@@ -39,7 +39,10 @@ export default function CallPage() {
   const [daysSince, setDaysSince] = useState(0);
   const [saved, setSaved] = useState(false);
   const [callMode, setCallMode] = useState(false);
+  const callModeRef = useRef(false);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { callModeRef.current = callMode; }, [callMode]);
   const [translations, setTranslations] = useState<Record<number, string>>({});
   const [loadingTranslation, setLoadingTranslation] = useState<number | null>(null);
 
@@ -100,7 +103,7 @@ export default function CallPage() {
         if (sourceQueueRef.current.length === 0) {
           setCallState("idle");
           // In call mode, auto-restart listening after Maya finishes
-          if (callMode) {
+          if (callModeRef.current) {
             setTimeout(() => {
               finalBufferRef.current = "";
               setLiveText("");
@@ -292,11 +295,16 @@ export default function CallPage() {
 
   const generateReport = () => {
     if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+    // Stop everything cleanly
+    callModeRef.current = false;
+    setCallMode(false);
+    stop();
+    stopAudio();
+    setCallState("idle");
+    releaseWakeLock();
     // New words will come from DB via extract API
     setNewWords([]);
     setShowReport(true);
-    stop(); stopAudio(); setCallState("idle");
-    releaseWakeLock();
     // Get new words from DB, then extract facts
     fetch("/api/extract", {
       method: "POST",
@@ -426,7 +434,7 @@ export default function CallPage() {
           width: "100%", maxWidth: 280,
         }}>
           <button
-            onClick={() => { setCallMode(false); stop(); stopAudio(); setCallState("idle"); }}
+            onClick={() => { callModeRef.current = false; setCallMode(false); stop(); stopAudio(); setCallState("idle"); }}
             style={{
               flex: 1, padding: "10px", fontSize: 12,
               fontFamily: "var(--font-mono)", cursor: "pointer",
@@ -442,6 +450,7 @@ export default function CallPage() {
           </button>
           <button
             onClick={() => {
+              callModeRef.current = true;
               setCallMode(true);
               setError(null);
               finalBufferRef.current = "";
