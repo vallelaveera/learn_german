@@ -74,7 +74,7 @@ export default function LoginPage() {
             <span style={{
               fontFamily: "var(--font-serif)", fontSize: 32,
               fontWeight: 300, color: "var(--accent)"
-            }}>F</span>
+            }}>M</span>
             <div style={{
               position: "absolute", bottom: -2, right: -2,
               width: 20, height: 20, borderRadius: "50%",
