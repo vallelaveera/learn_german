@@ -88,8 +88,10 @@ export function useSpeechRecorder({
 
         if (finalText) onTranscript(finalText, true);
         if (nonFinalText) onTranscript(nonFinalText, false);
+        console.log("WS msg:", JSON.stringify({finished: res.finished, endFired: endFiredRef.current, tokens: res.tokens?.length}));
         if (res.finished && !endFiredRef.current) {
           endFiredRef.current = true;
+          console.log("onEnd firing now");
           onEnd();
         }
       };
