@@ -52,7 +52,7 @@ export default function CallPage() {
         setUser({ name: data.user.name, streak: data.streak, email: data.user.email });
         setDaysSince(data.daysSinceLastCall);
 
-        // Felix opens with personalized message
+        // Maya opens with personalized message
         if (data.opening) {
           const openingMsg: Message = {
             role: "assistant",
@@ -180,7 +180,24 @@ export default function CallPage() {
         timestamp: Date.now(),
       };
 
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages(prev => {
+        const updated = [...prev, assistantMsg];
+        // Auto-save session after every exchange
+        fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: sessionId,
+            userId: "",
+            startedAt: sessionStart,
+            endedAt: Date.now(),
+            messages: updated,
+            title: updated.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespräch",
+            totalMessages: updated.length,
+          }),
+        });
+        return updated;
+      });
       _isSending = false;
       await streamTTS(germanText);
     } catch {
@@ -287,10 +304,10 @@ export default function CallPage() {
   };
 
   const stateLabel: Record<CallState, string> = {
-    idle: contextLoaded ? "Drücken zum Sprechen" : "Felix bereitet sich vor...",
+    idle: contextLoaded ? "Drücken zum Sprechen" : "Maya bereitet sich vor...",
     listening: "Zuhören...",
-    thinking: "Felix denkt nach...",
-    speaking: "Felix spricht... (drücken zum Unterbrechen)",
+    thinking: "Maya denkt nach...",
+    speaking: "Maya spricht... (drücken zum Unterbrechen)",
   };
 
   const bars = Array.from({ length: 7 });
@@ -336,7 +353,7 @@ export default function CallPage() {
               </div>
             )}
           </div>
-          <p className={styles.felixLabel}>Felix — {user ? `${user.name}'s Deutschfreund` : "dein Deutschfreund"}</p>
+          <p className={styles.felixLabel}>Maya — {user ? `${user.name}'s Deutschfreund` : "dein Deutschfreund"}</p>
           {daysSince > 0 && daysSince < 999 && (
             <p className={styles.levelBadge} style={{ color: daysSince >= 3 ? "var(--red)" : "var(--accent)" }}>
               {daysSince === 0 ? "heute aktiv" : `${daysSince}d seit letztem Gespräch`}
@@ -347,13 +364,13 @@ export default function CallPage() {
         <div className={styles.transcript}>
           {messages.length === 0 && !contextLoaded && (
             <div className={styles.emptyState}>
-              <p className={styles.emptyTitle}>Felix lädt...</p>
+              <p className={styles.emptyTitle}>Maya lädt...</p>
               <p className={styles.emptyHint}>Er erinnert sich an euch beide.</p>
             </div>
           )}
           {messages.map((msg, i) => (
             <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
-              <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Felix"}</div>
+              <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
               <p className={styles.bubbleText}>{msg.content}</p>
               {msg.translation && <p className={styles.bubbleHint}>💡 {msg.translation}</p>}
               <span className={styles.bubbleTime}>{new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
@@ -367,7 +384,7 @@ export default function CallPage() {
           )}
           {callState === "thinking" && (
             <div className={`${styles.bubble} ${styles.assistantBubble}`}>
-              <div className={styles.bubbleRole}>Felix</div>
+              <div className={styles.bubbleRole}>Maya</div>
               <div className={styles.thinkingDots}><span /><span /><span /></div>
             </div>
           )}
@@ -431,7 +448,7 @@ export default function CallPage() {
             {newWords.length > 0 && (
               <div style={{ marginBottom: 32 }}>
                 <h3 style={{ fontSize: 13, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 16 }}>
-                  Neue Wörter von Felix — lern sie!
+                  Neue Wörter von Maya — lern sie!
                 </h3>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {newWords.map(word => (
@@ -458,7 +475,7 @@ export default function CallPage() {
                   borderRadius: 8,
                 }}>
                   <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 3 }}>
-                    {msg.role === "user" ? (user?.name ?? "Du") : "Felix"}
+                    {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
                   </div>
                   <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
                   {msg.translation && <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, fontStyle: "italic" }}>💡 {msg.translation}</p>}

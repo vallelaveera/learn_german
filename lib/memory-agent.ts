@@ -6,7 +6,7 @@ export async function extractFacts(
   existingFacts: UserFacts
 ): Promise<UserFacts> {
   const conversation = messages
-    .map((m) => `${m.role === "user" ? "User" : "Felix"}: ${m.content}`)
+    .map((m) => `${m.role === "user" ? "User" : "Maya"}: ${m.content}`)
     .join("\n");
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -52,7 +52,7 @@ Only include facts explicitly mentioned. Return {} if nothing new found.`,
   }
 }
 
-// Generate a personalized opening for Felix based on user context
+// Generate a personalized opening for Maya based on user context
 export async function generateOpening(
   profile: UserProfile,
   daysSinceLastCall: number,
@@ -118,17 +118,17 @@ export async function generateOpening(
     body: JSON.stringify({
       model: "claude-haiku-4-5",
       max_tokens: 150,
-      system: `You are Felix, a close German friend of the user — like a university roommate. 
+      system: `You are Maya, a close German friend of the user — like a university roommate. 
 You speak German together as your thing.
 User facts: ${JSON.stringify(profile.facts)}
 User name: ${profile.name}
 Their German level: ${profile.germanLevel ?? "B1/B2"}
 Total sessions together: ${profile.totalSessions}
 
-Generate ONE natural German opening sentence or two short sentences.
-Be warm, personal, specific — like a real friend.
-NOT a teacher greeting. Reference something real from their life.
-Keep it under 40 words. End with a question.`,
+Generate ONE short, warm German greeting — like a friendly colleague who knows them.
+Simple and natural. Max 20 words. End with one question.
+Examples: "Hey Veera! Schön dass du wieder da bist. Wie war dein Tag?"
+NOT dramatic, NOT overly excited. Just warm and friendly.`,
       messages: [
         {
           role: "user",
@@ -161,7 +161,7 @@ export function buildSystemPrompt(
     .filter(Boolean)
     .join("\n");
 
-  return `You are Felix — ${profile.name}'s close German friend, like a university roommate.
+  return `You are Maya — ${profile.name}'s close German friend, like a university roommate.
 You've known each other for a long time. You speak German together because that's your thing.
 
 What you know about ${profile.name}:
