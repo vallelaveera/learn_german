@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("What should Felix call you?"); return; }
+    if (!name.trim()) { setError("What should Maya call you?"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
@@ -59,11 +59,11 @@ export default function LoginPage() {
           <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
             {step === "email"
               ? "Your personal German friend is waiting."
-              : "What should Felix call you?"}
+              : "What should Maya call you?"}
           </p>
         </div>
 
-        {/* Felix avatar */}
+        {/* Maya avatar */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
           <div style={{
             width: 80, height: 80, borderRadius: "50%",
@@ -162,7 +162,7 @@ export default function LoginPage() {
                 fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
                 opacity: loading ? 0.7 : 1,
               }}>
-                {loading ? "Wird geladen..." : "Mit Felix sprechen →"}
+                {loading ? "Wird geladen..." : "Mit Maya sprechen →"}
               </button>
             </form>
           )}
@@ -172,7 +172,7 @@ export default function LoginPage() {
           textAlign: "center", fontSize: 11, color: "var(--text-dim)",
           marginTop: 20, lineHeight: 1.6,
         }}>
-          No password needed. Felix remembers you.
+          No password needed. Maya remembers you.
         </p>
       </div>
     </div>

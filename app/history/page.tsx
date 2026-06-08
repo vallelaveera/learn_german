@@ -114,7 +114,7 @@ export default function HistoryPage() {
                     }`}
                   >
                     <div className={styles.bubbleRole}>
-                      {msg.role === "user" ? "Du" : "Felix"}
+                      {msg.role === "user" ? "Du" : "Maya"}
                     </div>
                     <p className={styles.bubbleText}>{msg.content}</p>
                     {msg.translation && (

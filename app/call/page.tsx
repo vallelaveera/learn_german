@@ -38,6 +38,8 @@ export default function CallPage() {
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
   const [daysSince, setDaysSince] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [translations, setTranslations] = useState<Record<number, string>>({});
+  const [loadingTranslation, setLoadingTranslation] = useState<number | null>(null);
 
   const finalBufferRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -218,6 +220,45 @@ export default function CallPage() {
     onSpeechStart: () => setCallState("listening"),
   });
 
+  const translateMessage = async (text: string, index: number) => {
+    if (translations[index]) {
+      setTranslations(prev => { const n = {...prev}; delete n[index]; return n; });
+      return;
+    }
+    setLoadingTranslation(index);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: `Translate this German text to English in one sentence: "${text}"` }],
+          systemPrompt: "You are a translator. Translate the German text to natural English. Return only the translation, nothing else.",
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const p = JSON.parse(line.slice(6).trim());
+            if (p.type === "content_block_delta" && p.delta?.type === "text_delta") result += p.delta.text;
+          } catch {}
+        }
+      }
+      setTranslations(prev => ({ ...prev, [index]: result.trim() }));
+    } catch {}
+    setLoadingTranslation(null);
+  };
+
   const handleCallButton = async () => {
     if (navigator.vibrate) navigator.vibrate(40);
     if (callState === "idle") {
@@ -311,6 +352,27 @@ export default function CallPage() {
             <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p className={styles.bubbleText}>{msg.content}</p>
             {msg.translation && <p className={styles.bubbleHint}>{msg.translation}</p>}
+            {msg.role === "assistant" && (
+              <div>
+                <button
+                  onClick={() => translateMessage(msg.content, i)}
+                  style={{
+                    fontSize: 10, color: translations[i] ? "var(--accent)" : "var(--text-dim)",
+                    border: "0.5px solid var(--border)", borderRadius: 4,
+                    padding: "2px 8px", marginTop: 6, cursor: "pointer",
+                    background: translations[i] ? "var(--accent-glow)" : "none",
+                    fontFamily: "var(--font-mono)", letterSpacing: "0.06em",
+                  }}
+                >
+                  {loadingTranslation === i ? "..." : translations[i] ? "DE" : "EN"}
+                </button>
+                {translations[i] && (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>
+                    {translations[i]}
+                  </p>
+                )}
+              </div>
+            )}
             <span className={styles.bubbleTime}>{new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
           </div>
         ))}
