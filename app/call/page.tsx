@@ -545,16 +545,49 @@ export default function CallPage() {
           </button>
         )}
 
-        {/* Call mode — big end button */}
+        {/* Call mode — live indicator + hang up button */}
         {callMode && (
-          <button
-            onClick={stopCallMode}
-            style={{ width: 88, height: 88, borderRadius: "50%", background: "rgba(192,57,43,0.15)", border: "1.5px solid rgba(192,57,43,0.5)", color: "var(--red)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, fontFamily: "var(--font-mono)", flexDirection: "column", gap: 4, WebkitTapHighlightColor: "transparent" }}
-            aria-label="End call"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
-            <span style={{ fontSize: 9, letterSpacing: "0.06em" }}>ENDE</span>
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, width: "100%" }}>
+            {/* Live pulse indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: callState === "listening" ? "var(--accent)" : callState === "speaking" ? "var(--green)" : "var(--text-dim)",
+                boxShadow: callState === "listening" ? "0 0 0 4px rgba(212,168,67,0.2)" : callState === "speaking" ? "0 0 0 4px rgba(39,174,96,0.2)" : "none",
+                transition: "all 0.3s",
+              }} />
+              <span style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", fontFamily: "var(--font-mono)" }}>
+                {callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : callState === "speaking" ? "SPRICHT" : "WARTET"}
+              </span>
+            </div>
+
+            {/* Hang up button */}
+            <button
+              onClick={generateReport}
+              style={{
+                width: 72, height: 72, borderRadius: "50%",
+                background: "rgba(192,57,43,0.15)",
+                border: "1.5px solid rgba(192,57,43,0.5)",
+                color: "var(--red)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexDirection: "column", gap: 3,
+                WebkitTapHighlightColor: "transparent",
+                transition: "all 0.2s",
+              }}
+              aria-label="End call"
+            >
+              {pendingEndRef.current ? (
+                <div style={{ width: 18, height: 18, border: "2px solid rgba(192,57,43,0.4)", borderTop: "2px solid var(--red)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+              ) : (
+                <>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ transform: "rotate(135deg)" }}>
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  <span style={{ fontSize: 9, letterSpacing: "0.06em", fontFamily: "var(--font-mono)" }}>ENDE</span>
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
 
