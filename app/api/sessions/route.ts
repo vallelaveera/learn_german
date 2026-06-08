@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveSession, listSessions } from "@/lib/kv";
+import { saveSession, listSessions, saveVocabWords } from "@/lib/kv";
 import { Session } from "@/lib/types";
 
 export async function GET() {
@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
   try {
     const session: Session = await req.json();
     await saveSession(session);
+    if (session.newWords && session.newWords.length > 0) {
+      await saveVocabWords(session.newWords);
+    }
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error(e);

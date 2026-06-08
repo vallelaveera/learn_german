@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import { Session } from "./types";
+import { Session, VocabWord, UserVocab } from "./types";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -7,6 +7,7 @@ const redis = new Redis({
 });
 
 const SESSION_LIST_KEY = "sessions:index";
+const VOCAB_KEY = "vocab:global";
 
 export async function saveSession(session: Session): Promise<void> {
   await redis.set(`session:${session.id}`, JSON.stringify(session));
@@ -29,4 +30,38 @@ export async function listSessions(limit = 50): Promise<Session[]> {
 export async function deleteSession(id: string): Promise<void> {
   await redis.del(`session:${id}`);
   await redis.zrem(SESSION_LIST_KEY, id);
+}
+
+export async function saveVocabWords(words: string[]): Promise<void> {
+  if (words.length === 0) return;
+  const now = Date.now();
+  let vocab: Record<string, VocabWord> = {};
+  try {
+    const existing = await redis.get<string>(VOCAB_KEY);
+    if (existing) {
+      vocab = typeof existing === "string" ? JSON.parse(existing) : existing;
+    }
+  } catch {}
+
+  for (const word of words) {
+    const key = word.toLowerCase();
+    if (vocab[key]) {
+      vocab[key].timesSeen += 1;
+      vocab[key].lastSeen = now;
+    } else {
+      vocab[key] = { word, firstSeen: now, timesSeen: 1, lastSeen: now };
+    }
+  }
+  await redis.set(VOCAB_KEY, JSON.stringify(vocab));
+}
+
+export async function getVocab(): Promise<VocabWord[]> {
+  try {
+    const data = await redis.get<string>(VOCAB_KEY);
+    if (!data) return [];
+    const vocab: Record<string, VocabWord> = typeof data === "string" ? JSON.parse(data) : data;
+    return Object.values(vocab).sort((a, b) => b.lastSeen - a.lastSeen);
+  } catch {
+    return [];
+  }
 }

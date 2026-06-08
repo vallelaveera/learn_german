@@ -228,6 +228,27 @@ export default function CallPage() {
     stop();
     stopAudio();
     setCallState("idle");
+
+    // Auto-save everything to DB
+    const session = {
+      id: sessionId,
+      startedAt: sessionStart,
+      endedAt: Date.now(),
+      messages,
+      title: messages[0]?.content?.slice(0, 60) ?? "Gespräch",
+      newWords: words,
+      totalUserWords: messages
+        .filter(m => m.role === "user")
+        .map(m => m.content.split(" ").length)
+        .reduce((a, b) => a + b, 0),
+      totalMessages: messages.length,
+    };
+    fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(session),
+    });
+    setSaved(true);
   };
 
   const handleCallButton = () => {
