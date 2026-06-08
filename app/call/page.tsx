@@ -321,10 +321,8 @@ export default function CallPage() {
       await acquireWakeLock();
       start();
     } else if (callState === "listening") {
-      finalBufferRef.current = "";
-      setLiveText("");
       stop();
-      setCallState("idle");
+      // Don't clear buffer — handleRecordingEnd will read it and send
     } else if (callState === "speaking") {
       stopAudio();
       setCallState("idle");
