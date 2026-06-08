@@ -38,6 +38,8 @@ export default function CallPage() {
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
   const [daysSince, setDaysSince] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [callMode, setCallMode] = useState(false);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [translations, setTranslations] = useState<Record<number, string>>({});
   const [loadingTranslation, setLoadingTranslation] = useState<number | null>(null);
 
@@ -95,7 +97,18 @@ export default function CallPage() {
       nextStartTimeRef.current = startAt + decoded.duration;
       source.onended = () => {
         sourceQueueRef.current = sourceQueueRef.current.filter(s => s !== source);
-        if (sourceQueueRef.current.length === 0) setCallState("idle");
+        if (sourceQueueRef.current.length === 0) {
+          setCallState("idle");
+          // In call mode, auto-restart listening after Maya finishes
+          if (callMode) {
+            setTimeout(() => {
+              finalBufferRef.current = "";
+              setLiveText("");
+              setCallState("listening");
+              start();
+            }, 600);
+          }
+        }
       };
       sourceQueueRef.current.push(source);
     } catch {}
@@ -294,10 +307,10 @@ export default function CallPage() {
   };
 
   const stateLabel: Record<CallState, string> = {
-    idle: "Tippen zum Sprechen",
-    listening: "Maya hoert zu...",
+    idle: callMode ? "Warte..." : "Tippen zum Sprechen",
+    listening: callMode ? "Maya hoert zu..." : "Maya hoert zu...",
     thinking: "Maya denkt nach...",
-    speaking: "Maya spricht — tippen zum Unterbrechen",
+    speaking: callMode ? "Maya spricht..." : "Maya spricht — tippen zum Unterbrechen",
   };
 
   const bars = Array.from({ length: 7 });
@@ -318,6 +331,12 @@ export default function CallPage() {
           {messages.length > 1 && (
             <button className={styles.endBtn} onClick={generateReport}>Ende</button>
           )}
+          <button
+            onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
+            style={{ fontSize: 11, color: "var(--text-dim)", cursor: "pointer", background: "none", border: "none", padding: "6px 8px", fontFamily: "var(--font-mono)" }}
+          >
+            Logout
+          </button>
         </nav>
       </header>
 
@@ -394,7 +413,54 @@ export default function CallPage() {
       <div className={styles.bottom}>
         {error && <p className={styles.error}>{error}</p>}
         <p className={styles.status}>{stateLabel[callState]}</p>
-        <button
+
+        {/* Mode toggle */}
+        <div style={{
+          display: "flex", gap: 0,
+          border: "0.5px solid var(--border)",
+          borderRadius: 8, overflow: "hidden",
+          width: "100%", maxWidth: 280,
+        }}>
+          <button
+            onClick={() => { setCallMode(false); stop(); stopAudio(); setCallState("idle"); }}
+            style={{
+              flex: 1, padding: "10px", fontSize: 12,
+              fontFamily: "var(--font-mono)", cursor: "pointer",
+              background: !callMode ? "var(--accent-glow)" : "none",
+              color: !callMode ? "var(--accent)" : "var(--text-muted)",
+              border: "none",
+              borderRight: "0.5px solid var(--border)",
+              letterSpacing: "0.04em",
+              transition: "all 0.2s",
+            }}
+          >
+            Normal
+          </button>
+          <button
+            onClick={() => {
+              setCallMode(true);
+              setError(null);
+              finalBufferRef.current = "";
+              setLiveText("");
+              getAudioCtx();
+              acquireWakeLock();
+              setCallState("listening");
+              start();
+            }}
+            style={{
+              flex: 1, padding: "10px", fontSize: 12,
+              fontFamily: "var(--font-mono)", cursor: "pointer",
+              background: callMode ? "var(--accent-glow)" : "none",
+              color: callMode ? "var(--accent)" : "var(--text-muted)",
+              border: "none",
+              letterSpacing: "0.04em",
+              transition: "all 0.2s",
+            }}
+          >
+            Call Mode
+          </button>
+        </div>
+        {!callMode && <button
           className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
           onClick={handleCallButton}
           aria-label="Toggle call"
@@ -414,7 +480,7 @@ export default function CallPage() {
               <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
             </svg>
           )}
-        </button>
+        </button>}
       </div>
 
       {showReport && (
