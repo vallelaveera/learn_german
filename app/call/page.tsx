@@ -2,128 +2,207 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useSpeechRecorder } from "@/components/SpeechRecorder";
-import { AudioPlayer, fetchTTS } from "@/components/AudioPlayer";
 import { Message, Session } from "@/lib/types";
 import Link from "next/link";
 import styles from "./call.module.css";
 
 type CallState = "idle" | "listening" | "thinking" | "speaking";
 
-const SONIOX_KEY =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "")
-    : "";
-
 export default function CallPage() {
   const [callState, setCallState] = useState<CallState>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
   const [liveText, setLiveText] = useState("");
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [volumeLevel, setVolumeLevel] = useState(0);
 
   const finalBufferRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
+  const nextStartTimeRef = useRef(0);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, liveText]);
 
-  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
-    if (isFinal) {
-      finalBufferRef.current += text;
-    } else {
-      setLiveText(finalBufferRef.current + text);
-    }
+  const getAudioCtx = () => {
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+    return audioCtxRef.current;
+  };
+
+  const stopAudio = useCallback(() => {
+    sourceQueueRef.current.forEach((s) => { try { s.stop(); } catch {} });
+    sourceQueueRef.current = [];
+    nextStartTimeRef.current = 0;
   }, []);
 
-  const handleRecordingEnd = useCallback(async () => {
-    const userText = finalBufferRef.current.trim();
-    finalBufferRef.current = "";
-    setLiveText("");
+  const playChunk = useCallback(async (chunk: ArrayBuffer) => {
+    const ctx = getAudioCtx();
+    try {
+      const decoded = await ctx.decodeAudioData(chunk.slice(0));
+      const source = ctx.createBufferSource();
+      source.buffer = decoded;
+      source.connect(ctx.destination);
+      const startAt = Math.max(ctx.currentTime, nextStartTimeRef.current);
+      source.start(startAt);
+      nextStartTimeRef.current = startAt + decoded.duration;
+      source.onended = () => {
+        sourceQueueRef.current = sourceQueueRef.current.filter((s) => s !== source);
+        if (sourceQueueRef.current.length === 0) setCallState("idle");
+      };
+      sourceQueueRef.current.push(source);
+    } catch {}
+  }, []);
 
-    if (!userText) {
+  const streamTTS = useCallback(async (text: string) => {
+    setCallState("speaking");
+    stopAudio();
+    nextStartTimeRef.current = 0;
+
+    try {
+      const res = await fetch("/api/tts-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok || !res.body) throw new Error("TTS failed");
+
+      const reader = res.body.getReader();
+      const CHUNK_SIZE = 16384;
+      let buffer = new Uint8Array(0);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buffer.length > 0) playChunk(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+          break;
+        }
+        const newBuf = new Uint8Array(buffer.length + value.length);
+        newBuf.set(buffer);
+        newBuf.set(value, buffer.length);
+        buffer = newBuf;
+
+        if (buffer.length >= CHUNK_SIZE) {
+          const toPlay = buffer.slice(0, CHUNK_SIZE);
+          buffer = buffer.slice(CHUNK_SIZE);
+          playChunk(toPlay.buffer.slice(toPlay.byteOffset, toPlay.byteOffset + toPlay.byteLength));
+        }
+      }
+    } catch (e) {
+      console.error("TTS error:", e);
       setCallState("idle");
-      return;
     }
+  }, [playChunk, stopAudio]);
 
-    const userMsg: Message = {
-      role: "user",
-      content: userText,
-      timestamp: Date.now(),
-    };
-
-    const updated = [...messages, userMsg];
-    setMessages(updated);
-    sendToTutor(updated);
+  const sendToTutor = useCallback(async (msgs: Message[]) => {
     setCallState("thinking");
-  }, []);
-
-  const sendToTutor = async (msgs: Message[]) => {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: msgs }),
       });
-      const data = await res.json();
+      if (!res.ok || !res.body) throw new Error("Chat failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+              fullText += parsed.delta.text;
+            }
+          } catch {}
+        }
+      }
+
+      if (!fullText) throw new Error("Empty response");
+
+      const lines = fullText.split("\n").filter(Boolean);
+      const hintLine = lines.find((l) => l.startsWith("💡"));
+      const germanText = lines.filter((l) => !l.startsWith("💡")).join(" ").trim();
 
       const assistantMsg: Message = {
         role: "assistant",
-        content: data.content,
-        translation: data.translation,
+        content: germanText,
+        translation: hintLine?.replace("💡 ", ""),
         timestamp: Date.now(),
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-      setCallState("speaking");
-
-      // TTS
-      const url = await fetchTTS(data.content);
-      setAudioUrl(url);
+      await streamTTS(germanText);
     } catch (e) {
+      console.error("Chat error:", e);
       setError("Something went wrong. Please try again.");
       setCallState("idle");
     }
-  };
+  }, [streamTTS]);
+
+  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (isFinal) {
+      finalBufferRef.current += text;
+      setLiveText(finalBufferRef.current);
+    } else {
+      setLiveText(finalBufferRef.current + text);
+    }
+  }, []);
+
+  const handleRecordingEnd = useCallback(() => {
+    const userText = finalBufferRef.current.trim();
+    finalBufferRef.current = "";
+    setLiveText("");
+    if (!userText) { setCallState("idle"); return; }
+
+    const userMsg: Message = { role: "user", content: userText, timestamp: Date.now() };
+    setMessages((prev) => [...prev, userMsg]);
+    sendToTutor([...messages, userMsg]);
+  }, [sendToTutor, messages]);
 
   const { start, stop } = useSpeechRecorder({
-    apiKey: SONIOX_KEY,
+    apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onEnd: handleRecordingEnd,
-    onError: (e) => {
-      setError(e);
-      setCallState("idle");
-    },
+    onError: (e) => { setError(e); setCallState("idle"); },
+    onVolume: setVolumeLevel,
+    onSpeechStart: () => setCallState("listening"),
   });
 
   const handleCallButton = () => {
     if (callState === "idle") {
       setError(null);
       finalBufferRef.current = "";
+      setLiveText("");
       setCallState("listening");
+      getAudioCtx();
       start();
-    } else if (callState === "listening") {
+    } else if (callState === "speaking") {
+      stopAudio();
+    } else {
+      // End the call
       stop();
-      // handleRecordingEnd fires via onEnd
+      setCallState("idle");
     }
-  };
-
-  const handleTTSEnd = () => {
-    setAudioUrl(null);
-    setCallState("idle");
   };
 
   const saveSession = async () => {
     const session: Session = {
-      id: sessionId,
-      startedAt: sessionStart,
-      endedAt: Date.now(),
-      messages,
-      title: messages[0]?.content?.slice(0, 60) ?? "Conversation",
+      id: sessionId, startedAt: sessionStart, endedAt: Date.now(), messages,
+      title: messages[0]?.content?.slice(0, 60) ?? "Gespräch",
     };
     await fetch("/api/sessions", {
       method: "POST",
@@ -137,41 +216,28 @@ export default function CallPage() {
     idle: "Drücken zum Sprechen",
     listening: "Zuhören... (nochmal drücken zum Stoppen)",
     thinking: "Felix denkt nach...",
-    speaking: "Felix spricht...",
+    speaking: "Felix spricht... (drücken zum Unterbrechen)",
   };
+
+  const bars = Array.from({ length: 7 });
 
   return (
     <div className={styles.page}>
-      <AudioPlayer audioUrl={audioUrl} onEnd={handleTTSEnd} />
-
-      {/* Header */}
       <header className={styles.header}>
         <div className={styles.logo}>
           <span className={styles.logoDE}>DE</span>
           <span className={styles.logoText}>Deutsch Tutor</span>
         </div>
         <nav className={styles.nav}>
-          <Link href="/history" className={styles.navLink}>
-            Verlauf
-          </Link>
-          {messages.length > 0 && !saved && (
-            <button className={styles.saveBtn} onClick={saveSession}>
-              Speichern
-            </button>
-          )}
+          <Link href="/history" className={styles.navLink}>Verlauf</Link>
+          {messages.length > 0 && !saved && <button className={styles.saveBtn} onClick={saveSession}>Speichern</button>}
           {saved && <span className={styles.savedBadge}>✓ Gespeichert</span>}
         </nav>
       </header>
 
-      {/* Main */}
       <main className={styles.main}>
-        {/* Felix avatar area */}
         <div className={styles.avatarArea}>
-          <div
-            className={`${styles.avatar} ${
-              callState === "speaking" ? styles.avatarSpeaking : ""
-            }`}
-          >
+          <div className={`${styles.avatar} ${callState === "speaking" ? styles.avatarSpeaking : ""}`}>
             <span className={styles.avatarInitial}>F</span>
             {callState === "speaking" && (
               <div className={styles.speakingRings}>
@@ -185,137 +251,64 @@ export default function CallPage() {
           <p className={styles.levelBadge}>B1/B2</p>
         </div>
 
-        {/* Conversation */}
         <div className={styles.transcript}>
           {messages.length === 0 && (
             <div className={styles.emptyState}>
               <p className={styles.emptyTitle}>Bereit zum Üben?</p>
-              <p className={styles.emptyHint}>
-                Drücke den Knopf und sprich auf Deutsch.<br />
-                Felix antwortet und hilft dir mit der Grammatik.
-              </p>
+              <p className={styles.emptyHint}>Drücke den Knopf und sprich auf Deutsch.<br />Felix antwortet sofort und hilft dir mit der Grammatik.</p>
             </div>
           )}
-
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`${styles.bubble} ${
-                msg.role === "user" ? styles.userBubble : styles.assistantBubble
-              }`}
-            >
-              <div className={styles.bubbleRole}>
-                {msg.role === "user" ? "Du" : "Felix"}
-              </div>
+            <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
+              <div className={styles.bubbleRole}>{msg.role === "user" ? "Du" : "Felix"}</div>
               <p className={styles.bubbleText}>{msg.content}</p>
-              {msg.translation && (
-                <p className={styles.bubbleHint}>💡 {msg.translation}</p>
-              )}
-              <span className={styles.bubbleTime}>
-                {new Date(msg.timestamp).toLocaleTimeString("de-DE", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+              {msg.translation && <p className={styles.bubbleHint}>💡 {msg.translation}</p>}
+              <span className={styles.bubbleTime}>{new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
             </div>
           ))}
-
-          {/* Live preview */}
           {liveText && (
             <div className={`${styles.bubble} ${styles.userBubble} ${styles.livePreview}`}>
               <div className={styles.bubbleRole}>Du</div>
-              <p className={styles.bubbleText}>
-                {liveText}
-                <span className={styles.cursor} />
-              </p>
+              <p className={styles.bubbleText}>{liveText}<span className={styles.cursor} /></p>
             </div>
           )}
-
           {callState === "thinking" && (
             <div className={`${styles.bubble} ${styles.assistantBubble}`}>
               <div className={styles.bubbleRole}>Felix</div>
-              <div className={styles.thinkingDots}>
-                <span />
-                <span />
-                <span />
-              </div>
+              <div className={styles.thinkingDots}><span /><span /><span /></div>
             </div>
           )}
-
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Error */}
         {error && <p className={styles.error}>{error}</p>}
-
-        {/* Status */}
         <p className={styles.status}>{stateLabel[callState]}</p>
 
-        {/* Call button */}
         <button
-          className={`${styles.callBtn} ${
-            callState === "listening" ? styles.callBtnActive : ""
-          } ${callState === "thinking" || callState === "speaking" ? styles.callBtnDisabled : ""}`}
+          className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
           onClick={handleCallButton}
-          disabled={callState === "thinking" || callState === "speaking"}
-          aria-label={callState === "listening" ? "Stop recording" : "Start speaking"}
+          aria-label="Toggle call"
         >
           {callState === "listening" ? (
-            <WaveformIcon />
+            <div className={styles.waveform}>
+              {bars.map((_, i) => (
+                <div key={i} className={styles.bar} style={{ animationDelay: `${i * 0.08}s` }} />
+              ))}
+            </div>
           ) : callState === "thinking" ? (
-            <SpinnerIcon />
+            <div className={styles.spinner} />
+          ) : callState === "speaking" ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
           ) : (
-            <MicIcon />
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
           )}
         </button>
       </main>
     </div>
-  );
-}
-
-function MicIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-      <line x1="12" y1="19" x2="12" y2="23"/>
-      <line x1="8" y1="23" x2="16" y2="23"/>
-    </svg>
-  );
-}
-
-function WaveformIcon() {
-  return (
-    <svg width="32" height="24" viewBox="0 0 32 24" fill="currentColor">
-      {[4, 8, 12, 16, 20, 24, 28].map((x, i) => (
-        <rect
-          key={x}
-          x={x - 2}
-          y="2"
-          width="3"
-          height="20"
-          rx="1.5"
-          style={{
-            animation: `wave 0.8s ease-in-out infinite`,
-            animationDelay: `${i * 0.1}s`,
-          }}
-        />
-      ))}
-    </svg>
-  );
-}
-
-function SpinnerIcon() {
-  return (
-    <div
-      style={{
-        width: 26,
-        height: 26,
-        border: "2px solid rgba(255,255,255,0.2)",
-        borderTopColor: "currentColor",
-        borderRadius: "50%",
-        animation: "spin 0.8s linear infinite",
-      }}
-    />
   );
 }

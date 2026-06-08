@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { TUTOR_SYSTEM_PROMPT } from "@/lib/tutor-prompt";
 import { Message } from "@/lib/types";
 
@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
       max_tokens: 300,
+      stream: true,
       system: TUTOR_SYSTEM_PROMPT,
       messages: apiMessages,
     }),
@@ -29,19 +30,14 @@ export async function POST(req: NextRequest) {
 
   if (!response.ok) {
     const err = await response.text();
-    return NextResponse.json({ error: err }, { status: 500 });
+    return new Response(JSON.stringify({ error: err }), { status: 500 });
   }
 
-  const data = await response.json();
-  const text = data.content?.[0]?.text ?? "";
-
-  // Split German reply from English hint
-  const lines = text.split("\n").filter(Boolean);
-  const hintLine = lines.find((l: string) => l.startsWith("💡"));
-  const germanLines = lines.filter((l: string) => !l.startsWith("💡"));
-
-  return NextResponse.json({
-    content: germanLines.join(" ").trim(),
-    translation: hintLine ? hintLine.replace("💡 ", "") : undefined,
+  return new Response(response.body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    },
   });
 }
