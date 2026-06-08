@@ -105,16 +105,19 @@ export function useSpeechRecorder({
     cancelAnimationFrame(animFrameRef.current);
     onVolume?.(0);
     mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    // Send empty string to signal end — Soniox will reply with finished:true
+    // then ws.onmessage fires onEnd() — THEN we close
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send("");
+      // Close after Soniox has time to respond with finished
+      setTimeout(() => {
+        wsRef.current?.close();
+        wsRef.current = null;
+      }, 2000);
     }
-    setTimeout(() => {
-      wsRef.current?.close();
-      wsRef.current = null;
-    }, 300);
-    mediaRecorderRef.current = null;
-    streamRef.current = null;
   }, [onVolume]);
 
   return { start, stop };
