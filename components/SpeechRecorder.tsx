@@ -56,16 +56,19 @@ export function useSpeechRecorder({
       const ws = new WebSocket(SONIOX_WS_URL);
       wsRef.current = ws;
 
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const audioFormat = mimeType.includes("mp4") ? "mp4" : "webm";
+
       ws.onopen = () => {
         ws.send(JSON.stringify({
           api_key: apiKey,
           model: "stt-rt-v4",
           language_hints: ["de", "en"],
           enable_endpoint_detection: true,
-          audio_format: "webm",
+          audio_format: audioFormat,
         }));
 
-        const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        const mr = new MediaRecorder(stream, { mimeType });
         mediaRecorderRef.current = mr;
         mr.ondataavailable = (e) => {
           if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
