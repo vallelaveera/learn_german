@@ -28,7 +28,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, name }),
       });
       if (!res.ok) throw new Error("Login failed");
-      router.push("/call");
+      router.push("/mode");
     } catch {
       setError("Something went wrong. Try again.");
     } finally {

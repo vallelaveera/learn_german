@@ -4,6 +4,16 @@ import { getUserProfile, saveUserProfile } from "@/lib/kv";
 
 export const runtime = "nodejs";
 
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ user });
+  } catch {
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req);
@@ -15,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (germanLevel) profile.germanLevel = germanLevel;
     await saveUserProfile(profile);
     return NextResponse.json({ ok: true, user: profile });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

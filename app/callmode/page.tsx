@@ -9,8 +9,8 @@ import { Message } from "@/lib/types";
 let _cm_sending = false;
 let _cm_active = false;
 
-const SILENCE_THRESHOLD = 12; // volume below this = silence
-const SILENCE_DURATION = 1500; // ms before auto-send
+const SILENCE_THRESHOLD = 25; // volume below this = silence
+const SILENCE_DURATION = 2000; // ms before auto-send
 
 type Phase = "idle" | "active" | "ended";
 type CallState = "listening" | "thinking" | "speaking";
