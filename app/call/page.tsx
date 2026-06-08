@@ -20,6 +20,8 @@ export default function CallPage() {
   const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
 
   const finalBufferRef = useRef<string>("");
+  const isSendingRef = useRef(false);
+  const isSendingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
@@ -164,14 +166,19 @@ export default function CallPage() {
   }, []);
 
   const handleRecordingEnd = useCallback(() => {
+    if (isSendingRef.current) return;
+    if (isSendingRef.current) return;
     const userText = finalBufferRef.current.trim();
     finalBufferRef.current = "";
     setLiveText("");
     if (!userText) { setCallState("idle"); return; }
 
     const userMsg: Message = { role: "user", content: userText, timestamp: Date.now() };
+    isSendingRef.current = true;
     setMessages((prev) => [...prev, userMsg]);
-    sendToTutor([...messages, userMsg]);
+    sendToTutor([...messages, userMsg]).finally(() => {
+      isSendingRef.current = false;
+    });
   }, [sendToTutor, messages]);
 
   const { start, stop } = useSpeechRecorder({
