@@ -17,6 +17,8 @@ export default function CallPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [volumeLevel, setVolumeLevel] = useState(0);
+  const [showReport, setShowReport] = useState(false);
+  const [newWords, setNewWords] = useState<string[]>([]);
   const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
 
   const finalBufferRef = useRef<string>("");
@@ -190,6 +192,45 @@ export default function CallPage() {
     onSpeechStart: () => setCallState("listening"),
   });
 
+  const generateReport = () => {
+    const userText = messages
+      .filter(m => m.role === "user")
+      .map(m => m.content.toLowerCase())
+      .join(" ");
+
+    const felixText = messages
+      .filter(m => m.role === "assistant")
+      .map(m => m.content)
+      .join(" ");
+
+    // Extract German words Felix used (4+ chars, letters only)
+    const felixWords = [...new Set(
+      felixText.match(/[a-zA-ZäöüÄÖÜß]{4,}/g) || []
+    )];
+
+    // Filter to words user never said
+    const userWords = new Set(
+      (userText.match(/[a-zA-ZäöüÄÖÜß]{3,}/g) || []).map(w => w.toLowerCase())
+    );
+
+    const common = ["dass", "eine", "einen", "einem", "einer", "nicht", "auch",
+      "noch", "oder", "aber", "dein", "mein", "sein", "haben", "waren", "wird",
+      "wird", "sind", "hast", "habe", "kann", "wenn", "dann", "über", "nach",
+      "mehr", "sehr", "sich", "beim", "beim", "beim", "wäre", "beim", "beim"];
+
+    const words = felixWords
+      .filter(w => !userWords.has(w.toLowerCase()))
+      .filter(w => !common.includes(w.toLowerCase()))
+      .filter(w => /[äöüÄÖÜß]|[a-z]{5,}/.test(w))
+      .slice(0, 20);
+
+    setNewWords(words);
+    setShowReport(true);
+    stop();
+    stopAudio();
+    setCallState("idle");
+  };
+
   const handleCallButton = () => {
     if (callState === "idle") {
       setError(null);
@@ -238,6 +279,11 @@ export default function CallPage() {
         </div>
         <nav className={styles.nav}>
           <Link href="/history" className={styles.navLink}>Verlauf</Link>
+          {messages.length > 0 && (
+            <button className={styles.saveBtn} onClick={generateReport} style={{borderColor: 'rgba(192,57,43,0.4)', color: 'var(--red)'}}>
+              Beenden
+            </button>
+          )}
           {messages.length > 0 && !saved && <button className={styles.saveBtn} onClick={saveSession}>Speichern</button>}
           {saved && <span className={styles.savedBadge}>✓ Gespeichert</span>}
           <div className={styles.providerToggle}>
