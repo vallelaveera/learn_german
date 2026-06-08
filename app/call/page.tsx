@@ -340,7 +340,9 @@ export default function CallPage() {
             <button className={`${styles.providerBtn} ${ttsProvider === "soniox" ? styles.providerBtnActive : ""}`} onClick={() => setTtsProvider("soniox")}>Soniox</button>
             <button className={`${styles.providerBtn} ${ttsProvider === "fish" ? styles.providerBtnActive : ""}`} onClick={() => setTtsProvider("fish")}>Fish</button>
           </div>
-          <Link href="/history" className={styles.navLink}>Verlauf</Link>
+          <Link href="/words" className={styles.navLink}>Wörter</Link>
+          <Link href="/progress" className={styles.navLink}>Stats</Link>
+          <Link href="/profile" className={styles.navLink}>Profil</Link>
           {messages.length > 1 && (
             <button className={styles.endBtn} onClick={generateReport}>Ende</button>
           )}
