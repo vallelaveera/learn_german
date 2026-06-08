@@ -102,7 +102,6 @@ export function useSpeechRecorder({
   }, [apiKey, onTranscript, onEnd, onError, onVolume]);
 
   const stop = useCallback(() => {
-    endFiredRef.current = true; // prevent onEnd firing after manual stop
     cancelAnimationFrame(animFrameRef.current);
     onVolume?.(0);
     mediaRecorderRef.current?.stop();
