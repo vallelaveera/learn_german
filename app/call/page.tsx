@@ -8,57 +8,56 @@ import { useRouter } from "next/navigation";
 import styles from "./call.module.css";
 
 type CallState = "idle" | "listening" | "thinking" | "speaking";
-let _isSending = false;
 
+// ── Module-level guards — never stale ──────────────────────
+let _isSending = false;
+let _callModeActive = false;
+
+// ── Wake Lock ──────────────────────────────────────────────
 function useWakeLock() {
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const ref = useRef<WakeLockSentinel | null>(null);
   const acquire = async () => {
-    try {
-      if ("wakeLock" in navigator) {
-        wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
-      }
-    } catch {}
+    try { if ("wakeLock" in navigator) ref.current = await (navigator as any).wakeLock.request("screen"); } catch {}
   };
-  const release = () => { wakeLockRef.current?.release(); wakeLockRef.current = null; };
+  const release = () => { ref.current?.release(); ref.current = null; };
   return { acquire, release };
 }
 
 export default function CallPage() {
+  // ── State ────────────────────────────────────────────────
   const [callState, setCallState] = useState<CallState>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
   const [liveText, setLiveText] = useState("");
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
-  const [volumeLevel, setVolumeLevel] = useState(0);
   const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
   const [showReport, setShowReport] = useState(false);
   const [newWords, setNewWords] = useState<string[]>([]);
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
   const [daysSince, setDaysSince] = useState(0);
-  const [saved, setSaved] = useState(false);
   const [callMode, setCallMode] = useState(false);
-  const callModeRef = useRef(false);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { callModeRef.current = callMode; }, [callMode]);
   const [translations, setTranslations] = useState<Record<number, string>>({});
   const [loadingTranslation, setLoadingTranslation] = useState<number | null>(null);
 
-  const finalBufferRef = useRef<string>("");
+  // ── Refs ─────────────────────────────────────────────────
+  const finalBufferRef = useRef("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
   const nextStartTimeRef = useRef(0);
-  const streamTTSRef = useRef<((text: string) => void) | null>(null);
+  // startRef lets audio callbacks call start() without stale closure
+  const startRef = useRef<() => void>(() => {});
   const router = useRouter();
   const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock();
 
+  // ── Auto scroll ──────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, liveText]);
 
+  // ── Load context on mount ────────────────────────────────
   useEffect(() => {
     fetch("/api/context")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
@@ -70,12 +69,13 @@ export default function CallPage() {
         if (data.opening) {
           const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
           setMessages([msg]);
-          setTimeout(() => streamTTSRef.current?.(data.opening), 300);
+          setTimeout(() => streamTTSRef.current?.(data.opening), 500);
         }
       })
       .catch(console.error);
   }, []);
 
+  // ── Audio ────────────────────────────────────────────────
   const getAudioCtx = () => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
     if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
@@ -102,21 +102,24 @@ export default function CallPage() {
         sourceQueueRef.current = sourceQueueRef.current.filter(s => s !== source);
         if (sourceQueueRef.current.length === 0) {
           setCallState("idle");
-          // In call mode, auto-restart listening after Maya finishes
-          if (callModeRef.current) {
+          // Call mode: auto restart — use module-level flag, never stale
+          if (_callModeActive) {
             setTimeout(() => {
+              if (!_callModeActive) return; // guard: mode may have changed
               _isSending = false;
               finalBufferRef.current = "";
               setLiveText("");
               setCallState("listening");
-              start();
-            }, 600);
+              startRef.current(); // use ref, never stale
+            }, 700);
           }
         }
       };
       sourceQueueRef.current.push(source);
     } catch {}
   }, []);
+
+  const streamTTSRef = useRef<((text: string) => void) | null>(null);
 
   const streamTTS = useCallback(async (text: string) => {
     setCallState("speaking");
@@ -128,7 +131,7 @@ export default function CallPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProvider }),
       });
-      if (!res.ok || !res.body) throw new Error("TTS failed");
+      if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
       const CHUNK = 16384;
       let buf = new Uint8Array(0);
@@ -150,6 +153,7 @@ export default function CallPage() {
 
   useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 
+  // ── Auto save ────────────────────────────────────────────
   const autoSave = useCallback((msgs: Message[]) => {
     fetch("/api/sessions", {
       method: "POST",
@@ -164,6 +168,7 @@ export default function CallPage() {
     });
   }, [sessionId, sessionStart]);
 
+  // ── Send to Claude ───────────────────────────────────────
   const sendToTutor = useCallback(async (msgs: Message[]) => {
     setCallState("thinking");
     try {
@@ -194,10 +199,15 @@ export default function CallPage() {
         }
       }
       if (!fullText) throw new Error();
-      const lines = fullText.split("\n").filter(Boolean);
-      const hint = lines.find(l => l.startsWith("\u{1F4A1}"));
-      const german = lines.filter(l => !l.startsWith("\u{1F4A1}")).join(" ").trim();
-      const assistantMsg: Message = { role: "assistant", content: german, translation: hint?.replace("\u{1F4A1} ", ""), timestamp: Date.now() };
+      const allLines = fullText.split("\n").filter(Boolean);
+      const hint = allLines.find(l => l.startsWith("\u{1F4A1}"));
+      const german = allLines.filter(l => !l.startsWith("\u{1F4A1}")).join(" ").trim();
+      const assistantMsg: Message = {
+        role: "assistant",
+        content: german,
+        translation: hint?.replace("\u{1F4A1} ", ""),
+        timestamp: Date.now(),
+      };
       setMessages(prev => {
         const updated = [...prev, assistantMsg];
         autoSave(updated);
@@ -212,6 +222,7 @@ export default function CallPage() {
     }
   }, [streamTTS, systemPrompt, autoSave]);
 
+  // ── Speech callbacks ─────────────────────────────────────
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
     if (isFinal) { finalBufferRef.current += text; setLiveText(finalBufferRef.current); }
     else setLiveText(finalBufferRef.current + text);
@@ -233,13 +244,17 @@ export default function CallPage() {
     onTranscript: handleTranscript,
     onEnd: handleRecordingEnd,
     onError: e => { setError(e); setCallState("idle"); },
-    onVolume: setVolumeLevel,
+    onVolume: () => {},
     onSpeechStart: () => setCallState("listening"),
   });
 
+  // Keep startRef in sync — this is what playChunk uses
+  useEffect(() => { startRef.current = start; }, [start]);
+
+  // ── Translation ──────────────────────────────────────────
   const translateMessage = async (text: string, index: number) => {
     if (translations[index]) {
-      setTranslations(prev => { const n = {...prev}; delete n[index]; return n; });
+      setTranslations(prev => { const n = { ...prev }; delete n[index]; return n; });
       return;
     }
     setLoadingTranslation(index);
@@ -248,8 +263,8 @@ export default function CallPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: `Translate this German text to English in one sentence: "${text}"` }],
-          systemPrompt: "You are a translator. Translate the German text to natural English. Return only the translation, nothing else.",
+          messages: [{ role: "user", content: `Translate to English: "${text}"` }],
+          systemPrompt: "Translate German to English. Return only the translation.",
         }),
       });
       if (!res.ok || !res.body) throw new Error();
@@ -261,8 +276,7 @@ export default function CallPage() {
         const { done, value } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
+        const lines = buf.split("\n"); buf = lines.pop() ?? "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           try {
@@ -276,7 +290,8 @@ export default function CallPage() {
     setLoadingTranslation(null);
   };
 
-  const handleCallButton = async () => {
+  // ── Normal mode button ───────────────────────────────────
+  const handleNormalButton = async () => {
     if (navigator.vibrate) navigator.vibrate(40);
     if (callState === "idle") {
       setError(null);
@@ -288,40 +303,65 @@ export default function CallPage() {
       start();
     } else if (callState === "listening") {
       stop();
+      setCallState("idle");
     } else if (callState === "speaking") {
       stopAudio();
       setCallState("idle");
     }
   };
 
-  const generateReport = () => {
-    if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-    // Stop everything cleanly
-    callModeRef.current = false;
+  // ── Call mode start ──────────────────────────────────────
+  const startCallMode = async () => {
+    if (navigator.vibrate) navigator.vibrate(40);
+    _callModeActive = true;
+    _isSending = false;
+    setCallMode(true);
+    setError(null);
+    finalBufferRef.current = "";
+    setLiveText("");
+    getAudioCtx();
+    await acquireWakeLock();
+    setCallState("listening");
+    start();
+  };
+
+  // ── Call mode stop ───────────────────────────────────────
+  const stopCallMode = () => {
+    _callModeActive = false;
+    _isSending = false;
     setCallMode(false);
     stop();
     stopAudio();
     setCallState("idle");
     releaseWakeLock();
-    // New words will come from DB via extract API
+  };
+
+  // ── End session ──────────────────────────────────────────
+  const generateReport = () => {
+    if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+    // Stop everything
+    _callModeActive = false;
+    _isSending = false;
+    stop();
+    stopAudio();
+    setCallMode(false);
+    setCallState("idle");
+    releaseWakeLock();
     setNewWords([]);
     setShowReport(true);
-    // Get new words from DB, then extract facts
     fetch("/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
     })
-    .then(r => r.json())
-    .then(data => {
-      if (data.newWords?.length) setNewWords(data.newWords);
-    });
-    setSaved(true);
+      .then(r => r.json())
+      .then(data => { if (data.newWords?.length) setNewWords(data.newWords); });
   };
 
+  // ── Labels ───────────────────────────────────────────────
   const stateLabel: Record<CallState, string> = {
     idle: callMode ? "Warte..." : "Tippen zum Sprechen",
-    listening: callMode ? "Maya hoert zu..." : "Maya hoert zu...",
+    listening: "Maya hoert zu...",
     thinking: "Maya denkt nach...",
     speaking: callMode ? "Maya spricht..." : "Maya spricht — tippen zum Unterbrechen",
   };
@@ -330,17 +370,15 @@ export default function CallPage() {
 
   return (
     <div className={styles.page}>
+
+      {/* ── Header ── */}
       <header className={styles.header}>
         <div className={styles.logo}>
           <span className={styles.logoDE}>DE</span>
           <span className={styles.logoText}>CallMeDaily</span>
         </div>
         <nav className={styles.nav}>
-          <div className={styles.providerToggle}>
-            <button className={`${styles.providerBtn} ${ttsProvider === "soniox" ? styles.providerBtnActive : ""}`} onClick={() => setTtsProvider("soniox")}>Soniox</button>
-            <button className={`${styles.providerBtn} ${ttsProvider === "fish" ? styles.providerBtnActive : ""}`} onClick={() => setTtsProvider("fish")}>Fish</button>
-          </div>
-          <Link href="/words" className={styles.navLink}>Wörter</Link>
+          <Link href="/words" className={styles.navLink}>Woerter</Link>
           <Link href="/progress" className={styles.navLink}>Stats</Link>
           <Link href="/profile" className={styles.navLink}>Profil</Link>
           {messages.length > 1 && (
@@ -355,6 +393,7 @@ export default function CallPage() {
         </nav>
       </header>
 
+      {/* ── Maya row ── */}
       <div className={styles.avatarRow}>
         <div className={`${styles.avatar} ${callState === "speaking" ? styles.avatarSpeaking : ""}`}>
           <span className={styles.avatarInitial}>M</span>
@@ -374,6 +413,7 @@ export default function CallPage() {
         </div>
       </div>
 
+      {/* ── Transcript ── */}
       <div className={styles.transcript}>
         {messages.length === 0 && (
           <div className={styles.emptyState}>
@@ -390,20 +430,12 @@ export default function CallPage() {
               <div>
                 <button
                   onClick={() => translateMessage(msg.content, i)}
-                  style={{
-                    fontSize: 10, color: translations[i] ? "var(--accent)" : "var(--text-dim)",
-                    border: "0.5px solid var(--border)", borderRadius: 4,
-                    padding: "2px 8px", marginTop: 6, cursor: "pointer",
-                    background: translations[i] ? "var(--accent-glow)" : "none",
-                    fontFamily: "var(--font-mono)", letterSpacing: "0.06em",
-                  }}
+                  style={{ fontSize: 10, color: translations[i] ? "var(--accent)" : "var(--text-dim)", border: "0.5px solid var(--border)", borderRadius: 4, padding: "2px 8px", marginTop: 6, cursor: "pointer", background: translations[i] ? "var(--accent-glow)" : "none", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}
                 >
                   {loadingTranslation === i ? "..." : translations[i] ? "DE" : "EN"}
                 </button>
                 {translations[i] && (
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>
-                    {translations[i]}
-                  </p>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>{translations[i]}</p>
                 )}
               </div>
             )}
@@ -425,81 +457,66 @@ export default function CallPage() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* ── Bottom controls ── */}
       <div className={styles.bottom}>
         {error && <p className={styles.error}>{error}</p>}
         <p className={styles.status}>{stateLabel[callState]}</p>
 
-        {/* Mode toggle */}
-        <div style={{
-          display: "flex", gap: 0,
-          border: "0.5px solid var(--border)",
-          borderRadius: 8, overflow: "hidden",
-          width: "100%", maxWidth: 280,
-        }}>
+        {/* Mode toggle — Normal vs Call Mode */}
+        <div style={{ display: "flex", border: "0.5px solid var(--border)", borderRadius: 8, overflow: "hidden", width: "100%", maxWidth: 280 }}>
           <button
-            onClick={() => { callModeRef.current = false; setCallMode(false); stop(); stopAudio(); setCallState("idle"); }}
-            style={{
-              flex: 1, padding: "10px", fontSize: 12,
-              fontFamily: "var(--font-mono)", cursor: "pointer",
-              background: !callMode ? "var(--accent-glow)" : "none",
-              color: !callMode ? "var(--accent)" : "var(--text-muted)",
-              border: "none",
-              borderRight: "0.5px solid var(--border)",
-              letterSpacing: "0.04em",
-              transition: "all 0.2s",
-            }}
+            onClick={stopCallMode}
+            style={{ flex: 1, padding: "10px", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", background: !callMode ? "var(--accent-glow)" : "none", color: !callMode ? "var(--accent)" : "var(--text-muted)", border: "none", borderRight: "0.5px solid var(--border)", letterSpacing: "0.04em", transition: "all 0.2s" }}
           >
             Normal
           </button>
           <button
-            onClick={() => {
-              callModeRef.current = true;
-              setCallMode(true);
-              setError(null);
-              _isSending = false;
-              finalBufferRef.current = "";
-              setLiveText("");
-              getAudioCtx();
-              acquireWakeLock();
-              setCallState("listening");
-              start();
-            }}
-            style={{
-              flex: 1, padding: "10px", fontSize: 12,
-              fontFamily: "var(--font-mono)", cursor: "pointer",
-              background: callMode ? "var(--accent-glow)" : "none",
-              color: callMode ? "var(--accent)" : "var(--text-muted)",
-              border: "none",
-              letterSpacing: "0.04em",
-              transition: "all 0.2s",
-            }}
+            onClick={startCallMode}
+            style={{ flex: 1, padding: "10px", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", background: callMode ? "var(--accent-glow)" : "none", color: callMode ? "var(--accent)" : "var(--text-muted)", border: "none", letterSpacing: "0.04em", transition: "all 0.2s" }}
           >
             Call Mode
           </button>
         </div>
-        {!callMode && <button
-          className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
-          onClick={handleCallButton}
-          aria-label="Toggle call"
-        >
-          {callState === "listening" ? (
-            <div className={styles.waveform}>
-              {bars.map((_, i) => <div key={i} className={styles.bar} style={{ animationDelay: `${i * 0.08}s` }} />)}
-            </div>
-          ) : callState === "thinking" ? (
-            <div className={styles.spinner} />
-          ) : callState === "speaking" ? (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
-          ) : (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          )}
-        </button>}
+
+        {/* Normal mode button — hidden in call mode */}
+        {!callMode && (
+          <button
+            className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
+            onClick={handleNormalButton}
+            aria-label="Toggle call"
+          >
+            {callState === "listening" ? (
+              <div className={styles.waveform}>
+                {bars.map((_, i) => <div key={i} className={styles.bar} style={{ animationDelay: `${i * 0.08}s` }} />)}
+              </div>
+            ) : callState === "thinking" ? (
+              <div className={styles.spinner} />
+            ) : callState === "speaking" ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
+          </button>
+        )}
+
+        {/* Call mode — big end button */}
+        {callMode && (
+          <button
+            onClick={stopCallMode}
+            style={{ width: 88, height: 88, borderRadius: "50%", background: "rgba(192,57,43,0.15)", border: "1.5px solid rgba(192,57,43,0.5)", color: "var(--red)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, fontFamily: "var(--font-mono)", flexDirection: "column", gap: 4, WebkitTapHighlightColor: "transparent" }}
+            aria-label="End call"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+            <span style={{ fontSize: 9, letterSpacing: "0.06em" }}>ENDE</span>
+          </button>
+        )}
       </div>
 
+      {/* ── Report overlay ── */}
       {showReport && (
         <div className={styles.reportOverlay}>
           <div className={styles.reportInner}>
@@ -540,7 +557,7 @@ export default function CallPage() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setShowReport(false); setMessages([]); setSaved(false); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+              <button onClick={() => { setShowReport(false); setMessages([]); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
                 Neues Gespraech
               </button>
               <Link href="/history" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
