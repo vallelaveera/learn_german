@@ -23,7 +23,6 @@ export default function CallPage() {
 
   const finalBufferRef = useRef<string>("");
   const isSendingRef = useRef(false);
-  const isSendingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
@@ -204,9 +203,9 @@ export default function CallPage() {
       .join(" ");
 
     // Extract German words Felix used (4+ chars, letters only)
-    const felixWords = [...new Set(
+    const felixWords = Array.from(new Set(
       felixText.match(/[a-zA-ZäöüÄÖÜß]{4,}/g) || []
-    )];
+    ));
 
     // Filter to words user never said
     const userWords = new Set(
