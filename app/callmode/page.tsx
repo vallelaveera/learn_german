@@ -1,70 +1,83 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message } from "@/lib/types";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import styles from "./call.module.css";
 
-// ── Module-level flags — never stale inside callbacks ──
+type CallState = "idle" | "listening" | "thinking" | "speaking";
+
+// ── Module-level guards — never stale ──────────────────────
 let _isSending = false;
-let _isActive = false;
+let _callModeActive = false;
 
-const SILENCE_THRESHOLD = 8;    // volume below this = silence
-const SILENCE_DURATION = 1500;  // ms of silence before sending
-const SONIOX_SAMPLE_RATE = 16000;
+// ── Wake Lock ──────────────────────────────────────────────
+function useWakeLock() {
+  const ref = useRef<WakeLockSentinel | null>(null);
+  const acquire = async () => {
+    try { if ("wakeLock" in navigator) ref.current = await (navigator as any).wakeLock.request("screen"); } catch {}
+  };
+  const release = () => { ref.current?.release(); ref.current = null; };
+  return { acquire, release };
+}
 
-export default function CallModePage() {
-  const [phase, setPhase] = useState<"idle" | "connecting" | "active" | "ended">("idle");
-  const [callState, setCallState] = useState<"listening" | "thinking" | "speaking">("listening");
+export default function CallPage() {
+  // ── State ────────────────────────────────────────────────
+  const [callState, setCallState] = useState<CallState>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<{ name: string } | null>(null);
-  const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
+  const [liveText, setLiveText] = useState("");
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
+  const [error, setError] = useState<string | null>(null);
+  const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
+  const [showReport, setShowReport] = useState(false);
+  const [newWords, setNewWords] = useState<string[]>([]);
+  const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
+  const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
+  const [daysSince, setDaysSince] = useState(0);
+  const [callMode, setCallMode] = useState(false);
+  const [translations, setTranslations] = useState<Record<number, string>>({});
+  const [loadingTranslation, setLoadingTranslation] = useState<number | null>(null);
 
-  // Audio refs
+  // ── Refs ─────────────────────────────────────────────────
+  const finalBufferRef = useRef("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
   const nextStartTimeRef = useRef(0);
-
-  // Mic refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animFrameRef = useRef<number>(0);
-
-  // VAD refs — volume based
-  const speechBufferRef = useRef<string>("");  // accumulates all speech until sent
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isSpeakingRef = useRef(false);
-
-  // Session refs
-  const messagesRef = useRef<Message[]>([]);
-  const systemPromptRef = useRef<string | undefined>();
-  const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
+  // startRef lets audio callbacks call start() without stale closure
+  const startRef = useRef<() => void>(() => {});
+  const pendingModeRef = useRef<"normal" | "callMode" | null>(null);
+  const pendingEndRef = useRef(false);
   const router = useRouter();
+  const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock();
 
-  // Keep messagesRef in sync
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
-  useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
+  // ── Auto scroll ──────────────────────────────────────────
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, liveText]);
 
-  // Load user + context
+  // ── Load context on mount ────────────────────────────────
   useEffect(() => {
     fetch("/api/context")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
         if (!data) return;
-        setUser({ name: data.user.name });
         setSystemPrompt(data.systemPrompt);
+        setUser({ name: data.user.name, streak: data.streak ?? 0 });
+        setDaysSince(data.daysSinceLastCall ?? 0);
+        if (data.opening) {
+          const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
+          setMessages([msg]);
+          setTimeout(() => streamTTSRef.current?.(data.opening), 500);
+        }
       })
       .catch(console.error);
   }, []);
 
-  // ── Audio playback ────────────────────────────────────────
+  // ── Audio ────────────────────────────────────────────────
   const getAudioCtx = () => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
     if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
@@ -89,28 +102,36 @@ export default function CallModePage() {
       nextStartTimeRef.current = startAt + decoded.duration;
       source.onended = () => {
         sourceQueueRef.current = sourceQueueRef.current.filter(s => s !== source);
-        if (sourceQueueRef.current.length === 0 && _isActive) {
-          // Maya finished — go back to listening
-          setCallState("listening");
-          _isSending = false;
-          restartMic();
+        if (sourceQueueRef.current.length === 0) {
+          setCallState("idle");
+          // Call mode: auto restart — use module-level flag, never stale
+          if (_callModeActive) {
+            setTimeout(() => {
+              if (!_callModeActive) return; // guard: mode may have changed
+              _isSending = false;
+              finalBufferRef.current = "";
+              setLiveText("");
+              setCallState("listening");
+              startRef.current(); // use ref, never stale
+            }, 700);
+          }
         }
       };
       sourceQueueRef.current.push(source);
     } catch {}
   }, []);
 
-  // ── TTS ───────────────────────────────────────────────────
+  const streamTTSRef = useRef<((text: string) => void) | null>(null);
+
   const streamTTS = useCallback(async (text: string) => {
     setCallState("speaking");
-    stopMic(); // stop mic while Maya speaks
     stopAudio();
     nextStartTimeRef.current = 0;
     try {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, provider: "soniox" }),
+        body: JSON.stringify({ text, provider: ttsProvider }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
@@ -129,42 +150,34 @@ export default function CallModePage() {
           playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
         }
       }
-    } catch {
-      setCallState("listening");
-      _isSending = false;
-      restartMic();
-    }
-  }, [playChunk, stopAudio]);
+    } catch { setCallState("idle"); }
+  }, [playChunk, stopAudio, ttsProvider]);
 
-  // ── Send to Claude ────────────────────────────────────────
-  const sendToTutor = useCallback(async (text: string) => {
-    if (!text.trim() || _isSending) return;
-    _isSending = true;
-    setCallState("thinking");
+  useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 
-    const userMsg: Message = { role: "user", content: text.trim(), timestamp: Date.now() };
-    const updated = [...messagesRef.current, userMsg];
-    setMessages(updated);
-    messagesRef.current = updated;
-
-    // Auto-save
+  // ── Auto save ────────────────────────────────────────────
+  const autoSave = useCallback((msgs: Message[]) => {
     fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: sessionId, userId: "",
         startedAt: sessionStart, endedAt: Date.now(),
-        messages: updated,
-        title: updated.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
-        totalMessages: updated.length,
+        messages: msgs,
+        title: msgs.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
+        totalMessages: msgs.length,
       }),
     });
+  }, [sessionId, sessionStart]);
 
+  // ── Send to Claude ───────────────────────────────────────
+  const sendToTutor = useCallback(async (msgs: Message[]) => {
+    setCallState("thinking");
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updated, systemPrompt: systemPromptRef.current }),
+        body: JSON.stringify({ messages: msgs, systemPrompt }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
@@ -189,377 +202,447 @@ export default function CallModePage() {
       }
       if (!fullText) throw new Error();
       const allLines = fullText.split("\n").filter(Boolean);
-      const german = allLines.filter(l => !l.startsWith("💡")).join(" ").trim();
-      const hint = allLines.find(l => l.startsWith("💡"));
-      const assistantMsg: Message = { role: "assistant", content: german, translation: hint?.replace("💡 ", ""), timestamp: Date.now() };
-      const withAssistant = [...messagesRef.current, assistantMsg];
-      setMessages(withAssistant);
-      messagesRef.current = withAssistant;
+      const hint = allLines.find(l => l.startsWith("\u{1F4A1}"));
+      const german = allLines.filter(l => !l.startsWith("\u{1F4A1}")).join(" ").trim();
+      const assistantMsg: Message = {
+        role: "assistant",
+        content: german,
+        translation: hint?.replace("\u{1F4A1} ", ""),
+        timestamp: Date.now(),
+      };
+      setMessages(prev => {
+        const updated = [...prev, assistantMsg];
+        autoSave(updated);
+        return updated;
+      });
+      _isSending = false;
       await streamTTS(german);
     } catch {
       _isSending = false;
-      setCallState("listening");
-      restartMic();
+      setError("Something went wrong. Try again.");
+      setCallState("idle");
     }
-  }, [streamTTS, sessionId, sessionStart]);
+  }, [streamTTS, systemPrompt, autoSave]);
 
-  // ── Volume-based VAD ──────────────────────────────────────
-  const handleVolumeAndVAD = useCallback((vol: number) => {
-    setVolume(vol);
-    if (!_isActive || _isSending) return;
-
-    if (vol > SILENCE_THRESHOLD) {
-      // User is speaking
-      isSpeakingRef.current = true;
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-    } else {
-      // Silence detected
-      if (isSpeakingRef.current && speechBufferRef.current.trim()) {
-        // Start silence timer — send after SILENCE_DURATION
-        if (!silenceTimerRef.current) {
-          silenceTimerRef.current = setTimeout(() => {
-            silenceTimerRef.current = null;
-            if (speechBufferRef.current.trim() && !_isSending) {
-              const textToSend = speechBufferRef.current.trim();
-              speechBufferRef.current = "";
-              isSpeakingRef.current = false;
-              sendToTutor(textToSend);
-            }
-          }, SILENCE_DURATION);
-        }
-      }
-    }
-  }, [sendToTutor]);
-
-  // ── Mic start ─────────────────────────────────────────────
-  const startMic = useCallback(async () => {
-    if (wsRef.current) return; // already running
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const ctx = getAudioCtx();
-      const source = ctx.createMediaStreamSource(stream);
-
-      // Analyser for volume
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const measureVolume = () => {
-        if (!_isActive) return;
-        analyser.getByteFrequencyData(dataArray);
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        handleVolumeAndVAD(avg);
-        animFrameRef.current = requestAnimationFrame(measureVolume);
-      };
-      measureVolume();
-
-      // Soniox WebSocket for transcription
-      const ws = new WebSocket(
-        `wss://soniox.com/transcribe-websocket?api_key=${process.env.NEXT_PUBLIC_SONIOX_API_KEY}&model=soniox_telephony&language_hints=de,en`
-      );
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        // ScriptProcessor to send audio
-        const processor = ctx.createScriptProcessor(4096, 1, 1);
-        processorRef.current = processor;
-        source.connect(processor);
-        processor.connect(ctx.destination);
-        processor.onaudioprocess = (e) => {
-          if (ws.readyState !== WebSocket.OPEN) return;
-          const input = e.inputBuffer.getChannelData(0);
-          // Resample to 16kHz
-          const ratio = ctx.sampleRate / SONIOX_SAMPLE_RATE;
-          const outLen = Math.floor(input.length / ratio);
-          const out = new Int16Array(outLen);
-          for (let i = 0; i < outLen; i++) {
-            const s = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)]));
-            out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-          }
-          ws.send(out.buffer);
-        };
-      };
-
-      ws.onmessage = (e) => {
-        const res = JSON.parse(e.data);
-        let finalText = "";
-        for (const token of res.tokens ?? []) {
-          if (token.is_final && token.text) finalText += token.text;
-        }
-        if (finalText && _isActive && !_isSending) {
-          // Append to buffer — user may still be speaking
-          speechBufferRef.current += finalText;
-        }
-      };
-
-      ws.onerror = () => setError("Mikrofon Fehler — bitte neu starten");
-    } catch {
-      setError("Mikrofon Zugriff verweigert");
-    }
-  }, [handleVolumeAndVAD]);
-
-  // ── Mic stop ──────────────────────────────────────────────
-  const stopMic = useCallback(() => {
-    cancelAnimationFrame(animFrameRef.current);
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
+  // ── Speech callbacks ─────────────────────────────────────
+  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (isFinal) { finalBufferRef.current += text; setLiveText(finalBufferRef.current); }
+    else setLiveText(finalBufferRef.current + text);
   }, []);
 
-  const restartMic = useCallback(() => {
-    stopMic();
-    setTimeout(() => {
-      if (_isActive) startMic();
-    }, 300);
-  }, [stopMic, startMic]);
+  const handleRecordingEnd = useCallback(() => {
+    if (_isSending) return;
+    const userText = finalBufferRef.current.trim();
+    finalBufferRef.current = "";
+    setLiveText("");
+    if (!userText) { setCallState("idle"); return; }
+    _isSending = true;
+    const userMsg: Message = { role: "user", content: userText, timestamp: Date.now() };
+    setMessages(prev => { const updated = [...prev, userMsg]; sendToTutor(updated); return updated; });
+  }, [sendToTutor]);
 
-  // ── Start call ────────────────────────────────────────────
-  const startCall = async () => {
-    if (navigator.vibrate) navigator.vibrate(40);
-    setPhase("connecting");
-    setError(null);
-    speechBufferRef.current = "";
-    isSpeakingRef.current = false;
-    _isSending = false;
-    _isActive = true;
+  const { start, stop } = useSpeechRecorder({
+    apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
+    onTranscript: handleTranscript,
+    onEnd: handleRecordingEnd,
+    onError: e => { setError(e); setCallState("idle"); },
+    onVolume: () => {},
+    onSpeechStart: () => setCallState("listening"),
+  });
 
-    // Wake lock
+  // Keep startRef in sync — this is what playChunk uses
+  useEffect(() => { startRef.current = start; }, [start]);
+
+  // Execute pending transitions when idle
+  useEffect(() => {
+    if (callState !== "idle") return;
+    if (pendingEndRef.current) {
+      pendingEndRef.current = false;
+      generateReport();
+      return;
+    }
+    if (pendingModeRef.current) {
+      const pending = pendingModeRef.current;
+      pendingModeRef.current = null;
+      if (pending === "callMode") startCallMode();
+      if (pending === "normal") stopCallMode();
+    }
+  }, [callState]);
+
+  // ── Translation ──────────────────────────────────────────
+  const translateMessage = async (text: string, index: number) => {
+    if (translations[index]) {
+      setTranslations(prev => { const n = { ...prev }; delete n[index]; return n; });
+      return;
+    }
+    setLoadingTranslation(index);
     try {
-      if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
-    } catch {}
-
-    await startMic();
-
-    // Duration timer
-    durationTimerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
-
-    // Load opening from context
-    fetch("/api/context")
-      .then(r => r.json())
-      .then(data => {
-        if (data?.opening) {
-          const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
-          setMessages([msg]);
-          messagesRef.current = [msg];
-          streamTTS(data.opening);
-        }
-      });
-
-    setPhase("active");
-    setCallState("listening");
-  };
-
-  // ── End call ──────────────────────────────────────────────
-  const endCall = useCallback(() => {
-    if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-    _isActive = false;
-    _isSending = false;
-    stopMic();
-    stopAudio();
-    if (durationTimerRef.current) clearInterval(durationTimerRef.current);
-
-    // Extract facts
-    if (messagesRef.current.length > 1) {
-      fetch("/api/extract", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: messagesRef.current }),
+        body: JSON.stringify({
+          messages: [{ role: "user", content: `Translate to English: "${text}"` }],
+          systemPrompt: "Translate German to English. Return only the translation.",
+        }),
       });
-    }
-    setPhase("ended");
-  }, [stopMic, stopAudio]);
+      if (!res.ok || !res.body) throw new Error();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const p = JSON.parse(line.slice(6).trim());
+            if (p.type === "content_block_delta" && p.delta?.type === "text_delta") result += p.delta.text;
+          } catch {}
+        }
+      }
+      setTranslations(prev => ({ ...prev, [index]: result.trim() }));
+    } catch {}
+    setLoadingTranslation(null);
+  };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      _isActive = false;
-      stopMic();
+  // ── Normal mode button ───────────────────────────────────
+  const handleNormalButton = async () => {
+    if (navigator.vibrate) navigator.vibrate(40);
+    if (callState === "idle") {
+      setError(null);
+      finalBufferRef.current = "";
+      _isSending = false;
+      setLiveText("");
+      setCallState("listening");
+      getAudioCtx();
+      await acquireWakeLock();
+      start();
+    } else if (callState === "listening") {
+      stop();
+      // Don't clear buffer — handleRecordingEnd will read it and send
+    } else if (callState === "speaking") {
       stopAudio();
-      if (durationTimerRef.current) clearInterval(durationTimerRef.current);
-    };
-  }, [stopMic, stopAudio]);
+      setCallState("idle");
+    }
+  };
 
-  const formatDuration = (s: number) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  // ── Call mode start ──────────────────────────────────────
+  const startCallMode = async () => {
+    if (callState !== "idle") {
+      pendingModeRef.current = "callMode";
+      return;
+    }
+    if (navigator.vibrate) navigator.vibrate(40);
+    _callModeActive = true;
+    _isSending = false;
+    setCallMode(true);
+    setError(null);
+    finalBufferRef.current = "";
+    setLiveText("");
+    getAudioCtx();
+    await acquireWakeLock();
+    setCallState("listening");
+    start();
+  };
 
-  const bars = Array.from({ length: 5 });
+  // ── Call mode stop ───────────────────────────────────────
+  const stopCallMode = () => {
+    _callModeActive = false; // stop auto-restart immediately
+    if (callState === "speaking" || callState === "thinking") {
+      pendingModeRef.current = "normal";
+      setCallMode(false);
+      return;
+    }
+    _isSending = false;
+    setCallMode(false);
+    stop();
+    stopAudio();
+    setCallState("idle");
+    releaseWakeLock();
+  };
 
-  // ── IDLE screen ───────────────────────────────────────────
-  if (phase === "idle" || phase === "connecting") {
-    return (
-      <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>CallMeDaily</span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Call Mode — Freihändig</p>
+  // ── End session ──────────────────────────────────────────
+  const generateReport = () => {
+    if (callState === "speaking" || callState === "thinking") {
+      _callModeActive = false; // stop call mode restart
+      pendingEndRef.current = true;
+      return;
+    }
+    if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+    // Stop everything
+    _callModeActive = false;
+    _isSending = false;
+    stop();
+    stopAudio();
+    setCallMode(false);
+    setCallState("idle");
+    releaseWakeLock();
+    setNewWords([]);
+    setShowReport(true);
+    fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+    })
+      .then(r => r.json())
+      .then(data => { if (data.newWords?.length) setNewWords(data.newWords); });
+  };
+
+  // ── Labels ───────────────────────────────────────────────
+  const stateLabel: Record<CallState, string> = {
+    idle: callMode ? "Warte..." : "Mikrofon starten",
+    listening: "Sprich jetzt — tippen zum Senden",
+    thinking: "Maya denkt nach...",
+    speaking: callMode ? "Maya spricht..." : "Maya spricht — tippen zum Stoppen",
+  };
+
+  const bars = Array.from({ length: 7 });
+
+  return (
+    <div className={styles.page}>
+
+      {/* ── Header ── */}
+      <header className={styles.header}>
+        <div className={styles.logo}>
+          <span className={styles.logoDE}>DE</span>
+          <span className={styles.logoText}>CallMeDaily</span>
         </div>
-
-        {/* Maya avatar with pulse */}
-        <div style={{ position: "relative", marginBottom: 40 }}>
-          {phase === "connecting" && (
-            <>
-              <div style={{ position: "absolute", inset: -20, borderRadius: "50%", border: "1px solid var(--accent-dim)", animation: "pulse-ring 1.5s ease-out infinite" }} />
-              <div style={{ position: "absolute", inset: -35, borderRadius: "50%", border: "1px solid var(--accent-dim)", animation: "pulse-ring 1.5s ease-out 0.4s infinite" }} />
-            </>
+        <nav className={styles.nav}>
+          <a href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Modus</a>
+          <Link href="/words" className={styles.navLink}>Woerter</Link>
+          <Link href="/progress" className={styles.navLink}>Stats</Link>
+          <Link href="/profile" className={styles.navLink}>Profil</Link>
+          {messages.length > 1 && (
+            <button className={styles.endBtn} onClick={generateReport}>
+              {pendingEndRef.current ? "..." : "Ende"}
+            </button>
           )}
-          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--surface)", border: `2px solid ${phase === "connecting" ? "var(--accent)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.3s" }}>
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 40, color: "var(--accent)" }}>M</span>
+          <button
+            onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
+            style={{ fontSize: 11, color: "var(--text-dim)", cursor: "pointer", background: "none", border: "none", padding: "6px 8px", fontFamily: "var(--font-mono)" }}
+          >
+            Logout
+          </button>
+        </nav>
+      </header>
+
+      {/* ── Maya row ── */}
+      <div className={styles.avatarRow}>
+        <div className={`${styles.avatar} ${callState === "speaking" ? styles.avatarSpeaking : ""}`}>
+          <span className={styles.avatarInitial}>M</span>
+          {callState === "speaking" && (
+            <div className={styles.speakingRings}>
+              <div className={styles.ring} style={{ animationDelay: "0s" }} />
+              <div className={styles.ring} style={{ animationDelay: "0.4s" }} />
+            </div>
+          )}
+        </div>
+        <div className={styles.avatarInfo}>
+          <div className={styles.avatarName}>Maya{user ? ` · ${user.name}` : ""}</div>
+          <div className={styles.avatarSub}>
+            {user?.streak ? `${user.streak} Tage` : "Deutschfreundin"}
+            {daysSince >= 3 ? ` · ${daysSince}d Pause` : ""}
           </div>
         </div>
+      </div>
 
-        <p style={{ fontSize: 15, color: "var(--text)", marginBottom: 8, fontFamily: "var(--font-serif)", fontWeight: 300 }}>
-          {phase === "connecting" ? "Verbinde mit Maya..." : `Maya ruft an${user ? `, ${user.name}` : ""}...`}
-        </p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 48, textAlign: "center", lineHeight: 1.6 }}>
-          Sprich einfach — Maya hört automatisch zu
-        </p>
+      {/* ── Transcript ── */}
+      <div className={styles.transcript}>
+        {messages.length === 0 && (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyTitle}>Hey{user ? ` ${user.name}` : ""}!</p>
+            <p className={styles.emptyHint}>Tippe den Knopf und sprich Deutsch mit Maya.</p>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
+            <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
+            <p className={styles.bubbleText}>{msg.content}</p>
+            {msg.translation && <p className={styles.bubbleHint}>{msg.translation}</p>}
+            {msg.role === "assistant" && (
+              <div>
+                <button
+                  onClick={() => translateMessage(msg.content, i)}
+                  style={{ fontSize: 10, color: translations[i] ? "var(--accent)" : "var(--text-dim)", border: "0.5px solid var(--border)", borderRadius: 4, padding: "2px 8px", marginTop: 6, cursor: "pointer", background: translations[i] ? "var(--accent-glow)" : "none", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}
+                >
+                  {loadingTranslation === i ? "..." : translations[i] ? "DE" : "EN"}
+                </button>
+                {translations[i] && (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>{translations[i]}</p>
+                )}
+              </div>
+            )}
+            <span className={styles.bubbleTime}>{new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          </div>
+        ))}
+        {liveText && (
+          <div className={`${styles.bubble} ${styles.userBubble} ${styles.livePreview}`}>
+            <div className={styles.bubbleRole}>{user?.name ?? "Du"}</div>
+            <p className={styles.bubbleText}>{liveText}<span className={styles.cursor} /></p>
+          </div>
+        )}
+        {callState === "thinking" && (
+          <div className={`${styles.bubble} ${styles.assistantBubble}`}>
+            <div className={styles.bubbleRole}>Maya</div>
+            <div className={styles.thinkingDots}><span /><span /><span /></div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
-        {phase === "idle" && (
+      {/* ── Bottom controls ── */}
+      <div className={styles.bottom}>
+        {error && (
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+            <p className={styles.error}>{error}</p>
+            <a href="/mode" style={{ fontSize: 12, color: "var(--accent)", border: "0.5px solid var(--accent-dim)", padding: "6px 16px", borderRadius: 6, background: "var(--accent-glow)" }}>
+              Modus wechseln →
+            </a>
+          </div>
+        )}
+        <p className={styles.status}>{stateLabel[callState]}</p>
+
+        {/* Mode toggle — Normal vs Call Mode */}
+        <div style={{ display: "flex", border: "0.5px solid var(--border)", borderRadius: 8, overflow: "hidden", width: "100%", maxWidth: 280 }}>
           <button
-            onClick={startCall}
-            style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--green)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 0 0 8px rgba(39,174,96,0.15)", WebkitTapHighlightColor: "transparent" }}
+            onClick={stopCallMode}
+            style={{ flex: 1, padding: "10px", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", background: !callMode ? "var(--accent-glow)" : "none", color: !callMode ? "var(--accent)" : "var(--text-muted)", border: "none", borderRight: "0.5px solid var(--border)", letterSpacing: "0.04em", transition: "all 0.2s" }}
           >
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
+            {pendingModeRef.current === "normal" ? "..." : "Normal"}
+          </button>
+          <button
+            onClick={startCallMode}
+            style={{ flex: 1, padding: "10px", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", background: callMode ? "var(--accent-glow)" : "none", color: callMode ? "var(--accent)" : "var(--text-muted)", border: "none", letterSpacing: "0.04em", transition: "all 0.2s" }}
+          >
+            {pendingModeRef.current === "callMode" ? "..." : "Call Mode"}
+          </button>
+        </div>
+
+        {/* Normal mode button — hidden in call mode */}
+        {!callMode && (
+          <button
+            className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
+            onClick={handleNormalButton}
+            aria-label="Toggle call"
+          >
+            {callState === "listening" ? (
+              <div className={styles.waveform}>
+                {bars.map((_, i) => <div key={i} className={styles.bar} style={{ animationDelay: `${i * 0.08}s` }} />)}
+              </div>
+            ) : callState === "thinking" ? (
+              <div className={styles.spinner} />
+            ) : callState === "speaking" ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
           </button>
         )}
 
-        <a href="/mode" style={{ marginTop: 32, fontSize: 12, color: "var(--text-dim)" }}>← Modus wechseln</a>
-      </div>
-    );
-  }
-
-  // ── ENDED screen ──────────────────────────────────────────
-  if (phase === "ended") {
-    return (
-      <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
-        <div style={{ width: "100%", maxWidth: 400 }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--surface)", border: "2px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-              <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "var(--accent)" }}>M</span>
+        {/* Call mode — live indicator + hang up button */}
+        {callMode && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, width: "100%" }}>
+            {/* Live pulse indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: callState === "listening" ? "var(--accent)" : callState === "speaking" ? "var(--green)" : "var(--text-dim)",
+                boxShadow: callState === "listening" ? "0 0 0 4px rgba(212,168,67,0.2)" : callState === "speaking" ? "0 0 0 4px rgba(39,174,96,0.2)" : "none",
+                transition: "all 0.3s",
+              }} />
+              <span style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", fontFamily: "var(--font-mono)" }}>
+                {callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : callState === "speaking" ? "SPRICHT" : "WARTET"}
+              </span>
             </div>
-            <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 4 }}>Gespräch beendet</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{formatDuration(duration)} · {messages.length} Nachrichten</p>
-          </div>
 
-          {/* Transcript */}
-          <div style={{ maxHeight: "50vh", overflowY: "auto", marginBottom: 24, display: "flex", flexDirection: "column", gap: 8 }}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{ padding: "8px 12px", background: msg.role === "user" ? "var(--surface)" : "linear-gradient(135deg,#1a1a1d,#161618)", border: "0.5px solid var(--border)", borderLeft: msg.role === "assistant" ? "2px solid var(--accent-dim)" : undefined, borderRadius: 10 }}>
-                <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
-                <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+            {/* Hang up button */}
+            <button
+              onClick={generateReport}
+              style={{
+                width: 72, height: 72, borderRadius: "50%",
+                background: "rgba(192,57,43,0.15)",
+                border: "1.5px solid rgba(192,57,43,0.5)",
+                color: "var(--red)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexDirection: "column", gap: 3,
+                WebkitTapHighlightColor: "transparent",
+                transition: "all 0.2s",
+              }}
+              aria-label="End call"
+            >
+              {pendingEndRef.current ? (
+                <div style={{ width: 18, height: 18, border: "2px solid rgba(192,57,43,0.4)", borderTop: "2px solid var(--red)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+              ) : (
+                <>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ transform: "rotate(135deg)" }}>
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  <span style={{ fontSize: 9, letterSpacing: "0.06em", fontFamily: "var(--font-mono)" }}>ENDE</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Report overlay ── */}
+      {showReport && (
+        <div className={styles.reportOverlay}>
+          <div className={styles.reportInner}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 300, color: "var(--text)" }}>Bericht</h2>
+              <button onClick={() => setShowReport(false)} style={{ color: "var(--text-muted)", fontSize: 22, padding: "4px 8px", minWidth: 44, minHeight: 44 }}>x</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+              {[
+                { label: "Nachrichten", value: messages.length },
+                { label: "Deine Woerter", value: messages.filter(m => m.role === "user").flatMap(m => m.content.split(" ")).length },
+                { label: "Neue Woerter", value: newWords.length },
+              ].map(s => (
+                <div key={s.label} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 3 }}>{s.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 500, color: "var(--accent)" }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+            {newWords.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>Neue Woerter</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {newWords.map(w => (
+                    <span key={w} style={{ background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", color: "var(--accent)", borderRadius: 20, padding: "5px 12px", fontSize: 14, fontFamily: "var(--font-serif)" }}>{w}</span>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); speechBufferRef.current = ""; }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
-              Nochmal
-            </button>
-            <a href="/mode" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
-              Fertig
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── ACTIVE call screen ────────────────────────────────────
-  return (
-    <div style={{ minHeight: "100dvh", background: "#0a0a0b", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", padding: "calc(env(safe-area-inset-top,0px) + 40px) 24px calc(env(safe-area-inset-bottom,0px) + 40px)" }}>
-
-      {/* Top — name + duration */}
-      <div style={{ textAlign: "center" }}>
-        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em", marginBottom: 8 }}>
-          {callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
-        </p>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 26, fontWeight: 300, color: "white", marginBottom: 4 }}>Maya</p>
-        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>{formatDuration(duration)}</p>
-      </div>
-
-      {/* Middle — avatar with live animation */}
-      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {/* Volume rings */}
-        {callState === "listening" && volume > SILENCE_THRESHOLD && (
-          <>
-            <div style={{ position: "absolute", width: 160 + volume, height: 160 + volume, borderRadius: "50%", border: "1px solid rgba(212,168,67,0.15)", transition: "all 0.1s" }} />
-            <div style={{ position: "absolute", width: 130 + volume * 0.6, height: 130 + volume * 0.6, borderRadius: "50%", border: "1px solid rgba(212,168,67,0.25)", transition: "all 0.1s" }} />
-          </>
-        )}
-        {callState === "speaking" && (
-          <>
-            <div style={{ position: "absolute", width: 180, height: 180, borderRadius: "50%", border: "1px solid rgba(39,174,96,0.2)", animation: "pulse-ring 1.5s ease-out infinite" }} />
-            <div style={{ position: "absolute", width: 155, height: 155, borderRadius: "50%", border: "1px solid rgba(39,174,96,0.15)", animation: "pulse-ring 1.5s ease-out 0.4s infinite" }} />
-          </>
-        )}
-
-        {/* Avatar */}
-        <div style={{ width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: `2px solid ${callState === "speaking" ? "rgba(39,174,96,0.6)" : callState === "listening" && volume > SILENCE_THRESHOLD ? "rgba(212,168,67,0.6)" : "rgba(255,255,255,0.1)"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color 0.2s" }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 48, color: callState === "speaking" ? "rgba(39,174,96,0.9)" : "rgba(212,168,67,0.9)" }}>M</span>
-        </div>
-      </div>
-
-      {/* Bottom — waveform + hang up */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-        {/* Waveform when listening */}
-        <div style={{ height: 32, display: "flex", alignItems: "center", gap: 4 }}>
-          {callState === "listening" ? bars.map((_, i) => (
-            <div key={i} style={{ width: 4, borderRadius: 2, background: volume > SILENCE_THRESHOLD ? "var(--accent)" : "rgba(255,255,255,0.2)", height: volume > SILENCE_THRESHOLD ? `${Math.min(32, 8 + (volume / 50) * 24 + Math.sin(Date.now() / 200 + i) * 8)}px` : "6px", transition: "height 0.1s, background 0.2s" }} />
-          )) : callState === "thinking" ? (
-            <div style={{ display: "flex", gap: 6 }}>
-              {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,0.3)", animation: `wave 1s ease-in-out ${i * 0.15}s infinite` }} />)}
+            )}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>Gespraech</div>
+              {messages.map((msg, i) => (
+                <div key={i} style={{ padding: "8px 12px", marginBottom: 6, background: msg.role === "user" ? "var(--surface)" : "linear-gradient(135deg,#1a1a1d,#161618)", border: "0.5px solid var(--border)", borderLeft: msg.role === "assistant" ? "2px solid var(--accent-dim)" : undefined, borderRadius: 10 }}>
+                  <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
+                  <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+                  {msg.translation && <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, fontStyle: "italic" }}>{msg.translation}</p>}
+                </div>
+              ))}
             </div>
-          ) : (
-            <div style={{ display: "flex", gap: 4 }}>
-              {bars.map((_, i) => <div key={i} style={{ width: 4, borderRadius: 2, background: "rgba(39,174,96,0.6)", animation: `wave 0.8s ease-in-out ${i * 0.1}s infinite`, height: "20px" }} />)}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setShowReport(false); setMessages([]); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+                Neues Gespraech
+              </button>
+              <Link href="/history" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
+                Verlauf
+              </Link>
             </div>
-          )}
-        </div>
-
-        {/* Hang up button */}
-        <button
-          onClick={endCall}
-          style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(192,57,43,0.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", WebkitTapHighlightColor: "transparent", boxShadow: "0 4px 20px rgba(192,57,43,0.4)" }}
-          aria-label="Anruf beenden"
-        >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style={{ transform: "rotate(135deg)" }}>
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-          </svg>
-        </button>
-
-        {error && (
-          <div style={{ textAlign: "center" }}>
-            <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 8 }}>{error}</p>
-            <button onClick={() => { endCall(); router.push("/mode"); }} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "0.5px solid var(--accent-dim)", padding: "6px 16px", borderRadius: 6, cursor: "pointer", fontFamily: "var(--font-mono)" }}>
-              Modus wechseln
-            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
