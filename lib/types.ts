@@ -5,8 +5,21 @@ export interface Message {
   timestamp: number;
 }
 
+export interface UserFacts {
+  city?: string;
+  job?: string;
+  family?: string;
+  languages?: string[];
+  hobbies?: string[];
+  recentFood?: string;
+  recentPlans?: string;
+  personalDetails?: string[];
+  lastUpdated?: number;
+}
+
 export interface Session {
   id: string;
+  userId: string;
   startedAt: number;
   endedAt?: number;
   messages: Message[];
@@ -14,6 +27,8 @@ export interface Session {
   newWords?: string[];
   totalUserWords?: number;
   totalMessages?: number;
+  extractedFacts?: UserFacts;
+  openingContext?: string;
 }
 
 export interface VocabWord {
@@ -21,9 +36,19 @@ export interface VocabWord {
   firstSeen: number;
   timesSeen: number;
   lastSeen: number;
+  usedByUser?: boolean;
 }
 
-export interface UserVocab {
+export interface UserProfile {
   userId: string;
-  words: Record<string, VocabWord>;
+  email: string;
+  name: string;
+  nativeLanguage?: string;
+  germanLevel?: string;
+  createdAt: number;
+  lastActiveAt: number;
+  streak: number;
+  lastCallDate?: number;
+  totalSessions: number;
+  facts: UserFacts;
 }

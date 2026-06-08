@@ -10,7 +10,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
   }
 
-  const response = await fetch("https://tts-rt.soniox.com/tts", {
+  // Soniox TTS REST API — returns MP3 audio
+  const response = await fetch("https://tts.soniox.com/generate", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.SONIOX_API_KEY}`,
@@ -18,9 +19,9 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       text,
-      model: "tts-rt-v1",
-      language: "de",
-      voice: "Maya",
+      model: "tts-v1",
+      language: "de", // German
+      voice: "de-DE-FemaleA",
       audio_format: "mp3",
     }),
   });

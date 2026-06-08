@@ -4,38 +4,15 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  const { text, provider = "soniox" } = await req.json();
+  const { text } = await req.json();
   if (!text) return new Response("No text", { status: 400 });
 
-  if (provider === "fish") {
-    const response = await fetch("https://api.fish.audio/v1/tts", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.FISH_AUDIO_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text,
-        reference_id: process.env.FISH_AUDIO_VOICE_ID,
-        format: "mp3",
-        streaming: true,
-      }),
-    });
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("Fish Audio error:", err);
-      return new Response("Fish Audio TTS failed", { status: 500 });
-    }
-    return new Response(response.body, {
-      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
-    });
-  }
+  const apiKey = process.env.SONIOX_API_KEY!;
 
-  // Soniox (default)
-  const response = await fetch("https://tts-rt.soniox.com/tts", {
+  const soniox = await fetch("https://tts-rt.soniox.com/tts", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.SONIOX_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -46,12 +23,19 @@ export async function POST(req: NextRequest) {
       audio_format: "mp3",
     }),
   });
-  if (!response.ok) {
-    const err = await response.text();
-    console.error("Soniox TTS error:", err);
-    return new Response("Soniox TTS failed", { status: 500 });
+
+  if (!soniox.ok) {
+    const err = await soniox.text();
+    console.error("TTS stream error:", err);
+    return new Response("TTS failed", { status: 500 });
   }
-  return new Response(response.body, {
-    headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
+
+  // Stream audio chunks directly back to browser as they arrive from Soniox
+  return new Response(soniox.body, {
+    headers: {
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": "no-store",
+      "Transfer-Encoding": "chunked",
+    },
   });
 }

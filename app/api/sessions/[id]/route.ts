@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, deleteSession } from "@/lib/kv";
+import { getAuthUser } from "@/lib/auth";
+
+export const runtime = "nodejs";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getSession(params.id);
@@ -13,9 +16,11 @@ export async function GET(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  await deleteSession(params.id);
+  const user = await getAuthUser(req);
+  const userId = user?.userId ?? "";
+  await deleteSession(params.id, userId);
   return NextResponse.json({ ok: true });
 }

@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/auth";
 import { getVocab } from "@/lib/kv";
 
-export async function GET() {
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
   try {
-    const words = await getVocab();
+    const user = await getAuthUser(req);
+    if (!user) return NextResponse.json({ words: [] });
+    const words = await getVocab(user.userId);
     return NextResponse.json({ words });
-  } catch (e) {
-    console.error(e);
+  } catch {
     return NextResponse.json({ words: [] });
   }
 }

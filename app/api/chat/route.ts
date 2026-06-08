@@ -5,7 +5,10 @@ import { Message } from "@/lib/types";
 export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
-  const { messages } = (await req.json()) as { messages: Message[] };
+  const { messages, systemPrompt } = (await req.json()) as {
+    messages: Message[];
+    systemPrompt?: string;
+  };
 
   const apiMessages = messages.map((m) => ({
     role: m.role,
@@ -20,10 +23,10 @@ export async function POST(req: NextRequest) {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-5",
+      model: "claude-haiku-4-5",
       max_tokens: 300,
       stream: true,
-      system: TUTOR_SYSTEM_PROMPT,
+      system: systemPrompt ?? TUTOR_SYSTEM_PROMPT,
       messages: apiMessages,
     }),
   });
