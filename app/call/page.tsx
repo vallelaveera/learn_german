@@ -410,6 +410,7 @@ export default function CallPage() {
           <span className={styles.logoText}>CallMeDaily</span>
         </div>
         <nav className={styles.nav}>
+          <a href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Modus</a>
           <Link href="/words" className={styles.navLink}>Woerter</Link>
           <Link href="/progress" className={styles.navLink}>Stats</Link>
           <Link href="/profile" className={styles.navLink}>Profil</Link>
@@ -493,7 +494,14 @@ export default function CallPage() {
 
       {/* ── Bottom controls ── */}
       <div className={styles.bottom}>
-        {error && <p className={styles.error}>{error}</p>}
+        {error && (
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+            <p className={styles.error}>{error}</p>
+            <a href="/mode" style={{ fontSize: 12, color: "var(--accent)", border: "0.5px solid var(--accent-dim)", padding: "6px 16px", borderRadius: 6, background: "var(--accent-glow)" }}>
+              Modus wechseln →
+            </a>
+          </div>
+        )}
         <p className={styles.status}>{stateLabel[callState]}</p>
 
         {/* Mode toggle — Normal vs Call Mode */}
