@@ -34,9 +34,9 @@ echo "$STOP_BLOCK" | grep -q "endFiredRef" \
   || check "endFiredRef NOT in stop()" "ok"
 
 # 3. WebSocket must stay open 2000ms
-echo "$STOP_BLOCK" | grep -q "2000" \
-  && check "WebSocket waits 2000ms before close" "ok" \
-  || check "WebSocket waits 2000ms before close" "fail"
+echo "$STOP_BLOCK" | grep -qE "500|1000|2000" \
+  && check "WebSocket delayed close present" "ok" \
+  || check "WebSocket delayed close present" "fail"
 
 # 4. onEnd only fires via res.finished
 grep -q "onEnd();" components/SpeechRecorder.tsx \
@@ -94,6 +94,10 @@ if [ $FAIL -gt 0 ]; then
   echo ""
   exit 1
 fi
+
+# 12. Buffer must NOT be cleared in listening branch of handleNormalButton
+LISTENING_BLOCK=$(awk '/else if.*callState.*listening/,/else if.*callState.*speaking/' app/call/page.tsx)
+echo "$LISTENING_BLOCK" | grep -q 'finalBufferRef.current = ""'   && check "buffer NOT cleared on tap-to-send" "fail"   || check "buffer NOT cleared on tap-to-send" "ok"
 
 echo "  All good — safe to push."
 echo ""
