@@ -88,10 +88,8 @@ export function useSpeechRecorder({
 
         if (finalText) onTranscript(finalText, true);
         if (nonFinalText) onTranscript(nonFinalText, false);
-        console.log("WS msg:", JSON.stringify({finished: res.finished, endFired: endFiredRef.current, tokens: res.tokens?.length}));
         if (res.finished && !endFiredRef.current) {
           endFiredRef.current = true;
-          console.log("onEnd firing now");
           onEnd();
         }
       };
@@ -107,19 +105,14 @@ export function useSpeechRecorder({
     cancelAnimationFrame(animFrameRef.current);
     onVolume?.(0);
     mediaRecorderRef.current?.stop();
-    mediaRecorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    // Send empty string to signal end — Soniox will reply with finished:true
-    // then ws.onmessage fires onEnd() — THEN we close
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send("");
-      // Close after Soniox has time to respond with finished
-      setTimeout(() => {
-        wsRef.current?.close();
-        wsRef.current = null;
-      }, 2000);
     }
+    setTimeout(() => wsRef.current?.close(), 500);
+    wsRef.current = null;
+    mediaRecorderRef.current = null;
+    streamRef.current = null;
   }, [onVolume]);
 
   return { start, stop };
