@@ -99,6 +99,18 @@ fi
 LISTENING_BLOCK=$(awk '/else if.*callState.*listening/,/else if.*callState.*speaking/' app/call/page.tsx)
 echo "$LISTENING_BLOCK" | grep -q 'finalBufferRef.current = ""'   && check "buffer NOT cleared on tap-to-send" "fail"   || check "buffer NOT cleared on tap-to-send" "ok"
 
+echo "── components/CallRecorder.tsx ─────────"
+
+# CallRecorder must be separate from SpeechRecorder
+[ -f "components/CallRecorder.tsx" ]   && check "CallRecorder.tsx exists" "ok"   || check "CallRecorder.tsx exists" "fail"
+
+grep -q "useCallRecorder" app/callmode/page.tsx   && check "callmode uses CallRecorder not SpeechRecorder" "ok"   || check "callmode uses CallRecorder not SpeechRecorder" "fail"
+
+grep -q "useSpeechRecorder" app/call/page.tsx   && check "manual mode uses SpeechRecorder" "ok"   || check "manual mode uses SpeechRecorder" "fail"
+
+# Module flags must be separate
+grep -q "_cm_sending" app/callmode/page.tsx   && check "callmode has own module flags" "ok"   || check "callmode has own module flags" "fail"
+
 echo "  All good — safe to push."
 echo ""
 exit 0
