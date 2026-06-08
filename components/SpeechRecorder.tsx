@@ -61,7 +61,7 @@ export function useSpeechRecorder({
           api_key: apiKey,
           model: "stt-rt-v4",
           language_hints: ["de", "en"],
-          enable_endpoint_detection: false,
+          enable_endpoint_detection: true,
           audio_format: "webm",
         }));
 
