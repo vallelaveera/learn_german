@@ -17,6 +17,7 @@ export default function CallPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [volumeLevel, setVolumeLevel] = useState(0);
+  const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
 
   const finalBufferRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -66,7 +67,7 @@ export default function CallPage() {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, provider: ttsProvider }),
       });
       if (!res.ok || !res.body) throw new Error("TTS failed");
 
@@ -232,6 +233,16 @@ export default function CallPage() {
           <Link href="/history" className={styles.navLink}>Verlauf</Link>
           {messages.length > 0 && !saved && <button className={styles.saveBtn} onClick={saveSession}>Speichern</button>}
           {saved && <span className={styles.savedBadge}>✓ Gespeichert</span>}
+          <div className={styles.providerToggle}>
+            <button
+              className={`${styles.providerBtn} ${ttsProvider === "soniox" ? styles.providerBtnActive : ""}`}
+              onClick={() => setTtsProvider("soniox")}
+            >Soniox</button>
+            <button
+              className={`${styles.providerBtn} ${ttsProvider === "fish" ? styles.providerBtnActive : ""}`}
+              onClick={() => setTtsProvider("fish")}
+            >Fish 🐟</button>
+          </div>
         </nav>
       </header>
 

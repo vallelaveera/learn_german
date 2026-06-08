@@ -353,3 +353,29 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Provider toggle */
+.providerToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.providerBtn {
+  font-size: 11px;
+  padding: 4px 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+  border-right: 1px solid var(--border);
+}
+
+.providerBtn:last-child { border-right: none; }
+
+.providerBtn:hover { color: var(--text); background: var(--surface); }
+
+.providerBtnActive {
+  background: var(--accent-glow) !important;
+  color: var(--accent) !important;
+}
