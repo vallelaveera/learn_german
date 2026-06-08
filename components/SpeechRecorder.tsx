@@ -90,10 +90,8 @@ export function useSpeechRecorder({
         if (nonFinalText) onTranscript(nonFinalText, false);
         if (res.finished && !endFiredRef.current) {
           endFiredRef.current = true;
-          console.log("Soniox finished fired, calling onEnd");
           onEnd();
         }
-        console.log("Soniox message: finished=", res.finished, "endFired=", endFiredRef.current, "tokens=", res.tokens?.length);
       };
 
       ws.onerror = () => onError("WebSocket error");
@@ -104,7 +102,6 @@ export function useSpeechRecorder({
   }, [apiKey, onTranscript, onEnd, onError, onVolume]);
 
   const stop = useCallback(() => {
-    endFiredRef.current = true; // block any late onEnd
     cancelAnimationFrame(animFrameRef.current);
     onVolume?.(0);
     mediaRecorderRef.current?.stop();
