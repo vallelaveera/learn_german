@@ -1,5 +1,7 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
+
+let _isSending = false;
 import { v4 as uuidv4 } from "uuid";
 import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message, Session } from "@/lib/types";
@@ -149,9 +151,11 @@ export default function CallPage() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+      _isSending = false;
       await streamTTS(germanText);
     } catch (e) {
       console.error("Chat error:", e);
+      _isSending = false;
       setError("Something went wrong. Please try again.");
       setCallState("idle");
     }
@@ -167,15 +171,16 @@ export default function CallPage() {
   }, []);
 
   const handleRecordingEnd = useCallback(() => {
-    if (isSendingRef.current) return;
-    if (isSendingRef.current) return;
+    if (_isSending) return;
+    _isSending = true;
+    if (_isSending) return;
+    _isSending = true;
     const userText = finalBufferRef.current.trim();
     finalBufferRef.current = "";
     setLiveText("");
     if (!userText) { setCallState("idle"); return; }
 
     const userMsg: Message = { role: "user", content: userText, timestamp: Date.now() };
-    isSendingRef.current = true;
     setMessages((prev) => [...prev, userMsg]);
     sendToTutor([...messages, userMsg]).finally(() => {
       isSendingRef.current = false;
