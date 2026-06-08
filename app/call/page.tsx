@@ -231,7 +231,8 @@ export default function CallPage() {
   }, []);
 
   const handleRecordingEnd = useCallback(() => {
-    if (_isSending) return;
+    console.log("handleRecordingEnd fired, _isSending=", _isSending, "text=", finalBufferRef.current);
+    if (_isSending) { console.log("BLOCKED by _isSending"); return; }
     const userText = finalBufferRef.current.trim();
     finalBufferRef.current = "";
     setLiveText("");
