@@ -314,12 +314,15 @@ export default function CallPage() {
     if (callState === "idle") {
       setError(null);
       finalBufferRef.current = "";
+      _isSending = false;
       setLiveText("");
       setCallState("listening");
       getAudioCtx();
       await acquireWakeLock();
       start();
     } else if (callState === "listening") {
+      finalBufferRef.current = "";
+      setLiveText("");
       stop();
       setCallState("idle");
     } else if (callState === "speaking") {

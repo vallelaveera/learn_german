@@ -61,7 +61,7 @@ export function useSpeechRecorder({
           api_key: apiKey,
           model: "stt-rt-v4",
           language_hints: ["de", "en"],
-          enable_endpoint_detection: true,
+          enable_endpoint_detection: false,
           audio_format: "webm",
         }));
 
@@ -102,6 +102,7 @@ export function useSpeechRecorder({
   }, [apiKey, onTranscript, onEnd, onError, onVolume]);
 
   const stop = useCallback(() => {
+    endFiredRef.current = true; // block any late onEnd
     cancelAnimationFrame(animFrameRef.current);
     onVolume?.(0);
     mediaRecorderRef.current?.stop();
@@ -109,8 +110,10 @@ export function useSpeechRecorder({
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send("");
     }
-    setTimeout(() => wsRef.current?.close(), 500);
-    wsRef.current = null;
+    setTimeout(() => {
+      wsRef.current?.close();
+      wsRef.current = null;
+    }, 300);
     mediaRecorderRef.current = null;
     streamRef.current = null;
   }, [onVolume]);
