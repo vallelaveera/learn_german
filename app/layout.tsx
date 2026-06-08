@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Call to Learn",
-  description: "Learn German through real AI conversations",
+  title: "CallMeDaily — Learn German by Phone",
+  description: "Daily German conversations with Maya your AI language friend. Learn while walking, commuting or at the gym.",
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Call to Learn" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "CallMeDaily" },
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,6 @@
 {
-  "name": "Call to Learn",
-  "short_name": "Call to Learn",
+  "name": "CallMeDaily",
+  "short_name": "CallMeDaily",
   "description": "Learn German through real conversations with Maya",
   "start_url": "/call",
   "display": "standalone",

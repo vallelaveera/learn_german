@@ -307,7 +307,7 @@ export default function CallPage() {
       <header className={styles.header}>
         <div className={styles.logo}>
           <span className={styles.logoDE}>DE</span>
-          <span className={styles.logoText}>Call to Learn</span>
+          <span className={styles.logoText}>CallMeDaily</span>
         </div>
         <nav className={styles.nav}>
           <div className={styles.providerToggle}>

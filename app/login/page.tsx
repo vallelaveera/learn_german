@@ -54,7 +54,7 @@ export default function LoginPage() {
             <span style={{
               fontFamily: "var(--font-serif)", fontSize: 22,
               fontWeight: 300, color: "var(--text)"
-            }}>Call to Learn</span>
+            }}>CallMeDaily</span>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
             {step === "email"
