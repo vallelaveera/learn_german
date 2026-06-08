@@ -20,6 +20,7 @@ export function useSpeechRecorder({
   onVolume,
 }: SpeechRecorderOptions) {
   const wsRef = useRef<WebSocket | null>(null);
+  const endFiredRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -44,6 +45,7 @@ export function useSpeechRecorder({
   };
 
   const start = useCallback(async () => {
+    endFiredRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -86,7 +88,10 @@ export function useSpeechRecorder({
 
         if (finalText) onTranscript(finalText, true);
         if (nonFinalText) onTranscript(nonFinalText, false);
-        if (res.finished) onEnd();
+        if (res.finished && !endFiredRef.current) {
+          endFiredRef.current = true;
+          onEnd();
+        }
       };
 
       ws.onerror = () => onError("WebSocket error");
@@ -97,12 +102,13 @@ export function useSpeechRecorder({
   }, [apiKey, onTranscript, onEnd, onError, onVolume]);
 
   const stop = useCallback(() => {
+    endFiredRef.current = true; // prevent onEnd firing after manual stop
     cancelAnimationFrame(animFrameRef.current);
     onVolume?.(0);
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(""); // signal end-of-audio
+      wsRef.current.send("");
     }
     setTimeout(() => wsRef.current?.close(), 500);
     wsRef.current = null;

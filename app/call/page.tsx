@@ -105,6 +105,7 @@ export default function CallPage() {
           // In call mode, auto-restart listening after Maya finishes
           if (callModeRef.current) {
             setTimeout(() => {
+              _isSending = false;
               finalBufferRef.current = "";
               setLiveText("");
               setCallState("listening");
@@ -453,6 +454,7 @@ export default function CallPage() {
               callModeRef.current = true;
               setCallMode(true);
               setError(null);
+              _isSending = false;
               finalBufferRef.current = "";
               setLiveText("");
               getAudioCtx();
