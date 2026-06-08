@@ -395,10 +395,10 @@ export default function CallPage() {
 
   // ── Labels ───────────────────────────────────────────────
   const stateLabel: Record<CallState, string> = {
-    idle: callMode ? "Warte..." : "Tippen zum Sprechen",
-    listening: "Maya hoert zu...",
+    idle: callMode ? "Warte..." : "Mikrofon starten",
+    listening: "Sprich jetzt — tippen zum Senden",
     thinking: "Maya denkt nach...",
-    speaking: callMode ? "Maya spricht..." : "Maya spricht — tippen zum Unterbrechen",
+    speaking: callMode ? "Maya spricht..." : "Maya spricht — tippen zum Stoppen",
   };
 
   const bars = Array.from({ length: 7 });
