@@ -90,8 +90,10 @@ export function useSpeechRecorder({
         if (nonFinalText) onTranscript(nonFinalText, false);
         if (res.finished && !endFiredRef.current) {
           endFiredRef.current = true;
+          console.log("Soniox finished fired, calling onEnd");
           onEnd();
         }
+        console.log("Soniox message: finished=", res.finished, "endFired=", endFiredRef.current, "tokens=", res.tokens?.length);
       };
 
       ws.onerror = () => onError("WebSocket error");
