@@ -148,7 +148,7 @@ export default function CallModePage() {
     if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
     setLiveText("");
 
-    const userMsg: Message = { role: "user", content: text.trim(), timestamp: Date.now() };
+    const userMsg: Message = { role: "user", content: text.replace(/<end>/g, "").trim(), timestamp: Date.now() };
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
@@ -491,7 +491,7 @@ export default function CallModePage() {
               <div style={{ fontSize: 10, color: msg.role === "assistant" ? "rgba(212,168,67,0.7)" : "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
                 {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
               </div>
-              <p style={{ fontSize: 14, color: msg.role === "user" ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.9)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+              <p style={{ fontSize: 14, color: msg.role === "user" ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.9)", lineHeight: 1.6, margin: 0 }}>{msg.content.replace(/<end>/g, "").trim()}</p>
               {msg.translation && (
                 <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
               )}
@@ -505,7 +505,7 @@ export default function CallModePage() {
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: 0 }}>
-                {liveText}
+                {liveText.replace(/<end>/g, "").trim()}
                 <span style={{ display: "inline-block", width: 2, height: "1em", background: "var(--accent)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
               </p>
             </div>

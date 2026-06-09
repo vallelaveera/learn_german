@@ -223,7 +223,7 @@ export default function CallPage() {
       await streamTTS(german);
     } catch {
       _isSending = false;
-      setError("Something went wrong. Try again.");
+      setError(null); // silently retry on timeout
       setCallState("idle");
     }
   }, [streamTTS, systemPrompt, autoSave]);
@@ -512,7 +512,7 @@ export default function CallPage() {
         {messages.map((msg, i) => (
           <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
             <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
-            <p className={styles.bubbleText}>{msg.content}</p>
+            <p className={styles.bubbleText}>{msg.content.replace(/<end>/g, "").trim()}</p>
             {msg.translation && <p className={styles.bubbleHint}>{msg.translation}</p>}
             {msg.role === "assistant" && (
               <div>
@@ -533,7 +533,7 @@ export default function CallPage() {
         {liveText && (
           <div className={`${styles.bubble} ${styles.userBubble} ${styles.livePreview}`}>
             <div className={styles.bubbleRole}>{user?.name ?? "Du"}</div>
-            <p className={styles.bubbleText}>{liveText}<span className={styles.cursor} /></p>
+            <p className={styles.bubbleText}>{liveText.replace(/<end>/g, "").trim()}<span className={styles.cursor} /></p>
           </div>
         )}
         {callState === "thinking" && (
