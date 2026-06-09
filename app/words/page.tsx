@@ -37,7 +37,7 @@ export default function WordsPage() {
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Vokabeln</span>
         </div>
-        <Link href="/call" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
+        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
       </header>
 
       {/* Stats */}
@@ -85,7 +85,7 @@ export default function WordsPage() {
         {!loading && filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: 40 }}>
             <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Keine Wörter gefunden.</p>
-            <Link href="/call" style={{ color: "var(--accent)", fontSize: 13, marginTop: 8, display: "block" }}>Jetzt mit Maya sprechen →</Link>
+            <Link href="/mode" style={{ color: "var(--accent)", fontSize: 13, marginTop: 8, display: "block" }}>Jetzt mit Maya sprechen →</Link>
           </div>
         )}
         {filtered.map(w => (

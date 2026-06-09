@@ -48,7 +48,7 @@ export default function HistoryPage() {
           <span className={styles.logoDE}>DE</span>
           <span className={styles.logoText}>Deutsch Tutor</span>
         </div>
-        <Link href="/call" className={styles.backBtn}>
+        <Link href="/mode" className={styles.backBtn}>
           ← Zurück zum Üben
         </Link>
       </header>
@@ -60,7 +60,7 @@ export default function HistoryPage() {
           {!loading && sessions.length === 0 && (
             <p className={styles.empty}>
               Noch keine Gespräche gespeichert.<br />
-              <Link href="/call" style={{ color: "var(--accent)" }}>
+              <Link href="/mode" style={{ color: "var(--accent)" }}>
                 Jetzt üben →
               </Link>
             </p>

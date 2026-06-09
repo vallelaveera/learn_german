@@ -14,17 +14,14 @@ export async function POST(req: NextRequest) {
     const { messages }: { messages: Message[] } = await req.json();
     if (!messages?.length) return NextResponse.json({ ok: true });
 
-    const wordPattern = /[a-zA-ZäöüÄÖÜß]{4,20}/g;
+    const wordPattern = /\b[a-zA-Z\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]{4,20}\b/g;
 
-    // Words Maya used — save to vocab DB
     const mayaText = messages.filter((m: Message) => m.role === "assistant").map((m: Message) => m.content).join(" ");
     const mayaWords = Array.from(new Set(mayaText.match(wordPattern) || [])) as string[];
 
-    // Words user actually said — mark as practiced
     const userText = messages.filter((m: Message) => m.role === "user").map((m: Message) => m.content).join(" ");
     const userWords = Array.from(new Set(userText.match(wordPattern) || [])) as string[];
 
-    // Get new words from DB logic
     const newWords = await getNewWordsForSession(user.userId, messages);
 
     const [newFacts] = await Promise.all([

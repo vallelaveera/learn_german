@@ -56,7 +56,7 @@ export default function ProgressPage() {
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Fortschritt</span>
         </div>
-        <Link href="/call" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
+        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
       </header>
 
       {/* Overall stats */}
