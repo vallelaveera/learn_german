@@ -49,7 +49,7 @@ export default function HistoryPage() {
           <span className={styles.logoText}>Deutsch Tutor</span>
         </div>
         <Link href="/mode" className={styles.backBtn}>
-          ← Zurück zum Üben
+          ← Zurück
         </Link>
       </header>
 
