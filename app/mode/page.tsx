@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 
 export default function ModePage() {
   const router = useRouter();
-  const [user, setUser] = useState<{ name: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; totalSessions: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
-      .then(d => { if (d) setUser(d.user); });
+      .then(d => { if (d?.user) setUser(d.user); });
   }, []);
 
   return (
