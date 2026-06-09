@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 200,
+        stream: false,
         system: `Return ONLY valid JSON. No explanation. No markdown. Just JSON.`,
         messages: [{
           role: "user",
