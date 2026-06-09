@@ -168,9 +168,18 @@ export default function WordsPage() {
                 {loadingExample === w.word ? "..." : expandedWord === w.word ? "▲ Beispiele" : "▼ Beispiele"}
               </button>
               {expandedWord === w.word && examples[w.word] && (
-                <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg)", borderRadius: 6, border: "0.5px solid var(--border)" }}>
-                  {examples[w.word].map((ex, i) => (
-                    <p key={i} style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.6, margin: i > 0 ? "6px 0 0" : 0, fontStyle: "italic" }}>"{ex}"</p>
+                <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--bg)", borderRadius: 6, border: "0.5px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[0, 2].map(i => examples[w.word][i] && (
+                    <div key={i}>
+                      <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: 0, fontStyle: "italic" }}>
+                        "{examples[w.word][i]}"
+                      </p>
+                      {examples[w.word][i+1] && (
+                        <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, margin: "3px 0 0", paddingLeft: 8 }}>
+                          ({examples[w.word][i+1]})
+                        </p>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
