@@ -405,7 +405,7 @@ export default function CallModePage() {
       fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: messagesRef.current }),
+        body: JSON.stringify({ messages: messagesRef.current, sessionStart, sessionEnd: Date.now() }),
       });
     }
     setPhase("ended");
@@ -472,7 +472,7 @@ export default function CallModePage() {
       <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {messages.map((msg, i) => (
           <div key={i} style={{ padding: "10px 14px", borderRadius: 16, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", background: msg.role === "user" ? "var(--surface)" : "linear-gradient(135deg,#1a1a1d,#161618)", border: "0.5px solid var(--border)", borderLeft: msg.role === "assistant" ? "2px solid var(--accent-dim)" : undefined }}>
-            <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
+            <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
           </div>
         ))}
@@ -517,7 +517,7 @@ export default function CallModePage() {
 
         {messages.map((msg, i) => (
           <div key={i} style={{ maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", animation: "fade-in 0.2s ease-out" }}>
-            <div style={{ padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "var(--surface)", border: `0.5px solid ${msg.role === "user" ? "transparent" : "var(--border)"}` }}>
+            <div style={{ padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f8f4ff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "var(--border)"}` }}>
               <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
                 {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
               </div>
@@ -533,7 +533,7 @@ export default function CallModePage() {
         {liveText && callState === "listening" && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "var(--gradient-soft)", border: "0.5px solid var(--accent-dim)" }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
               <p style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>
                 {liveText.replace(/<end>/g, "").trim()}
                 <span style={{ display: "inline-block", width: 2, height: "1em", background: "var(--accent)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
