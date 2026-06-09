@@ -59,7 +59,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Topic question is a SEPARATE message after the greeting
-    const topicQuestion = "Möchtest du heute ein bestimmtes Thema üben, oder sollen wir einfach plaudern?";
+    const topicLines = topics.map((t, i) => `${i + 1}. ${t}`).join(". ");
+    const topicQuestion = `Möchtest du heute ein Thema üben? Ich schlage vor: ${topicLines}. Oder wir plaudern einfach!`;
 
     return NextResponse.json({
       opening,

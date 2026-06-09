@@ -486,34 +486,6 @@ export default function CallModePage() {
             </div>
           </div>
         )}
-
-        {/* Topic chips — inline after topic question */}
-        {topicQuestionShown && topics.length > 0 && callState !== "thinking" && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 0 8px", alignSelf: "flex-start" }}>
-            {topics.map((topic, i) => (
-              <button key={i} onClick={() => {
-                const msg = `Ich möchte heute über "${topic}" sprechen.`;
-                setTopics([]);
-                setTopicQuestionShown(false);
-                sendToTutor(msg);
-              }} style={{
-                padding: "7px 14px", borderRadius: 20, fontSize: 12,
-                cursor: "pointer", fontFamily: "var(--font-mono)",
-                background: "rgba(212,168,67,0.08)",
-                color: "rgba(212,168,67,0.9)",
-                border: "0.5px solid rgba(212,168,67,0.3)",
-                WebkitTapHighlightColor: "transparent",
-              }}>{topic}</button>
-            ))}
-            <button onClick={() => { setTopics([]); setTopicQuestionShown(false); }} style={{
-              padding: "7px 14px", borderRadius: 20, fontSize: 12,
-              cursor: "pointer", fontFamily: "var(--font-mono)",
-              background: "none", color: "rgba(255,255,255,0.3)",
-              border: "0.5px solid rgba(255,255,255,0.1)",
-            }}>Einfach plaudern 💬</button>
-          </div>
-        )}
-
         {/* Thinking dots */}
         {callState === "thinking" && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-start" }}>
