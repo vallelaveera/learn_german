@@ -58,8 +58,12 @@ export async function GET(req: NextRequest) {
       generateTopicSuggestions(user),
     ]);
 
+    // Topic question is a SEPARATE message after the greeting
+    const topicQuestion = "Möchtest du heute ein bestimmtes Thema üben, oder sollen wir einfach plaudern?";
+
     return NextResponse.json({
       opening,
+      topicQuestion,
       systemPrompt,
       user,
       daysSinceLastCall: daysSince,

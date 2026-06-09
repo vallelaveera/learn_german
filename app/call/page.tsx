@@ -37,6 +37,7 @@ export default function CallPage() {
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
+  const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
   const silenceHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [daysSince, setDaysSince] = useState(0);
@@ -71,6 +72,17 @@ export default function CallPage() {
         setSystemPrompt(data.systemPrompt);
         setUser({ name: data.user.name, streak: data.streak ?? 0 });
         if (data.topics) setTopics(data.topics);
+        if (data.topicQuestion && data.topics?.length) {
+          setTimeout(() => {
+            const tqMsg: Message = {
+              role: "assistant",
+              content: data.topicQuestion,
+              timestamp: Date.now() + 100,
+            };
+            setMessages(prev => [...prev, tqMsg]);
+            setTopicQuestionShown(true);
+          }, 3000);
+        }
         setDaysSince(data.daysSinceLastCall ?? 0);
         if (data.opening) {
           const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
@@ -247,6 +259,7 @@ export default function CallPage() {
 
   const handleRecordingEnd = useCallback(() => {
     if (_isSending) return;
+    setTopics([]); setTopicQuestionShown(false);
     const userText = finalBufferRef.current.trim();
     finalBufferRef.current = "";
     setLiveText("");
@@ -466,42 +479,7 @@ export default function CallPage() {
 
       {/* ── Transcript ── */}
       <div className={styles.transcript}>
-        {/* Topic chips */}
-        {messages.length <= 1 && topics.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "8px 4px" }}>
-            {topics.map((topic, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  const msg = `Ich möchte heute über "${topic}" sprechen.`;
-                  const userMsg = { role: "user" as const, content: msg, timestamp: Date.now() };
-                  setMessages(prev => { const updated = [...prev, userMsg]; sendToTutor(updated); return updated; });
-                  setTopics([]);
-                }}
-                style={{
-                  padding: "7px 14px", borderRadius: 20, fontSize: 12,
-                  cursor: "pointer", fontFamily: "var(--font-mono)",
-                  background: "var(--accent-glow)", color: "var(--accent)",
-                  border: "0.5px solid var(--accent-dim)",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-              >
-                {topic}
-              </button>
-            ))}
-            <button
-              onClick={() => setTopics([])}
-              style={{
-                padding: "7px 14px", borderRadius: 20, fontSize: 12,
-                cursor: "pointer", fontFamily: "var(--font-mono)",
-                background: "none", color: "var(--text-dim)",
-                border: "0.5px solid var(--border)",
-              }}
-            >
-              Einfach plaudern 💬
-            </button>
-          </div>
-        )}
+
 
         {messages.length === 0 && (
           <div className={styles.emptyState}>
@@ -530,6 +508,32 @@ export default function CallPage() {
             <span className={styles.bubbleTime}>{new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
           </div>
         ))}
+        {/* Topic chips inline */}
+        {topicQuestionShown && topics.length > 0 && callState !== "thinking" && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 0 8px" }}>
+            {topics.map((topic, i) => (
+              <button key={i} onClick={() => {
+                const msg = `Ich möchte heute über "${topic}" sprechen.`;
+                const userMsg = { role: "user" as const, content: msg, timestamp: Date.now() };
+                setMessages(prev => { const updated = [...prev, userMsg]; sendToTutor(updated); return updated; });
+                setTopics([]); setTopicQuestionShown(false);
+              }} style={{
+                padding: "7px 14px", borderRadius: 20, fontSize: 12,
+                cursor: "pointer", fontFamily: "var(--font-mono)",
+                background: "var(--accent-glow)", color: "var(--accent)",
+                border: "0.5px solid var(--accent-dim)",
+                WebkitTapHighlightColor: "transparent",
+              }}>{topic}</button>
+            ))}
+            <button onClick={() => { setTopics([]); setTopicQuestionShown(false); }} style={{
+              padding: "7px 14px", borderRadius: 20, fontSize: 12,
+              cursor: "pointer", fontFamily: "var(--font-mono)",
+              background: "none", color: "var(--text-dim)",
+              border: "0.5px solid var(--border)",
+            }}>Einfach plaudern 💬</button>
+          </div>
+        )}
+
         {liveText && (
           <div className={`${styles.bubble} ${styles.userBubble} ${styles.livePreview}`}>
             <div className={styles.bubbleRole}>{user?.name ?? "Du"}</div>
