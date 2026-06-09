@@ -172,8 +172,9 @@ RULES:
 - Ask ONE question at a time
 - Be warm and friendly like a new friend
 - After 4-5 questions end with: "Super! Ich rufe dich morgen wieder an. Bis dann! 🎉"
-- Add 💡 hint for any advanced phrase you use
-- Keep responses short — max 3 sentences`;
+- Speak ONLY German. Never switch to English mid-sentence.
+- After your German response, add ONE 💡 hint line in English if needed
+- Keep responses short — max 2 sentences`;
 }
 
 export function buildOnboardingOpening(userName: string): string {

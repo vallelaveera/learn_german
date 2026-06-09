@@ -20,9 +20,7 @@ export async function GET(req: NextRequest) {
       .flatMap(s => s.extractedFacts?.personalDetails ?? [])
       .slice(0, 5);
 
-    await updateStreak(user.userId);
-
-    // First time user — use onboarding
+    // First time user — use onboarding, don't update streak yet
     if (user.totalSessions === 0) {
       const opening = buildOnboardingOpening(user.name);
       const systemPrompt = buildOnboardingPrompt(user.name);
