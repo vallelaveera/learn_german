@@ -192,6 +192,43 @@ NOT dramatic, NOT overly excited. Just warm and friendly.`,
   return data.content?.[0]?.text ?? "Hallo! Schön, dass du wieder da bist! Wie läuft es?";
 }
 
+// Generate 5 personalised topic suggestions based on user profile
+export async function generateTopicSuggestions(
+  profile: import("./types").UserProfile
+): Promise<string[]> {
+  const facts = profile.facts;
+
+  // Always include these base topics
+  const baseTopic = [
+    "Alltag & Freizeit",
+    "Arbeit & Karriere",
+  ];
+
+  // Personalised based on what we know
+  const personal: string[] = [];
+  if (facts.interests?.length) {
+    const interest = facts.interests[0];
+    personal.push(`${interest} auf Deutsch`);
+  }
+  if (facts.job) personal.push("Meetings & Kollegen");
+  if (facts.germanWhy?.includes("Arbeit") || facts.germanWhy?.includes("work")) {
+    personal.push("Vorstellungsgespräch üben");
+  }
+
+  // Fill remaining with context-based topics
+  const extra = [
+    "Einkaufen & Restaurant",
+    "Reisen & Urlaub",
+    "Familie & Freunde",
+    "Nachrichten & Kultur",
+    "Smalltalk & Witze",
+  ];
+
+  const all = [...personal, ...baseTopic, ...extra];
+  // Return 5 unique topics
+  return Array.from(new Set(all)).slice(0, 5);
+}
+
 // Build the full system prompt with user context
 export function buildOnboardingPrompt(userName: string, missingFields: string[] = []): string {
   return `You are Maya — ${userName}'s new personal German tutor and friend.

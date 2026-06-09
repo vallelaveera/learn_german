@@ -24,6 +24,7 @@ export default function CallModePage() {
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ name: string } | null>(null);
+  const [topics, setTopics] = useState<string[]>([]);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
 
@@ -54,6 +55,7 @@ export default function CallModePage() {
         if (!data) return;
         setUser({ name: data.user.name });
         systemPromptRef.current = data.systemPrompt;
+        if (data.topics) setTopics(data.topics);
       });
   }, []);
 
@@ -413,6 +415,45 @@ export default function CallModePage() {
 
       {/* Conversation bubbles */}
       <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" }}>
+        {/* Topic chips — shown before first message */}
+        {messages.length <= 1 && topics.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "8px 0" }}>
+            {topics.map((topic, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const msg = `Ich möchte heute über "${topic}" sprechen.`;
+                  speechBufferRef.current = msg;
+                  // Trigger send directly
+                  sendToTutor(msg);
+                  setTopics([]);
+                }}
+                style={{
+                  padding: "7px 14px", borderRadius: 20, fontSize: 12,
+                  cursor: "pointer", fontFamily: "var(--font-mono)",
+                  background: "rgba(212,168,67,0.08)",
+                  color: "rgba(212,168,67,0.9)",
+                  border: "0.5px solid rgba(212,168,67,0.3)",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                {topic}
+              </button>
+            ))}
+            <button
+              onClick={() => setTopics([])}
+              style={{
+                padding: "7px 14px", borderRadius: 20, fontSize: 12,
+                cursor: "pointer", fontFamily: "var(--font-mono)",
+                background: "none", color: "rgba(255,255,255,0.3)",
+                border: "0.5px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              Einfach plaudern 💬
+            </button>
+          </div>
+        )}
+
         {messages.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 8 }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(255,255,255,0.04)", border: "2px solid rgba(212,168,67,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>

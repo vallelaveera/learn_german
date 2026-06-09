@@ -36,6 +36,7 @@ export default function CallPage() {
   const [newWords, setNewWords] = useState<string[]>([]);
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
+  const [topics, setTopics] = useState<string[]>([]);
   const [daysSince, setDaysSince] = useState(0);
   const [callMode, setCallMode] = useState(false);
   const [translations, setTranslations] = useState<Record<number, string>>({});
@@ -67,6 +68,7 @@ export default function CallPage() {
         if (!data) return;
         setSystemPrompt(data.systemPrompt);
         setUser({ name: data.user.name, streak: data.streak ?? 0 });
+        if (data.topics) setTopics(data.topics);
         setDaysSince(data.daysSinceLastCall ?? 0);
         if (data.opening) {
           const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
@@ -451,6 +453,43 @@ export default function CallPage() {
 
       {/* ── Transcript ── */}
       <div className={styles.transcript}>
+        {/* Topic chips */}
+        {messages.length <= 1 && topics.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "8px 4px" }}>
+            {topics.map((topic, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const msg = `Ich möchte heute über "${topic}" sprechen.`;
+                  const userMsg = { role: "user" as const, content: msg, timestamp: Date.now() };
+                  setMessages(prev => { const updated = [...prev, userMsg]; sendToTutor(updated); return updated; });
+                  setTopics([]);
+                }}
+                style={{
+                  padding: "7px 14px", borderRadius: 20, fontSize: 12,
+                  cursor: "pointer", fontFamily: "var(--font-mono)",
+                  background: "var(--accent-glow)", color: "var(--accent)",
+                  border: "0.5px solid var(--accent-dim)",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                {topic}
+              </button>
+            ))}
+            <button
+              onClick={() => setTopics([])}
+              style={{
+                padding: "7px 14px", borderRadius: 20, fontSize: 12,
+                cursor: "pointer", fontFamily: "var(--font-mono)",
+                background: "none", color: "var(--text-dim)",
+                border: "0.5px solid var(--border)",
+              }}
+            >
+              Einfach plaudern 💬
+            </button>
+          </div>
+        )}
+
         {messages.length === 0 && (
           <div className={styles.emptyState}>
             <p className={styles.emptyTitle}>Hey{user ? ` ${user.name}` : ""}!</p>

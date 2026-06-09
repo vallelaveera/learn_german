@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, updateStreak } from "@/lib/kv";
-import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields } from "@/lib/memory-agent";
+import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions } from "@/lib/memory-agent";
 
 export const runtime = "nodejs";
 
@@ -52,19 +52,25 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [opening, systemPrompt] = await Promise.all([
+    const [opening, systemPrompt, topics] = await Promise.all([
       generateOpening(user, daysSince, unpracticedWords, recentTopics),
       Promise.resolve(buildSystemPrompt(user, daysSince, unpracticedWords)),
+      generateTopicSuggestions(user),
     ]);
 
+    // Build topic opening
+    const topicList = topics.map((t, i) => `${i + 1}. ${t}`).join("\n");
+    const topicOpening = `${opening}\n\nWas möchtest du heute üben?\n${topicList}\n\nOder wir plaudern einfach — was du willst! 😊`;
+
     return NextResponse.json({
-      opening,
+      opening: topicOpening,
       systemPrompt,
       user,
       daysSinceLastCall: daysSince,
       unpracticedWords,
       streak: user.streak,
       isOnboarding: false,
+      topics,
     });
   } catch (e) {
     console.error(e);
