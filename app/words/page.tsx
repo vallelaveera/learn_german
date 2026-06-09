@@ -28,7 +28,7 @@ export default function WordsPage() {
 
   const total = vocab.length;
   const practiced = vocab.filter(w => w.usedByUser).length;
-  const newWords = vocab.filter(w => !w.usedByUser).length;
+  const newWords = vocab.filter(w => !w.usedByUser).length; // SET_M - SET_U
 
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "var(--sat)", paddingBottom: "var(--sab)" }}>

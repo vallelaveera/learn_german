@@ -14,15 +14,22 @@ export default function ProgressPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [vocab, setVocab] = useState<{word: string, usedByUser?: boolean}[]>([]);
+
   useEffect(() => {
-    fetch("/api/sessions")
-      .then(r => r.json())
-      .then(d => { setSessions(d.sessions ?? []); setLoading(false); });
+    Promise.all([
+      fetch("/api/sessions").then(r => r.json()),
+      fetch("/api/vocab").then(r => r.json()),
+    ]).then(([s, v]) => {
+      setSessions(s.sessions ?? []);
+      setVocab(v.words ?? []);
+      setLoading(false);
+    });
   }, []);
 
   const totalSessions = sessions.length;
   const totalMinutes = sessions.reduce((a, s) => a + (s.endedAt ? Math.round((s.endedAt - s.startedAt) / 60000) : 0), 0);
-  const totalWords = sessions.reduce((a, s) => a + (s.newWords?.length ?? 0), 0);
+  const totalWords = vocab.filter(w => !w.usedByUser).length; // words Maya used, user never said
   const totalMessages = sessions.reduce((a, s) => a + (s.totalMessages ?? 0), 0);
 
   // Group sessions by week
