@@ -17,7 +17,6 @@ export function useCallRecorder({
   onVolume,
 }: CallRecorderOptions) {
   const recorderRef = useRef<any>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -25,44 +24,45 @@ export function useCallRecorder({
     try {
       const { RecordTranscribe } = await import("@soniox/speech-to-text-web");
 
-      const recorder = new RecordTranscribe();
+      const recorder = new RecordTranscribe({
+        apiKey,
+        onPartialResult(result: any) {
+          let finalText = "";
+          let nonFinalText = "";
+          for (const token of result.tokens ?? []) {
+            if (!token.text) continue;
+            if (token.is_final) finalText += token.text;
+            else nonFinalText += token.text;
+          }
+          if (finalText) onTranscript(finalText, true);
+          if (nonFinalText) onTranscript(nonFinalText, false);
+        },
+        onFinished() {
+          onFinished();
+        },
+        onError(status: string, message: string) {
+          onError(`${status}: ${message}`);
+        },
+      });
+
       recorderRef.current = recorder;
 
-      recorder.onresult = (result: any) => {
-        let finalText = "";
-        let nonFinalText = "";
-        for (const token of result.tokens ?? []) {
-          if (!token.text) continue;
-          if (token.is_final) finalText += token.text;
-          else nonFinalText += token.text;
-        }
-        if (finalText) onTranscript(finalText, true);
-        if (nonFinalText) onTranscript(nonFinalText, false);
-        if (result.finished) onFinished();
-      };
-
-      recorder.onerror = (e: any) => onError(String(e));
-
       await recorder.start({
-        apiKey,
         model: "stt-rt-v4",
-        audioFormat: "s16le",
-        sampleRate: 16000,
-        numChannels: 1,
         languageHints: ["de", "en"],
         enableEndpointDetection: true,
       });
 
-      // Volume tracking via stream
-      if (recorder.stream) {
+      // Volume tracking
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const ctx = audioCtxRef.current ?? new AudioContext();
         audioCtxRef.current = ctx;
         if (ctx.state === "suspended") await ctx.resume();
-        const source = ctx.createMediaStreamSource(recorder.stream);
+        const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
         source.connect(analyser);
-        analyserRef.current = analyser;
         const data = new Uint8Array(analyser.frequencyBinCount);
         const tick = () => {
           analyser.getByteFrequencyData(data);
@@ -70,7 +70,8 @@ export function useCallRecorder({
           animFrameRef.current = requestAnimationFrame(tick);
         };
         tick();
-      }
+      } catch {}
+
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
     }
