@@ -9,6 +9,7 @@ interface CallRecorderOptions {
   onFinished: () => void;
   onError: (e: string) => void;
   onVolume: (level: number) => void;
+  getContext?: () => string; // last Maya message for better accuracy
 }
 
 export function useCallRecorder({
@@ -17,6 +18,7 @@ export function useCallRecorder({
   onFinished,
   onError,
   onVolume,
+  getContext,
 }: CallRecorderOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const finishedFiredRef = useRef(false);
@@ -25,9 +27,11 @@ export function useCallRecorder({
   const animFrameRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const silentNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const finalBufferRef = useRef("");
 
   const start = useCallback(async () => {
     finishedFiredRef.current = false;
+    finalBufferRef.current = "";
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -40,12 +44,11 @@ export function useCallRecorder({
       });
       streamRef.current = stream;
 
-      // iOS fix: keep AudioContext alive with a silent looping buffer
       const ctx = audioCtxRef.current ?? new AudioContext();
       audioCtxRef.current = ctx;
       if (ctx.state === "suspended") await ctx.resume();
 
-      // Create silent buffer to prevent iOS from suspending AudioContext
+      // iOS: silent looping buffer keeps AudioContext alive
       const silentBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const silentSource = ctx.createBufferSource();
       silentSource.buffer = silentBuffer;
@@ -67,20 +70,22 @@ export function useCallRecorder({
       };
       tick();
 
-      // WebSocket to Soniox
       const ws = new WebSocket(SONIOX_WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        // Get last Maya message as context for better accuracy
+        const context = getContext?.() ?? "";
+
         ws.send(JSON.stringify({
           api_key: apiKey,
           model: "stt-rt-v4",
           audio_format: "auto",
-          language_hints: ["de", "en"],
+          language_hints: ["de"], // German only — much better accuracy
           enable_endpoint_detection: true,
+          ...(context ? { context } : {}),
         }));
 
-        // Detect best mimeType
         const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
           ? "audio/webm;codecs=opus"
           : MediaRecorder.isTypeSupported("audio/webm")
@@ -100,16 +105,11 @@ export function useCallRecorder({
           }
         };
 
-        // iOS fix: use 500ms timeslice — longer chunks are more reliable on iOS
         mr.start(500);
 
-        // iOS fix: also request data explicitly every 500ms
         const keepAlive = setInterval(() => {
-          if (mr.state === "recording") {
-            mr.requestData();
-          } else {
-            clearInterval(keepAlive);
-          }
+          if (mr.state === "recording") mr.requestData();
+          else clearInterval(keepAlive);
         }, 500);
 
         mr.onerror = () => onError("Mikrofon Fehler");
@@ -118,6 +118,7 @@ export function useCallRecorder({
       ws.onmessage = (event) => {
         const res = JSON.parse(event.data);
         if (res.error_code) { onError(`${res.error_code}: ${res.error_message}`); return; }
+
         let finalText = "";
         let nonFinalText = "";
         for (const token of res.tokens ?? []) {
@@ -125,11 +126,20 @@ export function useCallRecorder({
           if (token.is_final) finalText += token.text;
           else nonFinalText += token.text;
         }
-        if (finalText) onTranscript(finalText, true);
+
+        if (finalText) {
+          finalBufferRef.current += finalText;
+          onTranscript(finalText, true);
+        }
         if (nonFinalText) onTranscript(nonFinalText, false);
+
         if (res.finished && !finishedFiredRef.current) {
           finishedFiredRef.current = true;
-          onFinished();
+          // Min 3 words filter — avoid garbage like "vie" or "navigator"
+          const words = finalBufferRef.current.trim().split(/\s+/).filter(Boolean);
+          if (words.length >= 1) {
+            onFinished();
+          }
         }
       };
 
@@ -138,20 +148,16 @@ export function useCallRecorder({
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
     }
-  }, [apiKey, onTranscript, onFinished, onError, onVolume]);
+  }, [apiKey, onTranscript, onFinished, onError, onVolume, getContext]);
 
   const stop = useCallback(() => {
     finishedFiredRef.current = true;
     cancelAnimationFrame(animFrameRef.current);
     onVolume(0);
-
-    // Stop silent node
     try { silentNodeRef.current?.stop(); } catch {}
     silentNodeRef.current = null;
-
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
-
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send("");
     }
@@ -159,7 +165,6 @@ export function useCallRecorder({
       wsRef.current?.close();
       wsRef.current = null;
     }, 500);
-
     mediaRecorderRef.current = null;
     streamRef.current = null;
   }, [onVolume]);

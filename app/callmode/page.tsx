@@ -130,6 +130,8 @@ export default function CallModePage() {
   }, []);
 
   // ── TTS ───────────────────────────────────────────────
+  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+
   const streamTTS = useCallback(async (text: string) => {
     setCallState("speaking");
     stopAudio();
@@ -141,21 +143,37 @@ export default function CallModePage() {
         body: JSON.stringify({ text, provider: "soniox" }),
       });
       if (!res.ok || !res.body) throw new Error();
-
-      // iOS fix: collect ALL audio first, then play as one complete buffer
-      // Chunked decoding fails on iOS because partial wav/mp3 chunks are invalid
       const reader = res.body.getReader();
-      let buf = new Uint8Array(0);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const nb = new Uint8Array(buf.length + value.length);
-        nb.set(buf); nb.set(value, buf.length); buf = nb;
-      }
 
-      // Play the complete audio buffer at once
-      if (buf.length > 0) {
-        await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+      if (isIOS) {
+        // iOS: collect full audio first — chunked decoding unreliable on iOS
+        let buf = new Uint8Array(0);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const nb = new Uint8Array(buf.length + value.length);
+          nb.set(buf); nb.set(value, buf.length); buf = nb;
+        }
+        if (buf.length > 0) {
+          await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+        }
+      } else {
+        // Android/Desktop: stream chunks immediately — low latency
+        const CHUNK = 16384;
+        let buf = new Uint8Array(0);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+            break;
+          }
+          const nb = new Uint8Array(buf.length + value.length);
+          nb.set(buf); nb.set(value, buf.length); buf = nb;
+          if (buf.length >= CHUNK) {
+            const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
+            playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
+          }
+        }
       }
     } catch (e) {
       console.error("TTS error:", e);
@@ -163,7 +181,7 @@ export default function CallModePage() {
       _cm_sending = false;
       if (_cm_active) startRef.current();
     }
-  }, [playChunk, stopAudio]);
+  }, [playChunk, stopAudio, isIOS]);
 
   // ── Send to Claude ────────────────────────────────────
   const sendToTutor = useCallback(async (text: string) => {
@@ -298,12 +316,19 @@ export default function CallModePage() {
     // so nothing to do here
   }, []);
 
+  // Pass last Maya message as context to Soniox for better accuracy
+  const getContext = useCallback(() => {
+    const lastMaya = [...messagesRef.current].reverse().find(m => m.role === "assistant");
+    return lastMaya?.content ?? "";
+  }, []);
+
   const { start, stop, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onFinished: handleFinished,
     onError: (e) => setError(e),
     onVolume: handleVolume,
+    getContext,
   });
 
   // Keep refs in sync
