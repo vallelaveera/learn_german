@@ -160,15 +160,7 @@ export async function generateOpening(
     );
   }
 
-  if (profile.facts.recentFood) {
-    strategies.push(
-      `Ask about their food: they mentioned "${profile.facts.recentFood}" recently. Did they cook it again? Was it good?`
-    );
-  }
-
-  if (profile.facts.family) {
-    strategies.push(`Ask about their family: ${profile.facts.family}`);
-  }
+  // Do not ask about food or family in opening — Maya will do that naturally in conversation
 
   if (profile.streak > 0 && profile.streak % 7 === 0) {
     strategies.push(
@@ -212,10 +204,10 @@ User name: ${profile.name}
 Their German level: ${profile.germanLevel ?? "B1/B2"}
 Total sessions together: ${profile.totalSessions}
 
-Generate ONE short, warm German greeting — like a friendly colleague who knows them.
-Simple and natural. Max 20 words. End with one question.
-Examples: "Hey Veera! Schön dass du wieder da bist. Wie war dein Tag?"
-NOT dramatic, NOT overly excited. Just warm and friendly.`,
+Generate ONE short warm German greeting. Max 15 words.
+ONLY ask "Wie geht's dir?" or "Wie war dein Tag?" or "Was machst du gerade so?"
+DO NOT ask about food, cooking, family, job, hobbies, or any specific topics.
+Just a simple friendly hi + one simple how-are-you question.`,
       messages: [
         {
           role: "user",
