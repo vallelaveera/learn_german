@@ -289,7 +289,7 @@ export default function CallModePage() {
     // so nothing to do here
   }, []);
 
-  const { start, stop } = useCallRecorder({
+  const { start, stop, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onFinished: handleFinished,
@@ -306,13 +306,14 @@ export default function CallModePage() {
     if (navigator.vibrate) navigator.vibrate(40);
 
     // iOS CRITICAL: Create AND resume AudioContext directly on user gesture
-    // Must happen synchronously before any async calls
     if (!audioCtxRef.current) {
       audioCtxRef.current = new AudioContext();
     }
     if (audioCtxRef.current.state === "suspended") {
       await audioCtxRef.current.resume();
     }
+    // Share AudioContext with recorder (iOS needs same context)
+    recorderAudioCtxRef.current = audioCtxRef.current;
 
     _cm_active = true;
     _cm_sending = false;
