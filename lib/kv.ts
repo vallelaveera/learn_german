@@ -181,3 +181,17 @@ export async function getDaysSinceLastCall(userId: string): Promise<number> {
   if (!profile?.lastCallDate) return 999;
   return Math.floor((Date.now() - profile.lastCallDate) / (1000 * 60 * 60 * 24));
 }
+
+export async function saveWordExamples(word: string, sentences: string[]): Promise<void> {
+  await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
+}
+
+export async function getWordExamples(word: string): Promise<string[] | null> {
+  try {
+    const data = await redis.get<string>(`examples:${word.toLowerCase()}`);
+    if (!data) return null;
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return null;
+  }
+}
