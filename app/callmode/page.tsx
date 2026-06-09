@@ -117,7 +117,16 @@ export default function CallModePage() {
         }
       };
       sourceQueueRef.current.push(source);
-    } catch {}
+    } catch (e) {
+      console.error("playChunk error:", e);
+      // Even if decode fails, restart mic
+      if (_cm_active && sourceQueueRef.current.length === 0) {
+        setCallState("listening");
+        _cm_sending = false;
+        speechBufferRef.current = "";
+        setTimeout(() => { if (_cm_active) startRef.current(); }, 400);
+      }
+    }
   }, []);
 
   // ── TTS ───────────────────────────────────────────────
@@ -132,24 +141,24 @@ export default function CallModePage() {
         body: JSON.stringify({ text, provider: "soniox" }),
       });
       if (!res.ok || !res.body) throw new Error();
+
+      // iOS fix: collect ALL audio first, then play as one complete buffer
+      // Chunked decoding fails on iOS because partial wav/mp3 chunks are invalid
       const reader = res.body.getReader();
-      const CHUNK = 8192;
       let buf = new Uint8Array(0);
       while (true) {
         const { done, value } = await reader.read();
-        if (done) {
-          if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-          break;
-        }
+        if (done) break;
         const nb = new Uint8Array(buf.length + value.length);
         nb.set(buf); nb.set(value, buf.length); buf = nb;
-        if (buf.length >= CHUNK) {
-          const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
-          playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
-        }
       }
-    } catch {
-      // TTS failed — restart mic
+
+      // Play the complete audio buffer at once
+      if (buf.length > 0) {
+        await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+      }
+    } catch (e) {
+      console.error("TTS error:", e);
       setCallState("listening");
       _cm_sending = false;
       if (_cm_active) startRef.current();
