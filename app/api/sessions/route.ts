@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveSession, listSessions, saveVocabWords, addMinutes } from "@/lib/kv";
+import { saveSession, listSessions, saveVocabWords } from "@/lib/kv";
 import { getAuthUser } from "@/lib/auth";
 import { Session } from "@/lib/types";
 
@@ -25,12 +25,6 @@ export async function POST(req: NextRequest) {
     const session: Session = await req.json();
     session.userId = user.userId;
     await saveSession(session);
-
-    // Track minutes used
-    if (session.startedAt && session.endedAt) {
-      const mins = (session.endedAt - session.startedAt) / 60000;
-      if (mins > 0) await addMinutes(user.userId, mins);
-    }
 
     if (session.newWords?.length) {
       await saveVocabWords(user.userId, session.newWords);

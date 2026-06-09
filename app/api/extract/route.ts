@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { updateUserFacts, saveVocabWords, markWordsUsedByUser } from "@/lib/kv";
+import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes } from "@/lib/kv";
 import { extractFacts, extractProfileFacts, extractAskedTopics } from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { messages }: { messages: Message[] } = await req.json();
+    const { messages, sessionStart, sessionEnd }: { messages: Message[]; sessionStart?: number; sessionEnd?: number } = await req.json();
     if (!messages?.length) return NextResponse.json({ ok: true });
 
     const mayaWords = getWords(
@@ -44,11 +44,19 @@ export async function POST(req: NextRequest) {
       askedTopics: Array.from(new Set([...existingTopics, ...newTopics])).slice(0, 50),
     };
 
-    await Promise.all([
+    const promises: Promise<unknown>[] = [
       saveVocabWords(user.userId, mayaWords),
       markWordsUsedByUser(user.userId, userWords),
       updateUserFacts(user.userId, mergedFacts),
-    ]);
+    ];
+
+    // Track minutes — only called once at session end
+    if (sessionStart && sessionEnd) {
+      const mins = (sessionEnd - sessionStart) / 60000;
+      if (mins > 0 && mins < 120) promises.push(addMinutes(user.userId, mins));
+    }
+
+    await Promise.all(promises);
 
     return NextResponse.json({ ok: true, facts: newFacts });
   } catch (e) {
