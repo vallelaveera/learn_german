@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
-import { getUserProfile, listSessions, getVocab } from "@/lib/kv";
+import { getUserProfile, listSessions, getVocab, getUsageStats } from "@/lib/kv";
 
 export const runtime = "nodejs";
 
@@ -20,14 +20,16 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "No userId" }, { status: 400 });
 
   try {
-    const [profile, sessions, vocab] = await Promise.all([
+    const [profile, sessions, vocab, usage] = await Promise.all([
       getUserProfile(userId),
       listSessions(userId, 999),
       getVocab(userId),
+      getUsageStats(userId),
     ]);
 
     return NextResponse.json({
       profile,
+      usage,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt,

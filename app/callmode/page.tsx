@@ -24,6 +24,8 @@ export default function CallModePage() {
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ name: string } | null>(null);
+  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
@@ -57,9 +59,15 @@ export default function CallModePage() {
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
         if (!data) return;
+        if (data.limitReached) {
+          setLimitReached(true);
+          setUser({ name: data.user.name });
+          return;
+        }
         setUser({ name: data.user.name });
         systemPromptRef.current = data.systemPrompt;
         if (data.topics) setTopics(data.topics);
+        if (data.usage) setUsage(data.usage);
         // Show topic question after opening TTS finishes
         // Store topic question to speak after opening finishes
         if (data.topicQuestion) {

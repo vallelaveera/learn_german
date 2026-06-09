@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, updateStreak } from "@/lib/kv";
 import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions } from "@/lib/memory-agent";
+import { getUsageStats } from "@/lib/kv";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,17 @@ export async function GET(req: NextRequest) {
     const recentTopics = recentSessions
       .flatMap(s => s.extractedFacts?.personalDetails ?? [])
       .slice(0, 5);
+
+    // Check usage limit
+    const usage = await getUsageStats(user.userId);
+    if (usage.remaining <= 0) {
+      return NextResponse.json({
+        limitReached: true,
+        used: usage.used,
+        limit: usage.limit,
+        user,
+      });
+    }
 
     // Check if profile is complete — if not, still in onboarding phase
     const profileComplete = isProfileComplete(user.facts);
@@ -69,6 +81,7 @@ export async function GET(req: NextRequest) {
       streak: user.streak,
       isOnboarding: false,
       topics,
+      usage,
     });
   } catch (e) {
     console.error(e);

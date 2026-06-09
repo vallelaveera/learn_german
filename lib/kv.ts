@@ -182,6 +182,45 @@ export async function getDaysSinceLastCall(userId: string): Promise<number> {
   return Math.floor((Date.now() - profile.lastCallDate) / (1000 * 60 * 60 * 24));
 }
 
+// ── Usage limits ─────────────────────────────────────────
+
+export async function getMonthlyMinutes(userId: string): Promise<number> {
+  const key = `minutes:${userId}:${new Date().toISOString().slice(0, 7)}`; // e.g. minutes:xxx:2026-06
+  try {
+    const val = await redis.get<number>(key);
+    return val ?? 0;
+  } catch { return 0; }
+}
+
+export async function addMinutes(userId: string, minutes: number): Promise<number> {
+  const key = `minutes:${userId}:${new Date().toISOString().slice(0, 7)}`;
+  try {
+    const newVal = await redis.incrbyfloat(key, minutes);
+    // Expire key after 35 days (auto cleanup)
+    await redis.expire(key, 35 * 24 * 60 * 60);
+    return newVal;
+  } catch { return 0; }
+}
+
+export async function getUserLimit(userId: string): Promise<number> {
+  try {
+    const val = await redis.get<number>(`limit:${userId}`);
+    return val ?? 30; // default 30 minutes
+  } catch { return 30; }
+}
+
+export async function setUserLimit(userId: string, minutes: number): Promise<void> {
+  await redis.set(`limit:${userId}`, minutes);
+}
+
+export async function getUsageStats(userId: string): Promise<{ used: number; limit: number; remaining: number }> {
+  const [used, limit] = await Promise.all([
+    getMonthlyMinutes(userId),
+    getUserLimit(userId),
+  ]);
+  return { used: Math.round(used), limit, remaining: Math.max(0, limit - Math.round(used)) };
+}
+
 export async function saveWordExamples(word: string, sentences: string[]): Promise<void> {
   await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
 }

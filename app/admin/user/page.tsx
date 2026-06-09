@@ -18,6 +18,12 @@ export default function AdminUserPage() {
   return <Suspense fallback={<div style={{padding:24,color:"var(--text-muted)"}}>Lädt...</div>}><AdminUserContent /></Suspense>;
 }
 
+interface Usage {
+  used: number;
+  limit: number;
+  remaining: number;
+}
+
 interface Profile {
   name: string;
   email: string;
@@ -35,6 +41,9 @@ function AdminUserContent() {
   const [vocab, setVocab] = useState<{ total: number; learned: number; new: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [newLimit, setNewLimit] = useState("");
+  const [limitSaved, setLimitSaved] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
   const userId = params.get("id");
@@ -48,6 +57,7 @@ function AdminUserContent() {
         setProfile(d.profile);
         setSessions(d.sessions);
         setVocab(d.vocab);
+        setUsage(d.usage);
         setLoading(false);
       });
   }, [userId]);
@@ -118,6 +128,46 @@ function AdminUserContent() {
                     <span style={{ fontSize: 12, color: "var(--text)" }}>{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</span>
                   </div>
                 ))}
+            </div>
+          )}
+
+          {/* Usage + limit control */}
+          {usage && (
+            <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Nutzung diesen Monat</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 13, color: "var(--text)" }}>{usage.used} / {usage.limit} Minuten</span>
+                <span style={{ fontSize: 12, color: usage.remaining < 5 ? "var(--red)" : "var(--green)" }}>{usage.remaining} verbleibend</span>
+              </div>
+              <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ height: "100%", borderRadius: 2, background: usage.remaining < 5 ? "var(--red)" : "var(--accent)", width: `${Math.min(100, (usage.used / usage.limit) * 100)}%` }} />
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>Limit ändern</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  value={newLimit}
+                  onChange={e => setNewLimit(e.target.value)}
+                  placeholder={String(usage.limit)}
+                  type="number"
+                  style={{ flex: 1, padding: "8px 12px", background: "var(--bg)", border: "0.5px solid var(--border)", borderRadius: 6, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!newLimit || !userId) return;
+                    await fetch("/api/admin/limit", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userId, minutes: Number(newLimit) }),
+                    });
+                    setUsage(prev => prev ? { ...prev, limit: Number(newLimit), remaining: Number(newLimit) - prev.used } : prev);
+                    setLimitSaved(true);
+                    setTimeout(() => setLimitSaved(false), 2000);
+                  }}
+                  style={{ padding: "8px 16px", background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", borderRadius: 6, color: "var(--accent)", fontSize: 13, cursor: "pointer", fontFamily: "var(--font-mono)" }}
+                >
+                  {limitSaved ? "✓ Gespeichert" : "Speichern"}
+                </button>
+              </div>
             </div>
           )}
 
