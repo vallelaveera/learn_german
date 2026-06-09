@@ -37,6 +37,8 @@ export default function CallPage() {
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
+  const [showSilenceHint, setShowSilenceHint] = useState(false);
+  const silenceHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [daysSince, setDaysSince] = useState(0);
   const [callMode, setCallMode] = useState(false);
   const [translations, setTranslations] = useState<Record<number, string>>({});
@@ -227,6 +229,17 @@ export default function CallPage() {
   }, [streamTTS, systemPrompt, autoSave]);
 
   // ── Speech callbacks ─────────────────────────────────────
+  // Show silence hint after 2s of listening with no speech
+  useEffect(() => {
+    if (callState === "listening" && !liveText) {
+      silenceHintTimerRef.current = setTimeout(() => setShowSilenceHint(true), 2000);
+    } else {
+      setShowSilenceHint(false);
+      if (silenceHintTimerRef.current) clearTimeout(silenceHintTimerRef.current);
+    }
+    return () => { if (silenceHintTimerRef.current) clearTimeout(silenceHintTimerRef.current); };
+  }, [callState, liveText]);
+
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
     if (isFinal) { finalBufferRef.current += text; setLiveText(finalBufferRef.current); }
     else setLiveText(finalBufferRef.current + text);

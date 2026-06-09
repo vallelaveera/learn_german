@@ -25,6 +25,8 @@ export default function CallModePage() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ name: string } | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
+  const [showSilenceHint, setShowSilenceHint] = useState(false);
+  const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
 
@@ -142,6 +144,8 @@ export default function CallModePage() {
     if (!text.trim() || _cm_sending) return;
     _cm_sending = true;
     setCallState("thinking");
+    setShowSilenceHint(false);
+    if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
     setLiveText("");
 
     const userMsg: Message = { role: "user", content: text.trim(), timestamp: Date.now() };
@@ -214,6 +218,22 @@ export default function CallModePage() {
   const handleVolume = useCallback((vol: number) => {
     setVolume(vol);
     if (!_cm_active || _cm_sending) return;
+
+    // Show silence hint after 2s of no speech
+    if (vol < SILENCE_THRESHOLD) {
+      if (!silenceHintRef.current && !speechBufferRef.current) {
+        silenceHintRef.current = setTimeout(() => {
+          setShowSilenceHint(true);
+        }, 2000);
+      }
+    } else {
+      // User is speaking — hide hint
+      setShowSilenceHint(false);
+      if (silenceHintRef.current) {
+        clearTimeout(silenceHintRef.current);
+        silenceHintRef.current = null;
+      }
+    }
 
     if (vol > SILENCE_THRESHOLD) {
       // User is speaking — cancel silence timer
@@ -307,6 +327,7 @@ export default function CallModePage() {
     _cm_active = false;
     _cm_sending = false;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     stop();
     stopAudio();
     if (durationRef.current) clearInterval(durationRef.current);
@@ -329,6 +350,7 @@ export default function CallModePage() {
       stopAudio();
       if (durationRef.current) clearInterval(durationRef.current);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     };
   }, [stop, stopAudio]);
 
@@ -526,6 +548,23 @@ export default function CallModePage() {
             );
           })}
         </div>
+
+        {/* Silence hint */}
+        {showSilenceHint && callState === "listening" && (
+          <div style={{
+            background: "rgba(212,168,67,0.08)",
+            border: "0.5px solid rgba(212,168,67,0.2)",
+            borderRadius: 10, padding: "10px 16px",
+            textAlign: "center", animation: "fade-in 0.3s ease-out",
+          }}>
+            <p style={{ fontSize: 12, color: "rgba(212,168,67,0.8)", marginBottom: 4 }}>
+              🎙️ Sprich laut — Maya hört zu
+            </p>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+              Sag einen ganzen Satz auf Deutsch
+            </p>
+          </div>
+        )}
 
         {error && (
           <div style={{ textAlign: "center" }}>
