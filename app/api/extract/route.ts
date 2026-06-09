@@ -6,12 +6,13 @@ import { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-function extractWords(text: string): string[] {
-  return text
-    .split(/[\s.,!?;:'"()\-–—]+/)
-    .map(w => w.trim())
-    .filter(w => w.length >= 3)
-    .map(w => w.toLowerCase());
+function getWords(text: string): string[] {
+  return Array.from(new Set(
+    text.toLowerCase()
+      .replace(/[^a-zA-Z\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length >= 4)
+  ));
 }
 
 export async function POST(req: NextRequest) {
@@ -22,30 +23,20 @@ export async function POST(req: NextRequest) {
     const { messages }: { messages: Message[] } = await req.json();
     if (!messages?.length) return NextResponse.json({ ok: true });
 
-    // SET_M — all words Maya said
-    const mayaText = messages
-      .filter((m: Message) => m.role === "assistant")
-      .map((m: Message) => m.content)
-      .join(" ");
-    const mayaWords = Array.from(new Set(extractWords(mayaText)));
+    const mayaWords = getWords(
+      messages.filter((m: Message) => m.role === "assistant").map((m: Message) => m.content).join(" ")
+    );
+    const userWords = getWords(
+      messages.filter((m: Message) => m.role === "user").map((m: Message) => m.content).join(" ")
+    );
 
-    // SET_U — all words user said
-    const userText = messages
-      .filter((m: Message) => m.role === "user")
-      .map((m: Message) => m.content)
-      .join(" ");
-    const userWords = Array.from(new Set(extractWords(userText)));
+    const newFacts = await extractFacts(messages, user.facts);
 
-    // Save Maya's words to vocab DB
-    // Mark user's words as practiced
     await Promise.all([
       saveVocabWords(user.userId, mayaWords),
       markWordsUsedByUser(user.userId, userWords),
+      updateUserFacts(user.userId, newFacts),
     ]);
-
-    // Extract personal facts
-    const newFacts = await extractFacts(messages, user.facts);
-    await updateUserFacts(user.userId, newFacts);
 
     return NextResponse.json({ ok: true, facts: newFacts });
   } catch (e) {
