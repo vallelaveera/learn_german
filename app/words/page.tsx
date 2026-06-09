@@ -15,6 +15,10 @@ export default function WordsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "new" | "practiced">("all");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"length" | "frequency" | "recent">("length");
+  const [expandedWord, setExpandedWord] = useState<string | null>(null);
+  const [examples, setExamples] = useState<Record<string, string[]>>({});
+  const [loadingExample, setLoadingExample] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -24,7 +28,51 @@ export default function WordsPage() {
 
   const filtered = vocab
     .filter(w => filter === "all" ? true : filter === "practiced" ? w.usedByUser : !w.usedByUser)
-    .filter(w => search ? w.word.toLowerCase().includes(search.toLowerCase()) : true);
+    .filter(w => search ? w.word.toLowerCase().includes(search.toLowerCase()) : true)
+    .sort((a, b) => {
+      if (sort === "length") return b.word.length - a.word.length;
+      if (sort === "frequency") return b.timesSeen - a.timesSeen;
+      return b.lastSeen - a.lastSeen;
+    });
+
+  const fetchExamples = async (word: string) => {
+    if (examples[word]) {
+      setExpandedWord(expandedWord === word ? null : word);
+      return;
+    }
+    setExpandedWord(word);
+    setLoadingExample(word);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: `Give 2 short example German sentences using the word "${word}". Format: just the 2 sentences, one per line. No explanations.` }],
+          systemPrompt: "You are a German language teacher. Give exactly 2 short natural German example sentences. One sentence per line. Nothing else.",
+        }),
+      });
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const p = JSON.parse(line.slice(6).trim());
+            if (p.type === "content_block_delta" && p.delta?.type === "text_delta") text += p.delta.text;
+          } catch {}
+        }
+      }
+      const sentences = text.trim().split("\n").filter(Boolean).slice(0, 2);
+      setExamples(prev => ({ ...prev, [word]: sentences }));
+    } catch {}
+    setLoadingExample(null);
+  };
 
   const total = vocab.length;
   const practiced = vocab.filter(w => w.usedByUser).length;
@@ -79,6 +127,19 @@ export default function WordsPage() {
         ))}
       </div>
 
+      {/* Sort buttons */}
+      <div style={{ display: "flex", gap: 8, padding: "0 16px 12px" }}>
+        {([["length", "Länge"], ["frequency", "Häufigkeit"], ["recent", "Zuletzt"]] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setSort(key)} style={{
+            padding: "5px 12px", borderRadius: 20, fontSize: 11,
+            cursor: "pointer", fontFamily: "var(--font-mono)",
+            background: sort === key ? "var(--accent-glow)" : "var(--surface)",
+            color: sort === key ? "var(--accent)" : "var(--text-muted)",
+            border: `0.5px solid ${sort === key ? "var(--accent-dim)" : "var(--border)"}`,
+          }}>{label}</button>
+        ))}
+      </div>
+
       {/* Word list */}
       <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 20 }}>Lädt...</p>}
@@ -92,12 +153,27 @@ export default function WordsPage() {
           <div key={w.word} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderLeft: w.usedByUser ? "2px solid var(--green)" : "2px solid var(--accent)", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 16, fontFamily: "var(--font-serif)", color: "var(--text)", marginBottom: 3 }}>{w.word}</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
                 {w.timesSeen}× gehört · zuletzt {new Date(w.lastSeen).toLocaleDateString("de-DE")}
               </div>
-              <div style={{ marginTop: 6, height: 3, borderRadius: 2, background: "var(--border)", overflow: "hidden", width: "100%" }}>
+              <div style={{ marginTop: 4, height: 3, borderRadius: 2, background: "var(--border)", overflow: "hidden", width: "100%" }}>
                 <div style={{ height: "100%", borderRadius: 2, background: w.usedByUser ? "var(--green)" : "var(--accent)", width: `${Math.min(100, w.timesSeen * 20)}%`, transition: "width 0.3s" }} />
               </div>
+              <button onClick={() => fetchExamples(w.word)} style={{
+                marginTop: 8, fontSize: 10, color: "var(--accent)",
+                background: "none", border: "0.5px solid var(--accent-dim)",
+                borderRadius: 4, padding: "2px 8px", cursor: "pointer",
+                fontFamily: "var(--font-mono)"
+              }}>
+                {loadingExample === w.word ? "..." : expandedWord === w.word ? "▲ Beispiele" : "▼ Beispiele"}
+              </button>
+              {expandedWord === w.word && examples[w.word] && (
+                <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg)", borderRadius: 6, border: "0.5px solid var(--border)" }}>
+                  {examples[w.word].map((ex, i) => (
+                    <p key={i} style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.6, margin: i > 0 ? "6px 0 0" : 0, fontStyle: "italic" }}>"{ex}"</p>
+                  ))}
+                </div>
+              )}
             </div>
             <div style={{ fontSize: 10, padding: "3px 8px", borderRadius: 10, background: w.usedByUser ? "rgba(39,174,96,0.15)" : "var(--accent-glow)", color: w.usedByUser ? "var(--green)" : "var(--accent)", border: `0.5px solid ${w.usedByUser ? "rgba(39,174,96,0.4)" : "var(--accent-dim)"}`, whiteSpace: "nowrap" }}>
               {w.usedByUser ? "Gelernt ✓" : "Neu"}
