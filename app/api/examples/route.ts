@@ -7,7 +7,6 @@ export async function GET(req: NextRequest) {
   const word = req.nextUrl.searchParams.get("word");
   if (!word) return NextResponse.json({ sentences: [] });
 
-  // Check cache — only use if has 4 lines (de1, en1, de2, en2)
   const cached = await getWordExamples(word);
   if (cached && cached.length === 4) {
     return NextResponse.json({ sentences: cached, cached: true });
@@ -24,24 +23,23 @@ export async function GET(req: NextRequest) {
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 200,
-        system: `You are a German teacher. For the given word produce EXACTLY 4 lines:
-Line 1: A German sentence using the word
-Line 2: The English translation of line 1
-Line 3: Another German sentence using the word
-Line 4: The English translation of line 3
-Output ONLY these 4 lines. No labels, no numbers, no extra text.`,
-        messages: [{ role: "user", content: `Word: "${word}"` }],
+        system: `Return ONLY valid JSON. No explanation. No markdown. Just JSON.`,
+        messages: [{
+          role: "user",
+          content: `Create 2 example sentences for the German word "${word}".
+Return this exact JSON structure:
+{"s1de":"first German sentence","s1en":"English translation","s2de":"second German sentence","s2en":"English translation"}`
+        }],
       }),
     });
 
     const data = await res.json();
     const text = data.content?.[0]?.text ?? "";
-    const lines = text.trim().split("\n").filter((l: string) => l.trim()).slice(0, 4);
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    const lines = [parsed.s1de, parsed.s1en, parsed.s2de, parsed.s2en];
 
-    if (lines.length === 4) {
-      await saveWordExamples(word, lines);
-    }
-
+    await saveWordExamples(word, lines);
     return NextResponse.json({ sentences: lines });
   } catch {
     return NextResponse.json({ sentences: [] });
