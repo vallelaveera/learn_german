@@ -68,7 +68,7 @@ export function useCallRecorder({
           model: "stt-rt-v4",
           language_hints: ["de", "en"],
           enable_endpoint_detection: true,
-          audio_format: audioFormat,
+          audio_format: "auto",  // Soniox auto-detects — works on iOS and Android
         }));
         const mr = new MediaRecorder(stream, { mimeType });
         mediaRecorderRef.current = mr;
