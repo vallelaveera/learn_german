@@ -234,36 +234,46 @@ export async function generateTopicSuggestions(
   profile: import("./types").UserProfile
 ): Promise<string[]> {
   const facts = profile.facts;
+  const askedTopics = facts.askedTopics ?? [];
 
-  // Always include these base topics
-  const baseTopic = [
+  // Full pool of topics
+  const pool = [
     "Alltag & Freizeit",
     "Arbeit & Karriere",
-  ];
-
-  // Personalised based on what we know
-  const personal: string[] = [];
-  if (facts.interests?.length) {
-    const interest = facts.interests[0];
-    personal.push(`${interest} auf Deutsch`);
-  }
-  if (facts.job) personal.push("Meetings & Kollegen");
-  if (facts.germanWhy?.includes("Arbeit") || facts.germanWhy?.includes("work")) {
-    personal.push("Vorstellungsgespräch üben");
-  }
-
-  // Fill remaining with context-based topics
-  const extra = [
     "Einkaufen & Restaurant",
     "Reisen & Urlaub",
     "Familie & Freunde",
     "Nachrichten & Kultur",
     "Smalltalk & Witze",
+    "Gesundheit & Sport",
+    "Technik & Internet",
+    "Essen & Kochen",
+    "Wetter & Natur",
+    "Filme & Musik",
+    "Wochenendpläne",
+    "Deutsche Kultur",
+    "Träume & Ziele",
   ];
 
-  const all = [...personal, ...baseTopic, ...extra];
-  // Return 5 unique topics
-  return Array.from(new Set(all)).slice(0, 5);
+  // Add personalised topics
+  const personal: string[] = [];
+  if (facts.interests?.length) {
+    facts.interests.slice(0, 2).forEach(i => personal.push(`${i} auf Deutsch`));
+  }
+  if (facts.job) personal.push("Meetings & Präsentationen");
+  if (facts.germanWhy?.toLowerCase().includes("arbeit")) {
+    personal.push("Vorstellungsgespräch üben");
+  }
+
+  // Filter out recently asked topics
+  const filtered = [...personal, ...pool].filter(t =>
+    !askedTopics.some(asked => t.toLowerCase().includes(asked.toLowerCase()))
+  );
+
+  // Shuffle for variety each session
+  const shuffled = filtered.sort(() => Math.random() - 0.5);
+
+  return Array.from(new Set(shuffled)).slice(0, 5);
 }
 
 // Build the full system prompt with user context

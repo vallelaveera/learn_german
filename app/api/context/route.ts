@@ -58,12 +58,8 @@ export async function GET(req: NextRequest) {
       generateTopicSuggestions(user),
     ]);
 
-    // Build topic opening
-    const topicList = topics.map((t, i) => `${i + 1}. ${t}`).join("\n");
-    const topicOpening = `${opening}\n\nWas möchtest du heute üben?\n${topicList}\n\nOder wir plaudern einfach — was du willst! 😊`;
-
     return NextResponse.json({
-      opening: topicOpening,
+      opening,
       systemPrompt,
       user,
       daysSinceLastCall: daysSince,
