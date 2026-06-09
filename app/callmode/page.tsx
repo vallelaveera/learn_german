@@ -41,6 +41,7 @@ export default function CallModePage() {
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
   const nextStartRef = useRef(0);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const pendingTopicQuestionRef = useRef<string | null>(null);
   const router = useRouter();
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -60,17 +61,9 @@ export default function CallModePage() {
         systemPromptRef.current = data.systemPrompt;
         if (data.topics) setTopics(data.topics);
         // Show topic question after opening TTS finishes
-        if (data.topicQuestion && data.topics?.length) {
-          setTimeout(() => {
-            const tqMsg: Message = {
-              role: "assistant",
-              content: data.topicQuestion,
-              timestamp: Date.now() + 100,
-            };
-            setMessages(prev => [...prev, tqMsg]);
-            messagesRef.current = [...messagesRef.current, tqMsg];
-            setTopicQuestionShown(true);
-          }, 3000); // show after opening audio finishes
+        // Store topic question to speak after opening finishes
+        if (data.topicQuestion) {
+          pendingTopicQuestionRef.current = data.topicQuestion;
         }
       });
   }, []);
