@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { updateUserFacts, saveVocabWords, markWordsUsedByUser } from "@/lib/kv";
-import { extractFacts, extractProfileFacts } from "@/lib/memory-agent";
+import { extractFacts, extractProfileFacts, extractAskedTopics } from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -30,11 +30,19 @@ export async function POST(req: NextRequest) {
       messages.filter((m: Message) => m.role === "user").map((m: Message) => m.content).join(" ")
     );
 
-    const newFacts = await extractFacts(messages, user.facts);
+    const [newFacts, profileFacts, newTopics] = await Promise.all([
+      extractFacts(messages, user.facts),
+      extractProfileFacts(messages, user.facts),
+      extractAskedTopics(messages),
+    ]);
 
-    // Also extract profile fields from onboarding conversations
-    const profileFacts = await extractProfileFacts(messages, user.facts);
-    const mergedFacts = { ...newFacts, ...profileFacts };
+    // Merge all facts + append new asked topics
+    const existingTopics = user.facts.askedTopics ?? [];
+    const mergedFacts = {
+      ...newFacts,
+      ...profileFacts,
+      askedTopics: Array.from(new Set([...existingTopics, ...newTopics])).slice(0, 50),
+    };
 
     await Promise.all([
       saveVocabWords(user.userId, mayaWords),

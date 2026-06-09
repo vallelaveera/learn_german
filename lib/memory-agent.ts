@@ -50,6 +50,43 @@ ${conversation}`
   }
 }
 
+// Extract topics Maya asked about in this session
+export async function extractAskedTopics(
+  messages: import("./types").Message[]
+): Promise<string[]> {
+  const mayaText = messages
+    .filter(m => m.role === "assistant")
+    .map(m => m.content)
+    .join(" ");
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 100,
+      system: `Extract the main topics that were asked about in Maya's messages.
+Return ONLY a JSON array of short topic strings (max 3 words each).
+Example: ["biryani", "jobsuche", "wochenende", "kollegen"]
+Return [] if nothing significant found.`,
+      messages: [{ role: "user", content: mayaText }],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text ?? "[]";
+  try {
+    const clean = text.replace(/\`\`\`json|\`\`\`/g, "").trim();
+    return JSON.parse(clean);
+  } catch {
+    return [];
+  }
+}
+
 // Extract personal facts from a conversation using Claude
 export async function extractFacts(
   messages: Message[],
