@@ -38,44 +38,6 @@ export default function WordsPage() {
       return b.lastSeen - a.lastSeen;
     });
 
-  const fetchExamples = async (word: string) => {
-    if (examples[word]) {
-      setExpandedWord(expandedWord === word ? null : word);
-      return;
-    }
-    setExpandedWord(word);
-    setLoadingExample(word);
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: `Give 2 short example German sentences using the word "${word}". Format: just the 2 sentences, one per line. No explanations.` }],
-          systemPrompt: "You are a German language teacher. Give exactly 2 short natural German example sentences. One sentence per line. Nothing else.",
-        }),
-      });
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let text = "";
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n"); buf = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const p = JSON.parse(line.slice(6).trim());
-            if (p.type === "content_block_delta" && p.delta?.type === "text_delta") text += p.delta.text;
-          } catch {}
-        }
-      }
-      const sentences = text.trim().split("\n").filter(Boolean).slice(0, 2);
-      setExamples(prev => ({ ...prev, [word]: sentences }));
-    } catch {}
-    setLoadingExample(null);
-  };
 
   const total = vocab.length;
   const practiced = vocab.filter(w => w.usedByUser).length;
