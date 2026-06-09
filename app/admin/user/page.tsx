@@ -1,6 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -14,6 +14,10 @@ interface Session {
   messages: { role: string; content: string; translation?: string }[];
 }
 
+export default function AdminUserPage() {
+  return <Suspense fallback={<div style={{padding:24,color:"var(--text-muted)"}}>Lädt...</div>}><AdminUserContent /></Suspense>;
+}
+
 interface Profile {
   name: string;
   email: string;
@@ -25,7 +29,7 @@ interface Profile {
   facts: Record<string, unknown>;
 }
 
-export default function AdminUserPage() {
+function AdminUserContent() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [vocab, setVocab] = useState<{ total: number; learned: number; new: number } | null>(null);

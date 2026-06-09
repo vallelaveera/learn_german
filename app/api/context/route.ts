@@ -4,6 +4,7 @@ import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, updateStr
 import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions } from "@/lib/memory-agent";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function getNextQuestion(missingFields: string[]): string {
   const questions: Record<string, string> = {
