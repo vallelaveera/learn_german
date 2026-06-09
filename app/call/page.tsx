@@ -108,6 +108,7 @@ export default function CallPage() {
 
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
     const ctx = getAudioCtx();
+    if (ctx.state === "suspended") await ctx.resume();
     try {
       const decoded = await ctx.decodeAudioData(chunk.slice(0));
       const source = ctx.createBufferSource();

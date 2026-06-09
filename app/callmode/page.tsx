@@ -94,6 +94,8 @@ export default function CallModePage() {
 
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
     const ctx = getAudioCtx();
+    // iOS: always resume before playing
+    if (ctx.state === "suspended") await ctx.resume();
     try {
       const decoded = await ctx.decodeAudioData(chunk.slice(0));
       const source = ctx.createBufferSource();
@@ -302,6 +304,16 @@ export default function CallModePage() {
   // ── Start call ────────────────────────────────────────
   const startCall = async () => {
     if (navigator.vibrate) navigator.vibrate(40);
+
+    // iOS CRITICAL: Create AND resume AudioContext directly on user gesture
+    // Must happen synchronously before any async calls
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext();
+    }
+    if (audioCtxRef.current.state === "suspended") {
+      await audioCtxRef.current.resume();
+    }
+
     _cm_active = true;
     _cm_sending = false;
     speechBufferRef.current = "";
@@ -314,7 +326,6 @@ export default function CallModePage() {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
     } catch {}
 
-    getAudioCtx();
     await start();
     setCallState("listening");
 
