@@ -23,26 +23,49 @@ export async function GET(req: NextRequest) {
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 200,
-        stream: false,
-        system: `Return ONLY valid JSON. No explanation. No markdown. Just JSON.`,
+        stream: true,
+        system: `Return ONLY valid JSON. No explanation. No markdown.`,
         messages: [{
           role: "user",
-          content: `Create 2 example sentences for the German word "${word}".
-Return this exact JSON structure:
+          content: `Create 2 example sentences for the German word "${word}". Return this exact JSON:
 {"s1de":"first German sentence","s1en":"English translation","s2de":"second German sentence","s2en":"English translation"}`
         }],
       }),
     });
 
-    const data = await res.json();
-    const text = data.content?.[0]?.text ?? "";
-    const clean = text.replace(/```json|```/g, "").trim();
+    // Parse streaming response
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+    let buf = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const p = JSON.parse(data);
+          if (p.type === "content_block_delta" && p.delta?.type === "text_delta") {
+            fullText += p.delta.text;
+          }
+        } catch {}
+      }
+    }
+
+    const clean = fullText.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
     const lines = [parsed.s1de, parsed.s1en, parsed.s2de, parsed.s2en];
 
     await saveWordExamples(word, lines);
     return NextResponse.json({ sentences: lines });
-  } catch {
+  } catch (e) {
+    console.error(e);
     return NextResponse.json({ sentences: [] });
   }
 }
