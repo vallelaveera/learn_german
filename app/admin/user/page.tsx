@@ -104,12 +104,13 @@ export default function AdminUserPage() {
           {Object.keys(profile.facts).length > 0 && (
             <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Profil</div>
-              {Object.entries(profile.facts)
+              {(Object.entries(profile.facts) as [string, unknown][])
                 .filter(([k]) => !["lastUpdated", "askedTopics", "personalDetails"].includes(k))
-                .map(([k, v]) => v && (
+                .filter(([, v]) => !!v)
+                .map(([k, v]) => (
                   <div key={k} style={{ display: "flex", gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", minWidth: 100 }}>{k}</span>
-                    <span style={{ fontSize: 12, color: "var(--text)" }}>{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+                    <span style={{ fontSize: 12, color: "var(--text)" }}>{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</span>
                   </div>
                 ))}
             </div>
