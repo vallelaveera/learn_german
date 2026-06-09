@@ -444,7 +444,7 @@ export default function CallModePage() {
         <div style={{ position: "absolute", bottom: 2, right: 2, width: 18, height: 18, borderRadius: "50%", background: "var(--green)", border: "2px solid var(--bg)" }} />
       </div>
 
-      <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#ffffff", color: "var(--text)", marginBottom: 8 }}>
+      <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#ffffff", marginBottom: 8 }}>
         Maya ruft an{user ? `, ${user.name}` : ""}
       </p>
       <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 48, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
