@@ -133,7 +133,7 @@ export default function CallModePage() {
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
-      const CHUNK = 16384;
+      const CHUNK = 8192;
       let buf = new Uint8Array(0);
       while (true) {
         const { done, value } = await reader.read();
