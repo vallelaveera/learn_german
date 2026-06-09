@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@soniox/speech-to-text-web": "^1.4.0",
     "@vercel/kv": "^2.0.0",
     "next": "14.2.5",
     "react": "^18",
