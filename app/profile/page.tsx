@@ -69,20 +69,25 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* What Maya knows */}
-          {Object.keys(facts).filter(k => !["lastUpdated", "askedTopics", "personalDetails"].includes(k) && facts[k]).length > 0 && (
-            <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14 }}>
-              <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Was Maya über dich weiß</p>
-              {Object.entries(facts)
-                .filter(([k, v]) => !["lastUpdated", "askedTopics", "personalDetails"].includes(k) && v)
-                .map(([k, v]) => (
-                  <div key={k} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-                    <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", minWidth: 100 }}>{k}</span>
-                    <span style={{ fontSize: 13, color: "var(--text)" }}>{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</span>
-                  </div>
-                ))}
-            </div>
-          )}
+          {/* What Maya knows — only safe fields */}
+          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14 }}>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Dein Lernprofil</p>
+            {[
+              { key: "nativeLanguage", label: "Muttersprache" },
+              { key: "germanWhy", label: "Warum Deutsch" },
+              { key: "occupation", label: "Beruf" },
+              { key: "interests", label: "Interessen" },
+            ]
+              .filter(({ key }) => facts[key])
+              .map(({ key, label }) => (
+                <div key={key} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", minWidth: 110 }}>{label}</span>
+                  <span style={{ fontSize: 13, color: "var(--text)" }}>
+                    {Array.isArray(facts[key]) ? (facts[key] as string[]).join(", ") : String(facts[key])}
+                  </span>
+                </div>
+              ))}
+          </div>
 
           {/* Stats */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

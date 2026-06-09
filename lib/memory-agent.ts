@@ -332,16 +332,12 @@ export function buildSystemPrompt(
 ): string {
   const facts = profile.facts;
   // GDPR: Personal details commented out — only keep language learning context
+  // GDPR: Only learning-related facts, no personal life details
   const factLines = [
     facts.occupation && `Occupation: ${facts.occupation}`,
     facts.germanWhy && `Learning German for: ${facts.germanWhy}`,
     facts.interests?.length && `Interests: ${facts.interests.join(", ")}`,
     facts.nativeLanguage && `Native language: ${facts.nativeLanguage}`,
-    // facts.city && `Lives in ${facts.city}`,        // GDPR
-    // facts.job && `Works as ${facts.job}`,           // GDPR
-    // facts.family && `Family: ${facts.family}`,      // GDPR
-    // facts.recentFood && `Recently cooked/ate: ${facts.recentFood}`, // GDPR
-    // facts.recentPlans && `Upcoming plans: ${facts.recentPlans}`,    // GDPR
   ]
     .filter(Boolean)
     .join("\n");
