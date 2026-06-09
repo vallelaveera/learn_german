@@ -60,7 +60,7 @@ export default function HistoryPage() {
           {!loading && sessions.length === 0 && (
             <p className={styles.empty}>
               Noch keine Gespräche gespeichert.<br />
-              <Link href="/mode" style={{ color: "var(--accent)" }}>
+              <Link href="/mode" style={{ color: "#7c4daa" }}>
                 Jetzt üben →
               </Link>
             </p>

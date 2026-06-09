@@ -428,13 +428,13 @@ export default function CallModePage() {
 
   // ── IDLE ──────────────────────────────────────────────
   if (phase === "idle") return (
-    <div style={{ minHeight: "100dvh", background: "var(--gradient)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+    <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "rgba(255,255,255,0.25)", color: "#ffffff", padding: "2px 6px", borderRadius: 3 }}>DE</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#ffffff" }}>CallMeDaily</span>
+          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
+          <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)" }}>CallMeDaily</span>
         </div>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", letterSpacing: "0.06em" }}>CALL MODE · FREIHÄNDIG</p>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", letterSpacing: "0.06em" }}>CALL MODE · FREIHÄNDIG</p>
       </div>
 
       <div style={{ position: "relative", marginBottom: 32 }}>
@@ -444,7 +444,7 @@ export default function CallModePage() {
         <div style={{ position: "absolute", bottom: 2, right: 2, width: 18, height: 18, borderRadius: "50%", background: "var(--green)", border: "2px solid var(--bg)" }} />
       </div>
 
-      <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#ffffff", marginBottom: 8 }}>
+      <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", marginBottom: 8 }}>
         Maya ruft an{user ? `, ${user.name}` : ""}
       </p>
       <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 48, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
@@ -457,7 +457,7 @@ export default function CallModePage() {
         </svg>
       </button>
 
-      <a href="/mode" style={{ marginTop: 40, fontSize: 12, color: "rgba(255,255,255,0.6)", textDecoration: "none" }}>← Modus wechseln</a>
+      <a href="/mode" style={{ marginTop: 40, fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>← Modus wechseln</a>
     </div>
   );
 
