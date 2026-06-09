@@ -75,7 +75,12 @@ export function useCallRecorder({
         mr.ondataavailable = (e) => {
           if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
         };
-        mr.start(100);
+        mr.start(250);
+        // iOS fix: requestData keepalive
+        const iosInterval = setInterval(() => {
+          if (mr.state === 'recording') mr.requestData();
+          else clearInterval(iosInterval);
+        }, 250);
       };
 
       ws.onmessage = (event) => {
