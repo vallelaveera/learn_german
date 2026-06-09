@@ -8,9 +8,11 @@ import { Message } from "@/lib/types";
 // ── Module-level flags ─────────────────────────────────────
 let _cm_sending = false;
 let _cm_active = false;
+let _cm_mic_start = 0;
 
 const SILENCE_THRESHOLD = 25; // volume below this = silence
 const SILENCE_DURATION = 2000; // ms before auto-send
+const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 
 type Phase = "idle" | "active" | "ended";
 type CallState = "listening" | "thinking" | "speaking";
@@ -262,6 +264,7 @@ export default function CallModePage() {
   const handleVolume = useCallback((vol: number) => {
     setVolume(vol);
     if (!_cm_active || _cm_sending) return;
+    if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return; // warmup period
 
     // Show silence hint after 2s of no speech
     if (vol < SILENCE_THRESHOLD) {
@@ -355,6 +358,7 @@ export default function CallModePage() {
 
     _cm_active = true;
     _cm_sending = false;
+    _cm_mic_start = Date.now();
     speechBufferRef.current = "";
     setError(null);
     setMessages([]);

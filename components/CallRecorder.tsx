@@ -105,12 +105,12 @@ export function useCallRecorder({
           }
         };
 
-        mr.start(500);
+        mr.start(250);
 
         const keepAlive = setInterval(() => {
           if (mr.state === "recording") mr.requestData();
           else clearInterval(keepAlive);
-        }, 500);
+        }, 250);
 
         mr.onerror = () => onError("Mikrofon Fehler");
       };
