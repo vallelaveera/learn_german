@@ -99,15 +99,23 @@ export default function ModePage() {
         </button>
       </div>
 
-      {/* Bottom links */}
-      <div style={{ display: "flex", gap: 20, marginTop: 40 }}>
+      {/* Bottom tab bar */}
+      <div style={{ display: "flex", gap: 8, marginTop: 32, width: "100%", maxWidth: 360 }}>
         {[
-          { href: "/words", label: "Wörter" },
-          { href: "/progress", label: "Fortschritt" },
-          { href: "/profile", label: "Profil" },
-          { href: "/history", label: "Verlauf" },
+          { href: "/words", label: "Wörter", icon: "📚" },
+          { href: "/progress", label: "Fortschritt", icon: "📈" },
+          { href: "/history", label: "Verlauf", icon: "🕐" },
+          { href: "/profile", label: "Profil", icon: "👤" },
         ].map(l => (
-          <a key={l.href} href={l.href} style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{l.label}</a>
+          <a key={l.href} href={l.href} style={{
+            flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+            gap: 4, padding: "10px 4px", borderRadius: 12,
+            background: "var(--surface)", border: "0.5px solid var(--border)",
+            textDecoration: "none",
+          }}>
+            <span style={{ fontSize: 18 }}>{l.icon}</span>
+            <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{l.label}</span>
+          </a>
         ))}
       </div>
 

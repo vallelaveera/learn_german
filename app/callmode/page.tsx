@@ -447,7 +447,7 @@ export default function CallModePage() {
       <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "#ffffff", marginBottom: 8 }}>
         Maya ruft an{user ? `, ${user.name}` : ""}
       </p>
-      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 48, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
+      <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 48, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
         Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
       </p>
 
@@ -463,23 +463,23 @@ export default function CallModePage() {
 
   // ── ENDED ─────────────────────────────────────────────
   if (phase === "ended") return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top,0px) + 24px) 16px calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+    <div style={{ minHeight: "100dvh", background: "#f8f6ff", display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top,0px) + 24px) 16px calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 4 }}>Gespräch beendet</p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{fmt(duration)} · {messages.length} Nachrichten</p>
+        <p style={{ fontSize: 12, color: "#8a7060" }}>{fmt(duration)} · {messages.length} Nachrichten</p>
       </div>
 
       <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {messages.map((msg, i) => (
-          <div key={i} style={{ padding: "10px 14px", borderRadius: 16, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", background: msg.role === "user" ? "var(--surface)" : "linear-gradient(135deg,#1a1a1d,#161618)", border: "0.5px solid var(--border)", borderLeft: msg.role === "assistant" ? "2px solid var(--accent-dim)" : undefined }}>
-            <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
-            <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+          <div key={i} style={{ padding: "10px 14px", borderRadius: 16, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`, borderLeft: msg.role === "assistant" ? "2px solid #7c4daa" : undefined }}>
+            <div style={{ fontSize: 10, color: msg.role === "assistant" ? "#7c4daa" : "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
+            <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
           </div>
         ))}
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "#ffffff", border: "0.5px solid #e0d8f0", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
           Nochmal
         </button>
         <a href="/mode" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
@@ -494,14 +494,14 @@ export default function CallModePage() {
     <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
 
       {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s" }} />
-          <span style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", fontFamily: "var(--font-mono)" }}>
+          <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)" }}>
             {callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
           </span>
         </div>
-        <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{fmt(duration)}</span>
+        <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)" }}>{fmt(duration)}</span>
       </div>
 
       {/* Conversation bubbles */}
@@ -517,11 +517,11 @@ export default function CallModePage() {
 
         {messages.map((msg, i) => (
           <div key={i} style={{ maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", animation: "fade-in 0.2s ease-out" }}>
-            <div style={{ padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f8f4ff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "var(--border)"}` }}>
+            <div style={{ padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}` }}>
               <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
                 {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
               </div>
-              <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content.replace(/<end>/g, "").trim()}</p>
+              <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content.replace(/<end>/g, "").trim()}</p>
               {msg.translation && (
                 <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
               )}
@@ -532,9 +532,9 @@ export default function CallModePage() {
         {/* Live text while speaking */}
         {liveText && callState === "listening" && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
-            <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "var(--gradient-soft)", border: "0.5px solid var(--accent-dim)" }}>
+            <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))", border: "0.5px solid rgba(124,77,170,0.2)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
-              <p style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>
+              <p style={{ fontSize: 14, color: "#8a7060", lineHeight: 1.6, margin: 0 }}>
                 {liveText.replace(/<end>/g, "").trim()}
                 <span style={{ display: "inline-block", width: 2, height: "1em", background: "var(--accent)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
               </p>
@@ -544,7 +544,7 @@ export default function CallModePage() {
         {/* Thinking dots */}
         {callState === "thinking" && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-start" }}>
-            <div style={{ padding: "12px 16px", borderRadius: "16px 16px 16px 4px", background: "var(--surface)", border: "0.5px solid var(--border)", display: "flex", gap: 5, alignItems: "center" }}>
+            <div style={{ padding: "12px 16px", borderRadius: "16px 16px 16px 4px", background: "#f0ebff", border: "0.5px solid #ddd5f0", display: "flex", gap: 5, alignItems: "center" }}>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(212,168,67,0.5)", animation: `wave 1s ease-in-out ${i * 0.15}s infinite` }} />
               ))}
@@ -586,7 +586,7 @@ export default function CallModePage() {
             borderRadius: 10, padding: "10px 16px",
             textAlign: "center", animation: "fade-in 0.3s ease-out",
           }}>
-            <p style={{ fontSize: 12, color: "rgba(212,168,67,0.8)", marginBottom: 4 }}>
+            <p style={{ fontSize: 12, color: "#7c4daa", marginBottom: 4 }}>
               🎙️ Sprich laut — Maya hört zu
             </p>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
