@@ -39,7 +39,35 @@ export default function WordsPage() {
     });
 
 
-  const total = vocab.length;
+  const fetchSentences = async (word: string) => {
+    if (expandedWord === word) { setExpandedWord(null); return; }
+    setExpandedWord(word);
+    if (sentences[word]) return;
+    setLoadingSentences(word);
+    try {
+      const res = await fetch(`/api/examples?word=${encodeURIComponent(word)}&type=sentences`);
+      const data = await res.json();
+      setSentences(prev => ({ ...prev, [word]: data.data ?? [] }));
+    } catch {}
+    setLoadingSentences(null);
+  };
+
+  const fetchTranslations = async (word: string) => {
+    if (translations[word]) {
+      setShowTranslation(prev => ({ ...prev, [word]: !prev[word] }));
+      return;
+    }
+    setLoadingTranslations(word);
+    try {
+      const res = await fetch(`/api/examples?word=${encodeURIComponent(word)}&type=translations`);
+      const data = await res.json();
+      setTranslations(prev => ({ ...prev, [word]: data.data ?? [] }));
+      setShowTranslation(prev => ({ ...prev, [word]: true }));
+    } catch {}
+    setLoadingTranslations(null);
+  };
+
+    const total = vocab.length;
   const practiced = vocab.filter(w => w.usedByUser).length;
   const newWords = vocab.filter(w => !w.usedByUser).length; // SET_M - SET_U
 
