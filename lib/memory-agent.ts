@@ -193,7 +193,7 @@ NOT dramatic, NOT overly excited. Just warm and friendly.`,
 }
 
 // Build the full system prompt with user context
-export function buildOnboardingPrompt(userName: string): string {
+export function buildOnboardingPrompt(userName: string, missingFields: string[] = []): string {
   return `You are Maya — ${userName}'s new personal German tutor and friend.
 This is your FIRST conversation with ${userName}.
 
