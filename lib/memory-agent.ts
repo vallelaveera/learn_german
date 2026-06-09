@@ -1,5 +1,55 @@
 import { Message, UserFacts, UserProfile } from "./types";
 
+// Extract profile facts from onboarding conversation
+export async function extractProfileFacts(
+  messages: import("./types").Message[],
+  existingFacts: import("./types").UserFacts
+): Promise<Partial<import("./types").UserFacts>> {
+  const conversation = messages
+    .map(m => `${m.role === "user" ? "User" : "Maya"}: ${m.content}`)
+    .join("\n");
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 300,
+      system: `Extract profile information from this conversation. Return ONLY valid JSON.
+Fields to extract (only if clearly mentioned):
+{
+  "occupation": "student" or "working" or "both",
+  "job": "their job title or field of study",
+  "germanWhy": "why they are learning German",
+  "interests": ["hobby1", "hobby2"],
+  "nativeLanguage": "their native language",
+  "city": "city they live in"
+}
+Return {} if nothing found. Never guess.`,
+      messages: [{
+        role: "user",
+        content: `Existing facts: ${JSON.stringify(existingFacts)}
+
+Conversation:
+${conversation}`
+      }],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text ?? "{}";
+  try {
+    const clean = text.replace(/\`\`\`json|\`\`\`/g, "").trim();
+    return JSON.parse(clean);
+  } catch {
+    return {};
+  }
+}
+
 // Extract personal facts from a conversation using Claude
 export async function extractFacts(
   messages: Message[],
@@ -175,6 +225,24 @@ RULES:
 - Speak ONLY German. Never switch to English mid-sentence.
 - After your German response, add ONE 💡 hint line in English if needed
 - Keep responses short — max 2 sentences`;
+}
+
+export function isProfileComplete(facts: import("./types").UserFacts): boolean {
+  return !!(
+    facts.occupation &&
+    facts.germanWhy &&
+    facts.interests?.length &&
+    facts.nativeLanguage
+  );
+}
+
+export function getMissingFields(facts: import("./types").UserFacts): string[] {
+  const missing = [];
+  if (!facts.occupation) missing.push("job_or_study");
+  if (!facts.germanWhy) missing.push("why_learning_german");
+  if (!facts.interests?.length) missing.push("hobbies_interests");
+  if (!facts.nativeLanguage) missing.push("native_language");
+  return missing;
 }
 
 export function buildOnboardingOpening(userName: string): string {

@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, updateStreak } from "@/lib/kv";
-import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening } from "@/lib/memory-agent";
+import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields } from "@/lib/memory-agent";
 
 export const runtime = "nodejs";
+
+function getNextQuestion(missingFields: string[]): string {
+  const questions: Record<string, string> = {
+    "job_or_study": "Bist du Student oder berufstätig?",
+    "why_learning_german": "Warum lernst du Deutsch?",
+    "hobbies_interests": "Was machst du gerne in deiner Freizeit?",
+    "native_language": "Welche Sprache sprichst du zu Hause?",
+  };
+  return questions[missingFields[0]] ?? "Erzähl mir mehr über dich!";
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,18 +30,25 @@ export async function GET(req: NextRequest) {
       .flatMap(s => s.extractedFacts?.personalDetails ?? [])
       .slice(0, 5);
 
-    // First time user — use onboarding, don't update streak yet
-    if (user.totalSessions === 0) {
-      const opening = buildOnboardingOpening(user.name);
-      const systemPrompt = buildOnboardingPrompt(user.name);
+    // Check if profile is complete — if not, still in onboarding phase
+    const profileComplete = isProfileComplete(user.facts);
+    const missingFields = getMissingFields(user.facts);
+
+    if (!profileComplete) {
+      const isFirstEver = user.totalSessions === 0;
+      const opening = isFirstEver
+        ? buildOnboardingOpening(user.name)
+        : `Hallo ${user.name}! Schön, dass du wieder da bist. ${missingFields.length > 0 ? "Ich würde dich noch etwas besser kennenlernen — " + getNextQuestion(missingFields) : ""}`;
+      const systemPrompt = buildOnboardingPrompt(user.name, missingFields);
       return NextResponse.json({
         opening,
         systemPrompt,
         user,
-        daysSinceLastCall: 999,
+        daysSinceLastCall: daysSince,
         unpracticedWords: [],
-        streak: 0,
+        streak: user.streak,
         isOnboarding: true,
+        missingFields,
       });
     }
 

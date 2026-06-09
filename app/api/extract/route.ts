@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { updateUserFacts, saveVocabWords, markWordsUsedByUser } from "@/lib/kv";
-import { extractFacts } from "@/lib/memory-agent";
+import { extractFacts, extractProfileFacts } from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -32,10 +32,14 @@ export async function POST(req: NextRequest) {
 
     const newFacts = await extractFacts(messages, user.facts);
 
+    // Also extract profile fields from onboarding conversations
+    const profileFacts = await extractProfileFacts(messages, user.facts);
+    const mergedFacts = { ...newFacts, ...profileFacts };
+
     await Promise.all([
       saveVocabWords(user.userId, mayaWords),
       markWordsUsedByUser(user.userId, userWords),
-      updateUserFacts(user.userId, newFacts),
+      updateUserFacts(user.userId, mergedFacts),
     ]);
 
     return NextResponse.json({ ok: true, facts: newFacts });

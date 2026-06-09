@@ -15,6 +15,12 @@ export interface UserFacts {
   recentPlans?: string;
   personalDetails?: string[];
   lastUpdated?: number;
+  // Onboarding profile fields
+  nativeLanguage?: string;
+  germanWhy?: string;
+  germanLevel?: string;
+  interests?: string[];
+  occupation?: string; // "student" | "working" | "both"
 }
 
 export interface Session {
