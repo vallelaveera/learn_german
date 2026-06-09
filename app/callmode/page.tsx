@@ -302,11 +302,15 @@ export default function CallModePage() {
   }, [sendToTutor]);
 
   // ── Transcript callbacks ──────────────────────────────
+  const nonFinalRef = useRef("");
+
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
     if (isFinal) {
       speechBufferRef.current += text;
+      nonFinalRef.current = "";
       setLiveText(speechBufferRef.current);
     } else {
+      nonFinalRef.current = text;
       setLiveText(speechBufferRef.current + text);
     }
   }, []);
