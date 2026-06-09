@@ -153,35 +153,16 @@ export default function CallModePage() {
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
 
-      if (isIOS) {
-        // iOS: collect full audio first — chunked decoding unreliable on iOS
-        let buf = new Uint8Array(0);
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const nb = new Uint8Array(buf.length + value.length);
-          nb.set(buf); nb.set(value, buf.length); buf = nb;
-        }
-        if (buf.length > 0) {
-          await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-        }
-      } else {
-        // Android/Desktop: stream chunks immediately — low latency
-        const CHUNK = 16384;
-        let buf = new Uint8Array(0);
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-            break;
-          }
-          const nb = new Uint8Array(buf.length + value.length);
-          nb.set(buf); nb.set(value, buf.length); buf = nb;
-          if (buf.length >= CHUNK) {
-            const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
-            playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
-          }
-        }
+      // Collect full audio then play — works on all platforms
+      let buf = new Uint8Array(0);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const nb = new Uint8Array(buf.length + value.length);
+        nb.set(buf); nb.set(value, buf.length); buf = nb;
+      }
+      if (buf.length > 0) {
+        await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
       }
     } catch (e) {
       console.error("TTS error:", e);
