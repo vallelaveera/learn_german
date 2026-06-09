@@ -331,14 +331,17 @@ export function buildSystemPrompt(
   unpracticedWords: string[]
 ): string {
   const facts = profile.facts;
+  // GDPR: Personal details commented out — only keep language learning context
   const factLines = [
-    facts.city && `Lives in ${facts.city}`,
-    facts.job && `Works as ${facts.job}`,
-    facts.family && `Family: ${facts.family}`,
-    facts.recentFood && `Recently cooked/ate: ${facts.recentFood}`,
-    facts.recentPlans && `Upcoming plans: ${facts.recentPlans}`,
-    facts.personalDetails?.length &&
-      `Other details: ${facts.personalDetails.join(", ")}`,
+    facts.occupation && `Occupation: ${facts.occupation}`,
+    facts.germanWhy && `Learning German for: ${facts.germanWhy}`,
+    facts.interests?.length && `Interests: ${facts.interests.join(", ")}`,
+    facts.nativeLanguage && `Native language: ${facts.nativeLanguage}`,
+    // facts.city && `Lives in ${facts.city}`,        // GDPR
+    // facts.job && `Works as ${facts.job}`,           // GDPR
+    // facts.family && `Family: ${facts.family}`,      // GDPR
+    // facts.recentFood && `Recently cooked/ate: ${facts.recentFood}`, // GDPR
+    // facts.recentPlans && `Upcoming plans: ${facts.recentPlans}`,    // GDPR
   ]
     .filter(Boolean)
     .join("\n");
@@ -357,8 +360,8 @@ ${unpracticedWords.length > 0 ? `Words to practice naturally: ${unpracticedWords
 RULES:
 1. Always respond in German. Keep it conversational, 2-4 sentences max.
 2. You are a FRIEND, not a teacher. Correct gently by modeling the right form naturally.
-3. Reference their life naturally — ask about their family, food, work, plans.
-4. If they haven't called in 3+ days, mention it warmly.
+3. Keep conversation focused on German practice and general topics.
+4. If they haven't called in 3+ days, just say nice to hear from them.
 5. Weave unpracticed words into conversation naturally.
 6. After your German reply, add "💡 " with a brief English hint only if you used something advanced.
 7. Ask follow-up questions to keep conversation going.
