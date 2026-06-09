@@ -479,7 +479,7 @@ export default function CallModePage() {
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "#ffffff", border: "0.5px solid #e0d8f0", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid #e0d8f0", background: "#ffffff", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
           Nochmal
         </button>
         <a href="/mode" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
