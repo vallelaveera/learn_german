@@ -17,8 +17,11 @@ export default function WordsPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"length" | "frequency" | "recent">("length");
   const [expandedWord, setExpandedWord] = useState<string | null>(null);
-  const [examples, setExamples] = useState<Record<string, string[]>>({});
-  const [loadingExample, setLoadingExample] = useState<string | null>(null);
+  const [sentences, setSentences] = useState<Record<string, string[]>>({});
+  const [translations, setTranslations] = useState<Record<string, string[]>>({});
+  const [loadingSentences, setLoadingSentences] = useState<string | null>(null);
+  const [loadingTranslations, setLoadingTranslations] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -159,28 +162,41 @@ export default function WordsPage() {
               <div style={{ marginTop: 4, height: 3, borderRadius: 2, background: "var(--border)", overflow: "hidden", width: "100%" }}>
                 <div style={{ height: "100%", borderRadius: 2, background: w.usedByUser ? "var(--green)" : "var(--accent)", width: `${Math.min(100, w.timesSeen * 20)}%`, transition: "width 0.3s" }} />
               </div>
-              <button onClick={() => fetchExamples(w.word)} style={{
+              <button onClick={() => fetchSentences(w.word)} style={{
                 marginTop: 8, fontSize: 10, color: "var(--accent)",
                 background: "none", border: "0.5px solid var(--accent-dim)",
                 borderRadius: 4, padding: "2px 8px", cursor: "pointer",
                 fontFamily: "var(--font-mono)"
               }}>
-                {loadingExample === w.word ? "..." : expandedWord === w.word ? "▲ Beispiele" : "▼ Beispiele"}
+                {loadingSentences === w.word ? "..." : expandedWord === w.word ? "▲ Beispiele" : "▼ Beispiele"}
               </button>
-              {expandedWord === w.word && examples[w.word] && (
-                <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--bg)", borderRadius: 6, border: "0.5px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
-                  {[0, 2].map(i => examples[w.word][i] && (
-                    <div key={i}>
-                      <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: 0, fontStyle: "italic" }}>
-                        "{examples[w.word][i]}"
-                      </p>
-                      {examples[w.word][i+1] && (
-                        <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, margin: "3px 0 0", paddingLeft: 8 }}>
-                          ({examples[w.word][i+1]})
-                        </p>
-                      )}
-                    </div>
+
+              {expandedWord === w.word && sentences[w.word] && (
+                <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--bg)", borderRadius: 6, border: "0.5px solid var(--border)" }}>
+                  {sentences[w.word].map((s, i) => (
+                    <p key={i} style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: i > 0 ? "6px 0 0" : 0, fontStyle: "italic" }}>
+                      "{s}"
+                    </p>
                   ))}
+
+                  {showTranslation[w.word] && translations[w.word] && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "0.5px solid var(--border)" }}>
+                      {translations[w.word].map((t, i) => (
+                        <p key={i} style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, margin: i > 0 ? "4px 0 0" : 0 }}>
+                          {i + 1}. {t}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  <button onClick={() => fetchTranslations(w.word)} style={{
+                    marginTop: 10, fontSize: 10, color: "var(--text-muted)",
+                    background: "none", border: "0.5px solid var(--border)",
+                    borderRadius: 4, padding: "2px 10px", cursor: "pointer",
+                    fontFamily: "var(--font-mono)", display: "block"
+                  }}>
+                    {loadingTranslations === w.word ? "..." : showTranslation[w.word] ? "DE verbergen" : "EN anzeigen"}
+                  </button>
                 </div>
               )}
             </div>
