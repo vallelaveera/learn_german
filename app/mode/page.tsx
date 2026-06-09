@@ -41,34 +41,44 @@ export default function ModePage() {
       {/* Mode cards */}
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Call mode - DEFAULT */}
-        <button
-          onClick={() => router.push("/callmode")}
-          style={{
-            width: "100%", padding: "20px", borderRadius: 14,
-            background: "linear-gradient(135deg, rgba(212,168,67,0.08), rgba(212,168,67,0.03))",
-            border: "1px solid var(--accent-dim)",
-            cursor: "pointer", textAlign: "left",
-            WebkitTapHighlightColor: "transparent",
-            transition: "border-color 0.2s",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-              </svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 15, fontWeight: 500, color: "var(--accent)", fontFamily: "var(--font-serif)" }}>Call Mode</span>
-                <span style={{ fontSize: 10, background: "var(--accent-glow)", color: "var(--accent)", border: "0.5px solid var(--accent-dim)", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>EMPFOHLEN</span>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Völlig freihändig. Ideal beim Spazieren, im Gym oder beim Pendeln.</div>
-            </div>
-            <span style={{ color: "var(--accent)", fontSize: 18 }}>→</span>
+        {/* Call mode — two voice options */}
+        <div style={{ width: "100%" }}>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+            📞 Call Mode — Stimme wählen
           </div>
-        </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            {/* Maya Classic — Soniox */}
+            <button
+              onClick={() => { localStorage.setItem("maya_voice", "soniox"); router.push("/callmode"); }}
+              style={{
+                flex: 1, padding: "16px 12px", borderRadius: 14,
+                background: "var(--surface)", border: "1px solid var(--border)",
+                cursor: "pointer", textAlign: "center",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <div style={{ fontSize: 28, marginBottom: 6 }}>🎙️</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Maya A</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Classic</div>
+            </button>
+
+            {/* Maya Natural — Fish Audio */}
+            <button
+              onClick={() => { localStorage.setItem("maya_voice", "fish"); router.push("/callmode"); }}
+              style={{
+                flex: 1, padding: "16px 12px", borderRadius: 14,
+                background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))",
+                border: "1px solid rgba(124,77,170,0.3)",
+                cursor: "pointer", textAlign: "center",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <div style={{ fontSize: 28, marginBottom: 6 }}>✨</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "#7c4daa", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Maya B</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)"}}>Natural</div>
+            </button>
+          </div>
+        </div>
 
         {/* Practice mode */}
         <button
