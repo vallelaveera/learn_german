@@ -148,7 +148,7 @@ export default function CallModePage() {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, provider: ttsProvider }),
+        body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
