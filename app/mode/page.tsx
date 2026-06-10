@@ -41,44 +41,25 @@ export default function ModePage() {
       {/* Mode cards */}
       <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Call mode — two voice options */}
-        <div style={{ width: "100%" }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-            📞 Call Mode — Stimme wählen
+        {/* Call mode — Soniox only (Fish voice hidden in UI for now) */}
+        <button
+          onClick={() => { localStorage.setItem("maya_voice", "soniox"); router.push("/callmode"); }}
+          style={{
+            width: "100%", padding: "20px", borderRadius: 14,
+            background: "var(--surface)", border: "1px solid var(--border)",
+            cursor: "pointer", textAlign: "left",
+            display: "flex", alignItems: "center", gap: 16,
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 22 }}>📞</span>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            {/* Maya Classic — Soniox */}
-            <button
-              onClick={() => { localStorage.setItem("maya_voice", "soniox"); router.push("/callmode"); }}
-              style={{
-                flex: 1, padding: "16px 12px", borderRadius: 14,
-                background: "var(--surface)", border: "1px solid var(--border)",
-                cursor: "pointer", textAlign: "center",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              <div style={{ fontSize: 28, marginBottom: 6 }}>🎙️</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Maya A</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Classic</div>
-            </button>
-
-            {/* Maya Natural — Fish Audio */}
-            <button
-              onClick={() => { localStorage.setItem("maya_voice", "fish"); router.push("/callmode"); }}
-              style={{
-                flex: 1, padding: "16px 12px", borderRadius: 14,
-                background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))",
-                border: "1px solid rgba(124,77,170,0.3)",
-                cursor: "pointer", textAlign: "center",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              <div style={{ fontSize: 28, marginBottom: 6 }}>✨</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "#7c4daa", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Maya B</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)"}}>Natural</div>
-            </button>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Call Mode</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Freihändig sprechen — Maya hört automatisch zu.</div>
           </div>
-        </div>
+        </button>
 
         {/* Practice mode */}
         <button

@@ -63,8 +63,9 @@ export default function CallModePage() {
   const [user, setUser] = useState<{ name: string } | null>(null);
   const ttsProviderRef = useRef<"soniox" | "fish">("soniox");
   useEffect(() => {
-    const voice = (localStorage.getItem("maya_voice") ?? "soniox") as "soniox" | "fish";
-    ttsProviderRef.current = voice;
+    // Maya B (Fish) disabled in UI — always use Maya A until re-enabled
+    ttsProviderRef.current = "soniox";
+    localStorage.setItem("maya_voice", "soniox");
   }, []);
 
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);

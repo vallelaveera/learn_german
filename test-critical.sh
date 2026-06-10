@@ -153,6 +153,19 @@ grep -qE '/\\p\{' lib/fish-tts.ts \
   || check "ES5-safe emoji strip (no \\p{} regex)" "ok"
 
 echo ""
+echo "── app/mode/page.tsx ───────────────────"
+
+check_absent "mode page: Fish voice button hidden" "app/mode/page.tsx" 'maya_voice", "fish"'
+
+grep -q 'maya_voice", "soniox"' app/mode/page.tsx \
+  && check "mode page: call mode sets soniox" "ok" \
+  || check "mode page: call mode sets soniox" "fail"
+
+grep -q 'ttsProviderRef.current = "soniox"' app/callmode/page.tsx \
+  && check "callmode: Maya B disabled, forces soniox" "ok" \
+  || check "callmode: Maya B disabled, forces soniox" "fail"
+
+echo ""
 echo "── lib/memory-agent.ts ─────────────────"
 
 check_absent "onboarding: no forced farewell phrase" "lib/memory-agent.ts" 'Ich rufe dich morgen wieder an'
