@@ -28,6 +28,7 @@ export function useCallRecorder({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const silentNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const finalBufferRef = useRef("");
+  const mutedRef = useRef(false);
 
   const start = useCallback(async () => {
     finishedFiredRef.current = false;
@@ -64,6 +65,11 @@ export function useCallRecorder({
       source.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
+        if (mutedRef.current) {
+          onVolume(0);
+          animFrameRef.current = requestAnimationFrame(tick);
+          return;
+        }
         analyser.getByteFrequencyData(data);
         // Speech band only (~300–3400 Hz) — ignores low rumble / chair creaks
         const start = Math.floor(data.length * 0.08);
@@ -111,6 +117,11 @@ export function useCallRecorder({
         };
 
         mr.start(250);
+        if (mutedRef.current) {
+          stream.getAudioTracks().forEach(t => { t.enabled = false; });
+          if (mr.state === "recording") mr.pause();
+          onVolume(0);
+        }
 
         const keepAlive = setInterval(() => {
           if (mr.state === "recording") mr.requestData();
@@ -155,8 +166,20 @@ export function useCallRecorder({
     }
   }, [apiKey, onTranscript, onFinished, onError, onVolume, getContext]);
 
+  const setMuted = useCallback((muted: boolean) => {
+    mutedRef.current = muted;
+    streamRef.current?.getAudioTracks().forEach(t => { t.enabled = !muted; });
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== "inactive") {
+      if (muted && mr.state === "recording") mr.pause();
+      else if (!muted && mr.state === "paused") mr.resume();
+    }
+    if (muted) onVolume(0);
+  }, [onVolume]);
+
   const stop = useCallback(() => {
     finishedFiredRef.current = true;
+    mutedRef.current = false;
     cancelAnimationFrame(animFrameRef.current);
     onVolume(0);
     try { silentNodeRef.current?.stop(); } catch {}
@@ -174,5 +197,5 @@ export function useCallRecorder({
     streamRef.current = null;
   }, [onVolume]);
 
-  return { start, stop, audioCtxRef };
+  return { start, stop, setMuted, audioCtxRef };
 }

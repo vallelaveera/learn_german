@@ -73,6 +73,8 @@ export default function CallModePage() {
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const isMutedRef = useRef(false);
   const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
@@ -178,6 +180,7 @@ export default function CallModePage() {
       _cm_mic_start = Date.now();
       setCallState("listening");
       await startRef.current();
+      if (isMutedRef.current) setMutedRef.current(true);
     } finally {
       _cm_mic_running = false;
     }
@@ -330,11 +333,17 @@ export default function CallModePage() {
       if (!fullText) throw new Error();
       const allLines = fullText.split("\n").filter(Boolean);
       const german = allLines.filter(l => !l.startsWith("💡")).join(" ").trim();
-      const hint = allLines.find(l => l.startsWith("💡"));
+      const hintLines = allLines
+        .filter(l => l.startsWith("💡"))
+        .map(l => l.replace(/^💡\s*/, "").trim())
+        .filter(Boolean);
+      const hint = hintLines.length
+        ? hintLines.filter((h, i) => hintLines.indexOf(h) === i).join(" · ")
+        : undefined;
       const assistantMsg: Message = {
         role: "assistant",
         content: german,
-        translation: hint?.replace("💡 ", ""),
+        translation: hint,
         timestamp: Date.now(),
       };
       const withAssistant = [...messagesRef.current, assistantMsg];
@@ -456,6 +465,10 @@ export default function CallModePage() {
 
   // ── VAD — silence detection (hysteresis + sustained speech gate) ──
   const handleVolume = useCallback((vol: number) => {
+    if (isMutedRef.current) {
+      setVolume(0);
+      return;
+    }
     setVolume(vol);
     if (!_cm_active || _cm_sending) return;
     if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return;
@@ -499,7 +512,7 @@ export default function CallModePage() {
   const nonFinalRef = useRef("");
 
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
-    if (!isSpeakingRef.current) return;
+    if (isMutedRef.current || !isSpeakingRef.current) return;
     if (isFinal) {
       speechBufferRef.current += text;
       nonFinalRef.current = "";
@@ -514,7 +527,7 @@ export default function CallModePage() {
   }, [clearSilenceTimer]);
 
   const handleFinished = useCallback(() => {
-    if (!_cm_active || _cm_sending) return;
+    if (!_cm_active || _cm_sending || isMutedRef.current) return;
     sttEndpointRef.current = true;
     if (speechBufferRef.current.trim() && isSpeakingRef.current) {
       clearSilenceTimer();
@@ -537,7 +550,29 @@ export default function CallModePage() {
     setError(e);
   }, []);
 
-  const { start, stop, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
+  const setMutedRef = useRef<(muted: boolean) => void>(() => {});
+
+  const toggleMute = useCallback(() => {
+    const next = !isMutedRef.current;
+    isMutedRef.current = next;
+    setIsMuted(next);
+    setMutedRef.current(next);
+    if (next) {
+      clearSilenceTimer();
+      speechBufferRef.current = "";
+      nonFinalRef.current = "";
+      isSpeakingRef.current = false;
+      speechFramesRef.current = 0;
+      sttEndpointRef.current = false;
+      setLiveText("");
+      setVolume(0);
+    } else {
+      _cm_mic_start = Date.now();
+    }
+    if (navigator.vibrate) navigator.vibrate(20);
+  }, [clearSilenceTimer]);
+
+  const { start, stop, setMuted, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onFinished: handleFinished,
@@ -549,6 +584,7 @@ export default function CallModePage() {
   // Keep refs in sync
   useEffect(() => { startRef.current = start; }, [start]);
   useEffect(() => { stopRef.current = stop; }, [stop]);
+  useEffect(() => { setMutedRef.current = setMuted; }, [setMuted]);
   useEffect(() => { restartMicRef.current = restartMic; }, [restartMic]);
   useEffect(() => { finishTTSPlaybackRef.current = finishTTSPlayback; }, [finishTTSPlayback]);
 
@@ -574,6 +610,8 @@ export default function CallModePage() {
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
+    isMutedRef.current = false;
+    setIsMuted(false);
     setError(null);
     setLiveText("");
     setDuration(0);
@@ -618,6 +656,8 @@ export default function CallModePage() {
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
+    isMutedRef.current = false;
+    setIsMuted(false);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     stop();
@@ -737,6 +777,9 @@ export default function CallModePage() {
           <div key={i} style={{ padding: "10px 14px", borderRadius: 16, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`, borderLeft: msg.role === "assistant" ? "2px solid #7c4daa" : undefined }}>
             <div style={{ fontSize: 10, color: msg.role === "assistant" ? "#7c4daa" : "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+            {msg.translation && msg.role === "assistant" && (
+              <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
+            )}
           </div>
         ))}
       </div>
@@ -759,9 +802,9 @@ export default function CallModePage() {
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s" }} />
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s" }} />
           <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)" }}>
-            {callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
+            {isMuted && callState === "listening" ? "STUMM" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
           </span>
         </div>
         <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)" }}>{fmt(duration)}</span>
@@ -785,8 +828,8 @@ export default function CallModePage() {
                 {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
               </div>
               <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content.replace(/<end>/g, "").trim()}</p>
-              {msg.translation && (
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
+              {msg.translation && msg.role === "assistant" && (
+                <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
               )}
             </div>
           </div>
@@ -822,7 +865,9 @@ export default function CallModePage() {
         {/* Volume bars */}
         <div style={{ display: "flex", alignItems: "center", gap: 3, height: 28 }}>
           {Array.from({ length: 9 }, (_, i) => {
-            const height = callState === "listening"
+            const height = isMuted
+              ? 4
+              : callState === "listening"
               ? Math.max(4, Math.min(28, (volume / 50) * 28 * Math.abs(Math.sin((i + 1) * 0.7))))
               : callState === "speaking"
               ? 8 + Math.abs(Math.sin(i * 0.8)) * 12
@@ -867,15 +912,49 @@ export default function CallModePage() {
           </div>
         )}
 
-        {/* Hang up */}
-        <button
-          onClick={endCall}
-          style={{ width: 68, height: 68, borderRadius: "50%", background: "rgba(192,57,43,0.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", WebkitTapHighlightColor: "transparent", boxShadow: "0 4px 20px rgba(192,57,43,0.3)" }}
-        >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="white" style={{ transform: "rotate(135deg)" }}>
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-          </svg>
-        </button>
+        {/* Mute + hang up */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 36 }}>
+          <button
+            onClick={toggleMute}
+            aria-label={isMuted ? "Mikrofon einschalten" : "Mikrofon stummschalten"}
+            aria-pressed={isMuted}
+            style={{
+              width: 52, height: 52, borderRadius: "50%",
+              background: isMuted ? "rgba(192,57,43,0.12)" : "var(--surface)",
+              border: `2px solid ${isMuted ? "rgba(192,57,43,0.45)" : "var(--accent-dim)"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", WebkitTapHighlightColor: "transparent",
+            }}
+          >
+            {isMuted ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            onClick={endCall}
+            aria-label="Anruf beenden"
+            style={{ width: 68, height: 68, borderRadius: "50%", background: "rgba(192,57,43,0.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", WebkitTapHighlightColor: "transparent", boxShadow: "0 4px 20px rgba(192,57,43,0.3)" }}
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="white" style={{ transform: "rotate(135deg)" }}>
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </button>
+        </div>
+        {isMuted && callState === "listening" && (
+          <p style={{ fontSize: 11, color: "#8a7060", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: -8 }}>Mikrofon stumm</p>
+        )}
       </div>
     </div>
   );

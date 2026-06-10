@@ -202,6 +202,14 @@ grep -q "askShortConfirm" app/callmode/page.tsx \
   && check "short reply: askShortConfirm flow" "ok" \
   || check "short reply: askShortConfirm flow" "fail"
 
+grep -q "toggleMute" app/callmode/page.tsx \
+  && check "callmode: mute button toggleMute" "ok" \
+  || check "callmode: mute button toggleMute" "fail"
+
+grep -q "setMuted" components/CallRecorder.tsx \
+  && check "CallRecorder: setMuted export" "ok" \
+  || check "CallRecorder: setMuted export" "fail"
+
 # Welcome message
 grep -q "fallbackOpening" app/callmode/page.tsx \
   && check "welcome: fallbackOpening exists" "ok" \
