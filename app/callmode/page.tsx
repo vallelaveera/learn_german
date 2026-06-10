@@ -61,7 +61,7 @@ export default function CallModePage() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, liveText]);
 
-  // Load user + context on mount (for limit check + system prompt)
+  // Load user + context
   useEffect(() => {
     fetch("/api/context")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
@@ -76,6 +76,11 @@ export default function CallModePage() {
         systemPromptRef.current = data.systemPrompt;
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
+        // Show topic question after opening TTS finishes
+        // Store topic question to speak after opening finishes
+        if (data.topicQuestion) {
+          pendingTopicQuestionRef.current = data.topicQuestion;
+        }
       });
   }, []);
 

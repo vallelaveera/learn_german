@@ -8,24 +8,26 @@ export async function POST(req: NextRequest) {
   if (!text) return new Response("No text", { status: 400 });
 
   if (provider === "fish") {
+    console.log("Using Fish Audio TTS");
+    // Fish Audio — Maya Natural
     const res = await fetch("https://api.fish.audio/v1/tts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.FISH_AUDIO_API_KEY}`,
         "Content-Type": "application/json",
-        "model": "s2-pro",
       },
       body: JSON.stringify({
         text,
         reference_id: "5d57382c07b0434bb7958aed4cf97757",
         format: "wav",
         streaming: true,
-        latency: "balanced",
-        normalize: true,
+        latency: "normal",
       }),
     });
+    console.log("Fish Audio response status:", res.status);
     if (!res.ok) {
-      console.error("Fish TTS error:", await res.text());
+      const err = await res.text();
+      console.error("Fish TTS error:", err);
       return new Response("TTS failed", { status: 500 });
     }
     return new Response(res.body, {
@@ -37,11 +39,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Soniox TTS
+  // Soniox — Maya Classic
+  const apiKey = process.env.SONIOX_API_KEY!;
   const soniox = await fetch("https://tts-rt.soniox.com/tts", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.SONIOX_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -49,17 +52,17 @@ export async function POST(req: NextRequest) {
       model: "tts-rt-v1",
       language: "de",
       voice: "Maya",
-      audio_format: "mp3",
+      audio_format: "wav",
     }),
   });
   if (!soniox.ok) {
-    console.error("Soniox TTS error:", await soniox.text());
+    const err = await soniox.text();
+    console.error("Soniox TTS error:", err);
     return new Response("TTS failed", { status: 500 });
   }
   return new Response(soniox.body, {
     headers: {
-      "Content-Type": "audio/mpeg",
-      "Cache-Control": "no-store",
+      "Content-Type": "audio/wav",
       "Transfer-Encoding": "chunked",
       "X-Accel-Buffering": "no",
     },
