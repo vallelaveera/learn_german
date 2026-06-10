@@ -1,5 +1,68 @@
 import { Message, UserFacts, UserProfile } from "./types";
 
+const ASKED_QUESTIONS_CAP = 100;
+const ASKED_QUESTIONS_PROMPT_LIMIT = 35;
+
+/** UI-driven confirmations — not conversational questions; don't store or block. */
+const SKIP_ASKED_QUESTIONS = new Set([
+  "bist du fertig?",
+  "meinst du das so?",
+]);
+
+function normalizeQuestion(q: string): string {
+  return q.trim().replace(/\s+/g, " ");
+}
+
+function questionKey(q: string): string {
+  return normalizeQuestion(q).toLowerCase();
+}
+
+/** Merge question lists, dedupe case-insensitively, keep newest up to cap. */
+export function mergeAskedQuestions(existing: string[], incoming: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const raw of [...existing, ...incoming]) {
+    const q = normalizeQuestion(raw);
+    const key = questionKey(q);
+    if (!q || seen.has(key) || SKIP_ASKED_QUESTIONS.has(key)) continue;
+    seen.add(key);
+    merged.push(q);
+  }
+  return merged.slice(-ASKED_QUESTIONS_CAP);
+}
+
+function stripHints(text: string): string {
+  const idx = text.indexOf("💡");
+  return (idx >= 0 ? text.slice(0, idx) : text).trim();
+}
+
+/** Pull German questions from Maya messages (session end — no API call). */
+export function extractAskedQuestionsFromMessages(messages: Message[]): string[] {
+  const found: string[] = [];
+
+  for (const m of messages) {
+    if (m.role !== "assistant") continue;
+    const text = stripHints(m.content);
+    const chunks = text.split("?");
+
+    for (let i = 0; i < chunks.length - 1; i++) {
+      const fragment = chunks[i].split(/[.!]\s+/).pop()?.trim() ?? "";
+      const question = normalizeQuestion(`${fragment}?`);
+      const key = questionKey(question);
+      if (question.length < 10 || SKIP_ASKED_QUESTIONS.has(key)) continue;
+      found.push(question);
+    }
+  }
+
+  return mergeAskedQuestions([], found);
+}
+
+function formatAskedQuestionsBlock(questions: string[]): string {
+  if (!questions.length) return "";
+  const recent = questions.slice(-ASKED_QUESTIONS_PROMPT_LIMIT);
+  return `QUESTIONS ALREADY ASKED — never repeat these or close paraphrases:\n${recent.map(q => `- ${q}`).join("\n")}`;
+}
+
 // Extract profile facts from onboarding conversation
 export async function extractProfileFacts(
   messages: import("./types").Message[],
@@ -186,6 +249,8 @@ export async function generateOpening(
   );
 
   const strategy = strategies.slice(0, 2).join(". ");
+  const askedQuestions = profile.facts.askedQuestions ?? [];
+  const askedBlock = formatAskedQuestionsBlock(askedQuestions);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -205,9 +270,9 @@ Their German level: ${profile.germanLevel ?? "B1/B2"}
 Total sessions together: ${profile.totalSessions}
 
 Generate ONE short warm German greeting. Max 15 words.
-ONLY ask "Wie geht's dir?" or "Wie war dein Tag?" or "Was machst du gerade so?"
-DO NOT ask about food, cooking, family, job, hobbies, or any specific topics.
-Just a simple friendly hi + one simple how-are-you question.`,
+Friendly hi + ONE fresh question using the opening strategy below.
+The question must be NEW — not in the list below and not a close paraphrase.
+${askedBlock || "No prior questions yet — pick any friendly opener."}`,
       messages: [
         {
           role: "user",
@@ -342,6 +407,13 @@ export function buildSystemPrompt(
     .filter(Boolean)
     .join("\n");
 
+  const askedTopics = facts.askedTopics ?? [];
+  const askedQuestions = facts.askedQuestions ?? [];
+  const askedTopicsBlock = askedTopics.length
+    ? `TOPICS ALREADY COVERED — pick a different angle: ${askedTopics.slice(-20).join(", ")}`
+    : "";
+  const askedQuestionsBlock = formatAskedQuestionsBlock(askedQuestions);
+
   return `You are Maya — ${profile.name}'s close German friend, like a university roommate.
 You've known each other for a long time. You speak German together because that's your thing.
 
@@ -352,6 +424,8 @@ Days since last call: ${daysSinceLastCall === 999 ? "first time" : daysSinceLast
 Their German level: ${profile.germanLevel ?? "B1/B2"}
 Sessions together: ${profile.totalSessions}
 ${unpracticedWords.length > 0 ? `Words to practice naturally: ${unpracticedWords.join(", ")}` : ""}
+${askedTopicsBlock}
+${askedQuestionsBlock}
 
 RULES:
 1. Always respond in German. Keep it conversational, 2-4 sentences max.
@@ -360,7 +434,9 @@ RULES:
 4. If they haven't called in 3+ days, just say nice to hear from them.
 5. Weave unpracticed words into conversation naturally.
 6. After your German reply, add "💡 " with a brief English hint only if you used something advanced.
-7. Ask follow-up questions to keep conversation going.
-8. NEVER say goodbye or imply the call is over (no "Bis dann", "Ich rufe dich morgen an", "bis später", etc.) unless the user clearly wants to stop.
-9. Remember everything. You are their friend who genuinely cares.`;
+7. Ask follow-up questions to keep conversation going — each must be a NEW angle.
+8. NEVER repeat a question from the lists above or one you already asked in this call (check the transcript).
+9. Follow-ups are OK only when responding to something new the user just said.
+10. NEVER say goodbye or imply the call is over (no "Bis dann", "Ich rufe dich morgen an", "bis später", etc.) unless the user clearly wants to stop.
+11. Remember everything. You are their friend who genuinely cares.`;
 }

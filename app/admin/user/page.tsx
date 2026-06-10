@@ -120,7 +120,7 @@ function AdminUserContent() {
             <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Profil</div>
               {(Object.entries(profile.facts) as [string, unknown][])
-                .filter(([k]) => !["lastUpdated", "askedTopics", "personalDetails"].includes(k))
+                .filter(([k]) => !["lastUpdated", "askedTopics", "askedQuestions", "personalDetails"].includes(k))
                 .filter(([, v]) => !!v)
                 .map(([k, v]) => (
                   <div key={k} style={{ display: "flex", gap: 10, marginBottom: 6 }}>

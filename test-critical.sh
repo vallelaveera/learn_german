@@ -174,6 +174,14 @@ grep -q 'NEVER say goodbye' lib/memory-agent.ts \
   && check "prompts: never-farewell rule" "ok" \
   || check "prompts: never-farewell rule" "fail"
 
+grep -q 'QUESTIONS ALREADY ASKED' lib/memory-agent.ts \
+  && check "memory: askedQuestions in prompt" "ok" \
+  || check "memory: askedQuestions in prompt" "fail"
+
+grep -q 'extractAskedQuestionsFromMessages' app/api/extract/route.ts \
+  && check "extract: saves askedQuestions" "ok" \
+  || check "extract: saves askedQuestions" "fail"
+
 echo ""
 echo "── app/callmode/page.tsx ───────────────"
 

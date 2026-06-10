@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes } from "@/lib/kv";
-import { extractFacts, extractProfileFacts, extractAskedTopics } from "@/lib/memory-agent";
+import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions } from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -30,18 +30,22 @@ export async function POST(req: NextRequest) {
       messages.filter((m: Message) => m.role === "user").map((m: Message) => m.content).join(" ")
     );
 
+    const newQuestions = extractAskedQuestionsFromMessages(messages);
+
     const [newFacts, profileFacts, newTopics] = await Promise.all([
       extractFacts(messages, user.facts),
       extractProfileFacts(messages, user.facts),
       extractAskedTopics(messages),
     ]);
 
-    // Merge all facts + append new asked topics
+    // Merge all facts + append new asked topics/questions
     const existingTopics = user.facts.askedTopics ?? [];
+    const existingQuestions = user.facts.askedQuestions ?? [];
     const mergedFacts = {
       ...newFacts,
       ...profileFacts,
       askedTopics: Array.from(new Set([...existingTopics, ...newTopics])).slice(0, 50),
+      askedQuestions: mergeAskedQuestions(existingQuestions, newQuestions),
     };
 
     const promises: Promise<unknown>[] = [
