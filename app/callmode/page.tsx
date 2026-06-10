@@ -95,6 +95,11 @@ export default function CallModePage() {
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
     sourceQueueRef.current = [];
     nextStartRef.current = 0;
+    // Also stop HTML audio element
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = "";
+    }
   }, []);
 
   const startRef = useRef<() => Promise<void>>(async () => {});
@@ -137,6 +142,35 @@ export default function CallModePage() {
     }
   }, []);
 
+  // ── HTML Audio playback for MP3 (Fish Audio) ─────────
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  const playMP3 = useCallback((buffer: ArrayBuffer): Promise<void> => {
+    return new Promise((resolve) => {
+      // Stop any existing audio
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current.src = "";
+      }
+      const blob = new Blob([buffer], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioElementRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        if (_cm_active) {
+          setCallState("listening");
+          _cm_sending = false;
+          speechBufferRef.current = "";
+          setTimeout(() => { if (_cm_active) startRef.current(); }, 400);
+        }
+        resolve();
+      };
+      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.play().catch(() => resolve());
+    });
+  }, []);
+
   // ── TTS ───────────────────────────────────────────────
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
@@ -153,33 +187,19 @@ export default function CallModePage() {
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
 
-      if (ttsProviderRef.current === "fish") {
-        // Fish Audio Opus — stream chunks immediately, Opus frames are self-contained
-        const CHUNK = 8192;
-        let buf = new Uint8Array(0);
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-            break;
-          }
-          const nb = new Uint8Array(buf.length + value.length);
-          nb.set(buf); nb.set(value, buf.length); buf = nb;
-          if (buf.length >= CHUNK) {
-            const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
-            playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
-          }
-        }
-      } else {
-        // Soniox WAV — collect full audio first
-        let buf = new Uint8Array(0);
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const nb = new Uint8Array(buf.length + value.length);
-          nb.set(buf); nb.set(value, buf.length); buf = nb;
-        }
-        if (buf.length > 0) {
+      // Collect full audio — works reliably on all platforms and formats
+      let buf = new Uint8Array(0);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const nb = new Uint8Array(buf.length + value.length);
+        nb.set(buf); nb.set(value, buf.length); buf = nb;
+      }
+      if (buf.length > 0) {
+        if (ttsProviderRef.current === "fish") {
+          // Fish Audio — use HTML audio element for reliable MP3 playback
+          await playMP3(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+        } else {
           await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
         }
       }
@@ -301,7 +321,9 @@ export default function CallModePage() {
           silenceTimerRef.current = null;
           const text = speechBufferRef.current.trim();
           if (text && !_cm_sending) {
+            _cm_sending = true; // block immediately before async
             speechBufferRef.current = "";
+            setLiveText("");
             stopRef.current();
             sendToTutor(text);
           }
