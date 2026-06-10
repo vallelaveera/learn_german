@@ -16,6 +16,11 @@ const SILENCE_THRESHOLD = 25; // volume below this = silence
 const SILENCE_DURATION = 2000; // ms before auto-send
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 
+const fallbackOpening = (name?: string) =>
+  name
+    ? `Hallo ${name}! Schön, dass du da bist. Wie geht's dir?`
+    : "Hallo! Schön, dass du da bist. Wie geht's dir?";
+
 type Phase = "idle" | "active" | "ended";
 type CallState = "listening" | "thinking" | "speaking";
 
@@ -447,16 +452,28 @@ export default function CallModePage() {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
     } catch {}
 
-    const opening = openingRef.current ?? cachedOpening;
-    if (!opening) return;
+    durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    setPhase("active");
+
+    let opening = openingRef.current ?? cachedOpening;
+    if (!opening) {
+      try {
+        const r = await fetch("/api/context");
+        const data = await r.json();
+        if (data?.opening) {
+          opening = data.opening;
+          openingRef.current = data.opening;
+          setCachedOpening(data.opening);
+        }
+        if (data?.systemPrompt) systemPromptRef.current = data.systemPrompt;
+      } catch {}
+    }
+    if (!opening) opening = fallbackOpening(user?.name);
 
     const msg: Message = { role: "assistant", content: opening, timestamp: Date.now() };
     setMessages([msg]);
     messagesRef.current = [msg];
     setCallState("speaking");
-    setPhase("active");
-
-    durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
 
     await streamTTSRef.current?.(opening);
   };
@@ -532,20 +549,20 @@ export default function CallModePage() {
         </p>
       )}
 
-      {!contextReady && (
+      {!contextReady && !cachedOpening && (
         <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 32 }}>Maya bereitet sich vor…</p>
       )}
 
       <button
         onClick={startCall}
-        disabled={!contextReady || limitReached || !cachedOpening}
+        disabled={limitReached}
         style={{
           width: 80, height: 80, borderRadius: "50%",
-          background: contextReady && cachedOpening && !limitReached ? "var(--green)" : "var(--border)",
+          background: limitReached ? "var(--border)" : "var(--green)",
           border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: contextReady && cachedOpening && !limitReached ? "pointer" : "not-allowed",
-          opacity: contextReady && cachedOpening && !limitReached ? 1 : 0.45,
-          boxShadow: contextReady && cachedOpening && !limitReached ? "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)" : "none",
+          cursor: limitReached ? "not-allowed" : "pointer",
+          opacity: limitReached ? 0.45 : 1,
+          boxShadow: limitReached ? "none" : "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)",
           WebkitTapHighlightColor: "transparent",
         }}
       >
