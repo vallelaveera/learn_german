@@ -7,23 +7,7 @@ export function stripEmojis(text: string): string {
     .trim();
 }
 
-/**
- * Prepare German text for Fish Audio cloned voice.
- * Fish uses punctuation for natural pauses — no paralanguage tags needed.
- */
+/** Pass Claude text to Fish with emoji strip only — Fish handles pacing natively. */
 export function prepareFishTTS(text: string): string {
-  let t = stripEmojis(text);
-  if (!t) return t;
-
-  // Claude often joins lines with spaces — restore sentence boundaries
-  t = t.replace(/([a-zäöüß])\s+([A-ZÄÖÜ])/g, "$1. $2");
-
-  // Normalize spacing around punctuation
-  t = t.replace(/\s+([,.!?;:])/g, "$1");
-  t = t.replace(/([,.!?;:])([^\s])/g, "$1 $2");
-
-  // Ensure trailing punctuation so Fish doesn't run sentences together
-  if (!/[.!?]$/.test(t)) t = t + ".";
-
-  return t.trim();
+  return stripEmojis(text);
 }

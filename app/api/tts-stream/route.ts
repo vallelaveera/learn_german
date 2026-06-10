@@ -25,10 +25,6 @@ export async function POST(req: NextRequest) {
         reference_id: "5d57382c07b0434bb7958aed4cf97757",
         format: "mp3",
         streaming: true,
-        latency: "balanced",
-        mp3_bitrate: 128,
-        normalize: true,
-        prosody: { speed: 1.0, volume: 0 },
       }),
     });
     console.log("Fish Audio response status:", res.status);

@@ -111,9 +111,9 @@ grep -q "prepareFishTTS" app/api/tts-stream/route.ts \
   && check "Maya B API: uses prepareFishTTS" "ok" \
   || check "Maya B API: uses prepareFishTTS" "fail"
 
-grep -q "speed: 1" app/api/tts-stream/route.ts \
-  && check "Maya B API: normal prosody speed" "ok" \
-  || check "Maya B API: normal prosody speed" "fail"
+check_absent "Maya B API: no prosody override" "app/api/tts-stream/route.ts" "prosody"
+
+check_absent "Maya B API: no normalize override" "app/api/tts-stream/route.ts" "normalize"
 
 check_absent "Maya B API: NOT wav format" "app/api/tts-stream/route.ts" 'format: "wav"'
 
@@ -131,6 +131,14 @@ grep -q "prepareFishTTS" lib/fish-tts.ts \
 check_absent "Fish TTS: no (break) tags" "lib/fish-tts.ts" '\\(break\\)'
 
 check_absent "Fish TTS: no (long-break) tags" "lib/fish-tts.ts" 'long-break'
+
+check_absent "Fish TTS: no period injection hack" "lib/fish-tts.ts" 'A-ZÄÖÜ'
+
+check_absent "Fish TTS: no trailing period hack" "lib/fish-tts.ts" '/\[\.!\?\]\$/'
+
+grep -q "return stripEmojis" lib/fish-tts.ts \
+  && check "Fish TTS: prepareFishTTS is emoji-only" "ok" \
+  || check "Fish TTS: prepareFishTTS is emoji-only" "fail"
 
 grep -qE '/\\p\{' lib/fish-tts.ts \
   && check "ES5-safe emoji strip (no \\p{} regex)" "fail" \
