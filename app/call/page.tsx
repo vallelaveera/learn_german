@@ -492,7 +492,7 @@ export default function CallPage() {
           <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
             <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p className={styles.bubbleText}>{msg.content.replace(/<end>/g, "").trim()}</p>
-            {msg.translation && <p className={styles.bubbleHint}>{msg.translation}</p>}
+            {msg.translation && <p className={styles.bubbleHint}>💡 {msg.translation}</p>}
             {msg.role === "assistant" && (
               <div>
                 <button
@@ -681,13 +681,15 @@ export default function CallPage() {
             )}
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>Gespraech</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {messages.map((msg, i) => (
-                <div key={i} style={{ padding: "8px 12px", marginBottom: 6, background: msg.role === "user" ? "var(--surface)" : "linear-gradient(135deg,#1a1a1d,#161618)", border: "0.5px solid var(--border)", borderLeft: msg.role === "assistant" ? "2px solid var(--accent-dim)" : undefined, borderRadius: 10 }}>
-                  <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
-                  <p style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
-                  {msg.translation && <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, fontStyle: "italic" }}>{msg.translation}</p>}
+                <div key={i} style={{ padding: "10px 14px", marginBottom: 8, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", marginLeft: msg.role === "user" ? "auto" : 0, background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`, borderLeft: msg.role === "assistant" ? "2px solid #7c4daa" : undefined, borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px" }}>
+                  <div style={{ fontSize: 10, color: msg.role === "assistant" ? "#7c4daa" : "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
+                  <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+                  {msg.translation && <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>}
                 </div>
               ))}
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => { setShowReport(false); setMessages([]); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
