@@ -558,7 +558,7 @@ export default function CallModePage() {
         ))}
 
         {/* Live text while speaking */}
-        {liveText && callState === "listening" && (
+        {liveText && (callState === "listening" || callState === "thinking") && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))", border: "0.5px solid rgba(124,77,170,0.2)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
