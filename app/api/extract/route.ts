@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress } from "@/lib/kv";
+import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress, getUsageStats } from "@/lib/kv";
 import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
 import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions } from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
@@ -23,6 +23,12 @@ export async function POST(req: NextRequest) {
 
     const { messages, sessionStart, sessionEnd }: { messages: Message[]; sessionStart?: number; sessionEnd?: number } = await req.json();
     if (!messages?.length) return NextResponse.json({ ok: true });
+
+    const usage = await getUsageStats(user.userId);
+    const isSessionEnd = !!(sessionStart && sessionEnd && sessionEnd > sessionStart);
+    if (usage.remaining <= 0 && !isSessionEnd) {
+      return NextResponse.json({ error: "limit_reached", used: usage.used, limit: usage.limit }, { status: 403 });
+    }
 
     const mayaWords = getWords(
       messages.filter((m: Message) => m.role === "assistant").map((m: Message) => m.content).join(" ")

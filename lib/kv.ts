@@ -222,6 +222,11 @@ export async function getUsageStats(userId: string): Promise<{ used: number; lim
   return { used: Math.round(used), limit, remaining: Math.max(0, limit - Math.round(used)) };
 }
 
+export async function isUsageAllowed(userId: string): Promise<boolean> {
+  const usage = await getUsageStats(userId);
+  return usage.remaining > 0;
+}
+
 export async function saveWordExamples(word: string, sentences: string[]): Promise<void> {
   await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
 }

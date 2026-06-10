@@ -79,7 +79,7 @@ export default function CallModePage() {
   const isMutedRef = useRef(false);
   const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
-  const [sessionStart] = useState(() => Date.now());
+  const sessionStartRef = useRef<number | null>(null);
 
   // Refs
   const speechBufferRef = useRef("");
@@ -298,7 +298,7 @@ export default function CallModePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: sessionId, userId: "",
-        startedAt: sessionStart, endedAt: Date.now(),
+        startedAt: sessionStartRef.current ?? Date.now(), endedAt: Date.now(),
         messages: history,
         title: history.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
         totalMessages: history.length,
@@ -315,6 +315,11 @@ export default function CallModePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, systemPrompt }),
       });
+      if (res.status === 403) {
+        setLimitReached(true);
+        endCallRef.current();
+        throw new Error("limit_reached");
+      }
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -361,7 +366,7 @@ export default function CallModePage() {
       _cm_sending = false;
       if (_cm_active) restartMicRef.current();
     }
-  }, [streamTTS, sessionId, sessionStart]);
+  }, [streamTTS, sessionId]);
 
   const sendToTutor = useCallback(async (text: string) => {
     if (!text.trim() || _cm_sending) return;
@@ -627,6 +632,7 @@ export default function CallModePage() {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
     } catch {}
 
+    sessionStartRef.current = Date.now();
     durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
     setPhase("active");
 
@@ -675,7 +681,11 @@ export default function CallModePage() {
       fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: messagesRef.current, sessionStart, sessionEnd: Date.now() }),
+        body: JSON.stringify({
+          messages: messagesRef.current,
+          sessionStart: sessionStartRef.current ?? Date.now(),
+          sessionEnd: Date.now(),
+        }),
       });
     }
     setPhase("ended");

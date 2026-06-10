@@ -29,8 +29,10 @@ export default function CallPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [liveText, setLiveText] = useState("");
   const [sessionId] = useState(() => uuidv4());
-  const [sessionStart] = useState(() => Date.now());
+  const sessionStartRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
+  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
   const [showReport, setShowReport] = useState(false);
   const [newWords, setNewWords] = useState<string[]>([]);
@@ -58,6 +60,10 @@ export default function CallPage() {
   const router = useRouter();
   const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock();
 
+  const ensureSessionStarted = useCallback(() => {
+    if (!sessionStartRef.current) sessionStartRef.current = Date.now();
+  }, []);
+
   // ── Auto scroll ──────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -69,8 +75,17 @@ export default function CallPage() {
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
         if (!data) return;
+        if (data.limitReached) {
+          setLimitReached(true);
+          if (data.user) setUser({ name: data.user.name, streak: data.user.streak ?? 0 });
+          if (data.used !== undefined && data.limit !== undefined) {
+            setUsage({ used: data.used, limit: data.limit, remaining: 0 });
+          }
+          return;
+        }
         setSystemPrompt(data.systemPrompt);
         setUser({ name: data.user.name, streak: data.streak ?? 0 });
+        if (data.usage) setUsage(data.usage);
         if (data.topics) setTopics(data.topics);
         if (data.topicQuestion && data.topics?.length) {
           setTimeout(() => {
@@ -179,13 +194,13 @@ export default function CallPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: sessionId, userId: "",
-        startedAt: sessionStart, endedAt: Date.now(),
+        startedAt: sessionStartRef.current ?? Date.now(), endedAt: Date.now(),
         messages: msgs,
         title: msgs.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
         totalMessages: msgs.length,
       }),
     });
-  }, [sessionId, sessionStart]);
+  }, [sessionId]);
 
   // ── Send to Claude ───────────────────────────────────────
   const sendToTutor = useCallback(async (msgs: Message[]) => {
@@ -196,6 +211,11 @@ export default function CallPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: msgs, systemPrompt }),
       });
+      if (res.status === 403) {
+        setLimitReached(true);
+        setError("Monatslimit erreicht — keine Minuten mehr diesen Monat.");
+        throw new Error("limit_reached");
+      }
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -339,8 +359,10 @@ export default function CallPage() {
 
   // ── Normal mode button ───────────────────────────────────
   const handleNormalButton = async () => {
+    if (limitReached) return;
     if (navigator.vibrate) navigator.vibrate(40);
     if (callState === "idle") {
+      ensureSessionStarted();
       setError(null);
       finalBufferRef.current = "";
       _isSending = false;
@@ -360,11 +382,13 @@ export default function CallPage() {
 
   // ── Call mode start ──────────────────────────────────────
   const startCallMode = async () => {
+    if (limitReached) return;
     if (callState !== "idle") {
       pendingModeRef.current = "callMode";
       return;
     }
     if (navigator.vibrate) navigator.vibrate(40);
+    ensureSessionStarted();
     _callModeActive = true;
     _isSending = false;
     setCallMode(true);
@@ -414,7 +438,11 @@ export default function CallPage() {
     fetch("/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({
+        messages,
+        sessionStart: sessionStartRef.current ?? Date.now(),
+        sessionEnd: Date.now(),
+      }),
     })
       .then(r => r.json())
       .then(data => { if (data.newWords?.length) setNewWords(data.newWords); });
@@ -482,7 +510,15 @@ export default function CallPage() {
       <div className={styles.transcript}>
 
 
-        {messages.length === 0 && (
+        {limitReached && (
+          <div style={{ textAlign: "center", margin: "24px 16px", padding: "12px 16px", background: "rgba(192,57,43,0.08)", border: "0.5px solid rgba(192,57,43,0.25)", borderRadius: 10 }}>
+            <p style={{ fontSize: 13, color: "var(--red)", marginBottom: 4 }}>Monatslimit erreicht</p>
+            <p style={{ fontSize: 12, color: "#8a7060", lineHeight: 1.5 }}>
+              {usage ? `${usage.used} / ${usage.limit} Minuten genutzt` : "Keine Minuten mehr diesen Monat"}
+            </p>
+          </div>
+        )}
+        {messages.length === 0 && !limitReached && (
           <div className={styles.emptyState}>
             <p className={styles.emptyTitle}>Hey{user ? ` ${user.name}` : ""}!</p>
             <p className={styles.emptyHint}>Tippe den Knopf und sprich Deutsch mit Maya.</p>
@@ -510,10 +546,11 @@ export default function CallPage() {
           </div>
         ))}
         {/* Topic chips inline */}
-        {topicQuestionShown && topics.length > 0 && callState !== "thinking" && (
+        {topicQuestionShown && topics.length > 0 && callState !== "thinking" && !limitReached && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 0 8px" }}>
             {topics.map((topic, i) => (
               <button key={i} onClick={() => {
+                ensureSessionStarted();
                 const msg = `Ich möchte heute über "${topic}" sprechen.`;
                 const userMsg = { role: "user" as const, content: msg, timestamp: Date.now() };
                 setMessages(prev => { const updated = [...prev, userMsg]; sendToTutor(updated); return updated; });
@@ -560,9 +597,10 @@ export default function CallPage() {
             </a>
           </div>
         )}
-        <p className={styles.status}>{stateLabel[callState]}</p>
+        <p className={styles.status}>{limitReached ? "Monatslimit erreicht" : stateLabel[callState]}</p>
 
         {/* Mode toggle — Normal vs Call Mode */}
+        {!limitReached && (
         <div style={{ display: "flex", border: "0.5px solid var(--border)", borderRadius: 8, overflow: "hidden", width: "100%", maxWidth: 280 }}>
           <button
             onClick={stopCallMode}
@@ -577,9 +615,10 @@ export default function CallPage() {
             {pendingModeRef.current === "callMode" ? "..." : "Call Mode"}
           </button>
         </div>
+        )}
 
         {/* Normal mode button — hidden in call mode */}
-        {!callMode && (
+        {!callMode && !limitReached && (
           <button
             className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
             onClick={handleNormalButton}
