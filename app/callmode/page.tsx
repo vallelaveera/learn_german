@@ -218,12 +218,13 @@ export default function CallModePage() {
     setCallState("thinking");
     setShowSilenceHint(false);
     if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
-    setLiveText("");
+    // Don't clear liveText here — clear it after message bubble appears
 
     const userMsg: Message = { role: "user", content: text.replace(/<end>/g, "").trim(), timestamp: Date.now() };
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
+    setLiveText(""); // clear only after bubble appears
 
     // Auto-save
     fetch("/api/sessions", {
