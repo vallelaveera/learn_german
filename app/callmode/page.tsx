@@ -15,8 +15,33 @@ let _cm_tts_done_fired = false;
 const SPEECH_THRESHOLD = 42; // sustained level = human speech (not chair/noise)
 const SILENCE_THRESHOLD = 30; // below this = silence
 const SPEECH_FRAMES_MIN = 12; // ~200ms sustained speech before accepting STT
-const SILENCE_DURATION = 2000; // ms before auto-send
+const SILENCE_DURATION_ENDPOINT = 1200; // ms after Soniox endpoint
+const SILENCE_DURATION_FALLBACK = 3000; // ms without endpoint
+const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
+const TTS_CHUNK = 16384;
+
+const AFFIRMATIVE_RE = /^(ja|genau|stimmt|richtig|fertig|doch)([\s,].*)?$/i;
+const NEGATIVE_RE = /^(nein|nee|nö|nicht|noch nicht)([\s,].*)?$/i;
+const YES_NO_WORDS = /^(ja|nein|nee|nö|okay|ok|doch|genau)$/i;
+
+const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
+const looksIncomplete = (text: string) => {
+  const t = text.trim();
+  if (!t) return true;
+  if (/\s[a-zäöüßA-ZÄÖÜ]$/i.test(t)) return true;
+  const last = t.split(/\s+/).pop() ?? "";
+  if (last.length === 1 && !/[.!?]$/.test(t)) return true;
+  return false;
+};
+
+const pickConfirmPhrase = (text: string) => {
+  const lower = text.toLowerCase().replace(/[.!?,]/g, "").trim();
+  if (YES_NO_WORDS.test(lower)) return "Bist du fertig?";
+  if (lower.length <= 4) return Math.random() < 0.5 ? "Bist du fertig?" : "Meinst du das so?";
+  return "Meinst du das so?";
+};
 
 const fallbackOpening = (name?: string) =>
   name
@@ -57,6 +82,10 @@ export default function CallModePage() {
   const isSpeakingRef = useRef(false);
   const speechFramesRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sttEndpointRef = useRef(false);
+  const pendingShortReplyRef = useRef<string | null>(null);
+  const awaitingConfirmRef = useRef(false);
+  const tryCommitTurnRef = useRef<() => void>(() => {});
   const messagesRef = useRef<Message[]>([]);
   const systemPromptRef = useRef<string | undefined>();
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -163,33 +192,6 @@ export default function CallModePage() {
     }, 400);
   }, []);
 
-  const playMP3 = useCallback((buffer: ArrayBuffer): Promise<void> => {
-    return new Promise((resolve) => {
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-        audioElementRef.current.src = "";
-      }
-      const blob = new Blob([buffer], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioElementRef.current = audio;
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        finishTTSPlaybackRef.current();
-        resolve();
-      };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        finishTTSPlaybackRef.current();
-        resolve();
-      };
-      audio.play().catch(() => {
-        finishTTSPlaybackRef.current();
-        resolve();
-      });
-    });
-  }, []);
-
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
     const ctx = getAudioCtx();
     if (ctx.state === "suspended") await ctx.resume();
@@ -232,76 +234,69 @@ export default function CallModePage() {
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
 
-      if (ttsProviderRef.current === "fish") {
-        // Fish — collect full MP3 buffer, play via HTML audio
-        let buf = new Uint8Array(0);
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const nb = new Uint8Array(buf.length + value.length);
-          nb.set(buf); nb.set(value, buf.length); buf = nb;
-        }
-        if (buf.length > 0) {
-          await playMP3(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-        } else {
-          finishTTSPlaybackRef.current();
-        }
-      } else {
-        // Soniox — chunked MP3 streaming
-        const CHUNK = 16384;
-        let buf = new Uint8Array(0);
-        let dispatched = false;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            if (buf.length > 0) {
-              dispatched = true;
-              playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-            }
-            break;
-          }
-          const nb = new Uint8Array(buf.length + value.length);
-          nb.set(buf); nb.set(value, buf.length); buf = nb;
-          if (buf.length >= CHUNK) {
-            const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
+      // Both voices — stream MP3 chunks so playback starts immediately (live call feel)
+      let buf = new Uint8Array(0);
+      let dispatched = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buf.length > 0) {
             dispatched = true;
-            playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
+            playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
           }
+          break;
         }
-        if (!dispatched) finishTTSPlaybackRef.current();
+        const nb = new Uint8Array(buf.length + value.length);
+        nb.set(buf); nb.set(value, buf.length); buf = nb;
+        if (buf.length >= TTS_CHUNK) {
+          const tp = buf.slice(0, TTS_CHUNK); buf = buf.slice(TTS_CHUNK);
+          dispatched = true;
+          playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
+        }
       }
+      if (!dispatched) finishTTSPlaybackRef.current();
     } catch (e) {
       console.error("TTS error:", e);
       finishTTSPlaybackRef.current();
     }
-  }, [playChunk, playMP3, stopAudio]);
+  }, [playChunk, stopAudio]);
 
   useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  const speakLocal = useCallback(async (text: string, appendMsg: Message) => {
+    const updated = [...messagesRef.current, appendMsg];
+    setMessages(updated);
+    messagesRef.current = updated;
+    _cm_sending = true;
+    setCallState("speaking");
+    setLiveText("");
+    await streamTTS(text);
+  }, [streamTTS]);
+
   // ── Send to Claude ────────────────────────────────────
-  const sendToTutor = useCallback(async (text: string) => {
-    if (!text.trim() || _cm_sending) return;
+  const submitToClaude = useCallback(async (history: Message[]) => {
     _cm_sending = true;
     setCallState("thinking");
     setShowSilenceHint(false);
     if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
     setLiveText("");
 
-    const userMsg: Message = { role: "user", content: text.replace(/<end>/g, "").trim(), timestamp: Date.now() };
-    const updated = [...messagesRef.current, userMsg];
-    setMessages(updated);
-    messagesRef.current = updated;
-
-    // Auto-save
     fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: sessionId, userId: "",
         startedAt: sessionStart, endedAt: Date.now(),
-        messages: updated,
-        title: updated.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
-        totalMessages: updated.length,
+        messages: history,
+        title: history.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
+        totalMessages: history.length,
       }),
     });
 
@@ -309,7 +304,7 @@ export default function CallModePage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updated, systemPrompt: systemPromptRef.current }),
+        body: JSON.stringify({ messages: history, systemPrompt: systemPromptRef.current }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
@@ -352,6 +347,113 @@ export default function CallModePage() {
     }
   }, [streamTTS, sessionId, sessionStart]);
 
+  const sendToTutor = useCallback(async (text: string) => {
+    if (!text.trim() || _cm_sending) return;
+    const userMsg: Message = { role: "user", content: text.replace(/<end>/g, "").trim(), timestamp: Date.now() };
+    const updated = [...messagesRef.current, userMsg];
+    setMessages(updated);
+    messagesRef.current = updated;
+    await submitToClaude(updated);
+  }, [submitToClaude]);
+
+  const askShortConfirm = useCallback(async (shortText: string) => {
+    pendingShortReplyRef.current = shortText;
+    awaitingConfirmRef.current = true;
+    const userMsg: Message = { role: "user", content: shortText, timestamp: Date.now() };
+    const phrase = pickConfirmPhrase(shortText);
+    const confirmMsg: Message = { role: "assistant", content: phrase, timestamp: Date.now() };
+    const updated = [...messagesRef.current, userMsg, confirmMsg];
+    setMessages(updated);
+    messagesRef.current = updated;
+    _cm_sending = true;
+    setCallState("speaking");
+    setLiveText("");
+    await streamTTS(phrase);
+  }, [streamTTS]);
+
+  const handleConfirmResponse = useCallback(async (text: string) => {
+    const lower = text.toLowerCase().replace(/[.!?]/g, "").trim();
+    pendingShortReplyRef.current = null;
+    awaitingConfirmRef.current = false;
+
+    if (AFFIRMATIVE_RE.test(lower)) {
+      const confirmAnswer: Message = { role: "user", content: text, timestamp: Date.now() };
+      const updated = [...messagesRef.current, confirmAnswer];
+      setMessages(updated);
+      messagesRef.current = updated;
+      await submitToClaude(updated);
+      return;
+    }
+
+    if (NEGATIVE_RE.test(lower)) {
+      await speakLocal("Okay, erzähl weiter.", {
+        role: "assistant",
+        content: "Okay, erzähl weiter.",
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    if (wordCount(text) < 2) {
+      await askShortConfirm(text);
+      return;
+    }
+
+    const userMsg: Message = { role: "user", content: text, timestamp: Date.now() };
+    const updated = [...messagesRef.current, userMsg];
+    setMessages(updated);
+    messagesRef.current = updated;
+    await submitToClaude(updated);
+  }, [askShortConfirm, speakLocal, submitToClaude]);
+
+  const tryCommitTurn = useCallback(() => {
+    if (_cm_sending || !_cm_active) return;
+    if (nonFinalRef.current.trim()) return;
+
+    const text = speechBufferRef.current.trim();
+    if (!text) return;
+
+    if (looksIncomplete(text)) {
+      clearSilenceTimer();
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null;
+        tryCommitTurnRef.current();
+      }, sttEndpointRef.current ? SILENCE_DURATION_ENDPOINT : INCOMPLETE_EXTRA_WAIT);
+      return;
+    }
+
+    isSpeakingRef.current = false;
+    speechFramesRef.current = 0;
+    speechBufferRef.current = "";
+    nonFinalRef.current = "";
+    sttEndpointRef.current = false;
+    clearSilenceTimer();
+    stopRef.current();
+
+    if (awaitingConfirmRef.current) {
+      void handleConfirmResponse(text);
+      return;
+    }
+
+    if (wordCount(text) < 2) {
+      void askShortConfirm(text);
+      return;
+    }
+
+    void sendToTutor(text);
+  }, [askShortConfirm, clearSilenceTimer, handleConfirmResponse, sendToTutor]);
+
+  useEffect(() => { tryCommitTurnRef.current = tryCommitTurn; }, [tryCommitTurn]);
+
+  const scheduleSilenceSend = useCallback(() => {
+    if (silenceTimerRef.current) return;
+    const duration = sttEndpointRef.current ? SILENCE_DURATION_ENDPOINT : SILENCE_DURATION_FALLBACK;
+    silenceTimerRef.current = setTimeout(() => {
+      silenceTimerRef.current = null;
+      tryCommitTurnRef.current();
+    }, duration);
+  }, []);
+
   // ── VAD — silence detection (hysteresis + sustained speech gate) ──
   const handleVolume = useCallback((vol: number) => {
     setVolume(vol);
@@ -363,6 +465,7 @@ export default function CallModePage() {
       if (speechFramesRef.current >= SPEECH_FRAMES_MIN) {
         isSpeakingRef.current = true;
       }
+      sttEndpointRef.current = false;
     } else if (vol < SILENCE_THRESHOLD) {
       speechFramesRef.current = 0;
     }
@@ -375,10 +478,7 @@ export default function CallModePage() {
         clearTimeout(silenceHintRef.current);
         silenceHintRef.current = null;
       }
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
+      clearSilenceTimer();
       return;
     }
 
@@ -389,24 +489,11 @@ export default function CallModePage() {
     }
 
     if (vol >= SILENCE_THRESHOLD) {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-    } else if (speechBufferRef.current.trim() && !silenceTimerRef.current) {
-      silenceTimerRef.current = setTimeout(() => {
-        silenceTimerRef.current = null;
-        isSpeakingRef.current = false;
-        speechFramesRef.current = 0;
-        const text = speechBufferRef.current.trim();
-        if (text && !_cm_sending) {
-          speechBufferRef.current = "";
-          stopRef.current();
-          sendToTutor(text);
-        }
-      }, SILENCE_DURATION);
+      clearSilenceTimer();
+    } else if (speechBufferRef.current.trim() && !nonFinalRef.current.trim()) {
+      scheduleSilenceSend();
     }
-  }, [sendToTutor]);
+  }, [clearSilenceTimer, scheduleSilenceSend]);
 
   // ── Transcript callbacks ──────────────────────────────
   const nonFinalRef = useRef("");
@@ -417,16 +504,23 @@ export default function CallModePage() {
       speechBufferRef.current += text;
       nonFinalRef.current = "";
       setLiveText(speechBufferRef.current);
+      sttEndpointRef.current = false;
     } else {
       nonFinalRef.current = text;
       setLiveText(speechBufferRef.current + text);
+      sttEndpointRef.current = false;
+      clearSilenceTimer();
     }
-  }, []);
+  }, [clearSilenceTimer]);
 
   const handleFinished = useCallback(() => {
-    // Soniox finished — but we use VAD silence timer, not this
-    // so nothing to do here
-  }, []);
+    if (!_cm_active || _cm_sending) return;
+    sttEndpointRef.current = true;
+    if (speechBufferRef.current.trim() && isSpeakingRef.current) {
+      clearSilenceTimer();
+      scheduleSilenceSend();
+    }
+  }, [clearSilenceTimer, scheduleSilenceSend]);
 
   // Pass last Maya message as context to Soniox for better accuracy
   const getContext = useCallback(() => {
@@ -477,6 +571,9 @@ export default function CallModePage() {
     speechBufferRef.current = "";
     isSpeakingRef.current = false;
     speechFramesRef.current = 0;
+    sttEndpointRef.current = false;
+    pendingShortReplyRef.current = null;
+    awaitingConfirmRef.current = false;
     setError(null);
     setLiveText("");
     setDuration(0);
@@ -518,6 +615,9 @@ export default function CallModePage() {
     _cm_sending = false;
     _cm_mic_running = false;
     _cm_tts_done_fired = true;
+    sttEndpointRef.current = false;
+    pendingShortReplyRef.current = null;
+    awaitingConfirmRef.current = false;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     stop();

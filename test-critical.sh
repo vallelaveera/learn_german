@@ -174,18 +174,33 @@ grep -q "playChunk" app/callmode/page.tsx \
   && check "Maya A callmode: playChunk exists" "ok" \
   || check "Maya A callmode: playChunk exists" "fail"
 
-# Maya B — full buffer + HTML audio (not chunked WAV decode)
-grep -q "playMP3" app/callmode/page.tsx \
-  && check "Maya B callmode: playMP3 (HTML audio)" "ok" \
-  || check "Maya B callmode: playMP3 (HTML audio)" "fail"
+# Maya B — streamed MP3 chunks (same live-call path as Soniox)
+grep -q "TTS_CHUNK" app/callmode/page.tsx \
+  && check "Maya B callmode: streamed TTS chunks" "ok" \
+  || check "Maya B callmode: streamed TTS chunks" "fail"
 
-grep -q 'ttsProviderRef.current === "fish"' app/callmode/page.tsx \
-  && check "callmode: separate Fish vs Soniox TTS path" "ok" \
-  || check "callmode: separate Fish vs Soniox TTS path" "fail"
+check_absent "Maya B callmode: NOT full-buffer playMP3" "app/callmode/page.tsx" "await playMP3"
 
-grep -q "provider: ttsProviderRef.current" app/callmode/page.tsx \
+grep -q 'provider: ttsProviderRef.current' app/callmode/page.tsx \
   && check "callmode: provider sent to tts-stream API" "ok" \
   || check "callmode: provider sent to tts-stream API" "fail"
+
+# Smarter turn-end + short reply confirm
+grep -q "sttEndpointRef" app/callmode/page.tsx \
+  && check "turn-end: Soniox endpoint ref" "ok" \
+  || check "turn-end: Soniox endpoint ref" "fail"
+
+grep -q "Bist du fertig" app/callmode/page.tsx \
+  && check "short reply: Bist du fertig confirm" "ok" \
+  || check "short reply: Bist du fertig confirm" "fail"
+
+grep -q "Meinst du das so" app/callmode/page.tsx \
+  && check "short reply: Meinst du das so confirm" "ok" \
+  || check "short reply: Meinst du das so confirm" "fail"
+
+grep -q "askShortConfirm" app/callmode/page.tsx \
+  && check "short reply: askShortConfirm flow" "ok" \
+  || check "short reply: askShortConfirm flow" "fail"
 
 # Welcome message
 grep -q "fallbackOpening" app/callmode/page.tsx \
