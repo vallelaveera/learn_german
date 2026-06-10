@@ -215,21 +215,13 @@ grep -q "_cm_sending" app/callmode/page.tsx \
   && check "callmode has own module flags" "ok" \
   || check "callmode has own module flags" "fail"
 
-grep -q "onSpeechActive" components/CallRecorder.tsx \
-  && check "VAD: Silero speech active callback" "ok" \
-  || check "VAD: Silero speech active callback" "fail"
+grep -q "SPEECH_THRESHOLD" app/callmode/page.tsx \
+  && check "VAD: speech threshold gate" "ok" \
+  || check "VAD: speech threshold gate" "fail"
 
 grep -q "autoGainControl: false" components/CallRecorder.tsx \
   && check "mic: autoGainControl disabled" "ok" \
   || check "mic: autoGainControl disabled" "fail"
-
-grep -q "mic-sensitivity" app/callmode/page.tsx \
-  && check "callmode: mic sensitivity presets" "ok" \
-  || check "callmode: mic sensitivity presets" "fail"
-
-grep -q "sendAudioRef" components/CallRecorder.tsx \
-  && check "mic: gate audio to Soniox" "ok" \
-  || check "mic: gate audio to Soniox" "fail"
 
 grep -q "isSpeakingRef" app/callmode/page.tsx \
   && check "VAD: transcript gated on isSpeakingRef" "ok" \

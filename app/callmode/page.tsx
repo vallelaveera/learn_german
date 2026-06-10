@@ -4,12 +4,6 @@ import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
 import { FISH_SPOKEN_RULES } from "@/lib/fish-tts";
-import {
-  getMicSensitivity,
-  getMicSensitivityPreset,
-  setMicSensitivity,
-  type MicSensitivity,
-} from "@/lib/mic-sensitivity";
 import { Message } from "@/lib/types";
 
 // ── Module-level flags ─────────────────────────────────────
@@ -19,6 +13,9 @@ let _cm_mic_start = 0;
 let _cm_mic_running = false;
 let _cm_tts_done_fired = false;
 
+const SPEECH_THRESHOLD = 48; // sustained level = human speech (not chair/noise)
+const SILENCE_THRESHOLD = 32; // below this = silence
+const SPEECH_FRAMES_MIN = 12; // ~200ms sustained speech before accepting STT
 const SILENCE_DURATION_ENDPOINT = 1200; // ms after Soniox endpoint
 const SILENCE_DURATION_FALLBACK = 3000; // ms without endpoint
 const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
@@ -79,11 +76,7 @@ export default function CallModePage() {
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [micSensitivity, setMicSensitivityState] = useState<MicSensitivity>("normal");
-  const [vadSpeaking, setVadSpeaking] = useState(false);
   const isMutedRef = useRef(false);
-  const vadReadyRef = useRef(true);
-  const micPresetRef = useRef(getMicSensitivityPreset("normal"));
   const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
@@ -113,12 +106,6 @@ export default function CallModePage() {
   const router = useRouter();
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
-
-  useEffect(() => {
-    const s = getMicSensitivity();
-    setMicSensitivityState(s);
-    micPresetRef.current = getMicSensitivityPreset(s);
-  }, []);
 
   // Scroll to bottom
   useEffect(() => {
@@ -191,7 +178,6 @@ export default function CallModePage() {
       speechBufferRef.current = "";
       isSpeakingRef.current = false;
       speechFramesRef.current = 0;
-      setVadSpeaking(false);
       setLiveText("");
       _cm_mic_start = Date.now();
       setCallState("listening");
@@ -484,53 +470,29 @@ export default function CallModePage() {
     }, duration);
   }, []);
 
-  const handleSpeechActive = useCallback((active: boolean) => {
-    if (isMutedRef.current) return;
-    setVadSpeaking(active);
-    if (!_cm_active || _cm_sending) return;
-    if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return;
-
-    if (active) {
-      isSpeakingRef.current = true;
-      sttEndpointRef.current = false;
-      setShowSilenceHint(false);
-      if (silenceHintRef.current) {
-        clearTimeout(silenceHintRef.current);
-        silenceHintRef.current = null;
-      }
-      clearSilenceTimer();
-      return;
-    }
-
-    if (isSpeakingRef.current && speechBufferRef.current.trim() && !nonFinalRef.current.trim()) {
-      scheduleSilenceSend();
-    }
-  }, [clearSilenceTimer, scheduleSilenceSend]);
-
-  // Volume meter + fallback VAD when Silero is unavailable
+  // ── VAD — silence detection (hysteresis + sustained speech gate) ──
   const handleVolume = useCallback((vol: number) => {
     if (isMutedRef.current) {
       setVolume(0);
       return;
     }
     setVolume(vol);
-    if (vadReadyRef.current) return;
     if (!_cm_active || _cm_sending) return;
     if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return;
 
-    const preset = micPresetRef.current;
-    if (vol >= preset.speechThreshold) {
+    if (vol >= SPEECH_THRESHOLD) {
       speechFramesRef.current++;
-      if (speechFramesRef.current >= preset.speechFramesMin) {
+      if (speechFramesRef.current >= SPEECH_FRAMES_MIN) {
         isSpeakingRef.current = true;
-        setVadSpeaking(true);
       }
       sttEndpointRef.current = false;
-    } else if (vol < preset.silenceThreshold) {
+    } else if (vol < SILENCE_THRESHOLD) {
       speechFramesRef.current = 0;
     }
 
-    if (!isSpeakingRef.current) {
+    const speaking = isSpeakingRef.current;
+
+    if (!speaking) {
       setShowSilenceHint(false);
       if (silenceHintRef.current) {
         clearTimeout(silenceHintRef.current);
@@ -546,7 +508,7 @@ export default function CallModePage() {
       silenceHintRef.current = null;
     }
 
-    if (vol >= preset.silenceThreshold) {
+    if (vol >= SILENCE_THRESHOLD) {
       clearSilenceTimer();
     } else if (speechBufferRef.current.trim() && !nonFinalRef.current.trim()) {
       scheduleSilenceSend();
@@ -611,16 +573,11 @@ export default function CallModePage() {
       sttEndpointRef.current = false;
       setLiveText("");
       setVolume(0);
-      setVadSpeaking(false);
     } else {
       _cm_mic_start = Date.now();
     }
     if (navigator.vibrate) navigator.vibrate(20);
   }, [clearSilenceTimer]);
-
-  const handleVADReady = useCallback((ready: boolean) => {
-    vadReadyRef.current = ready;
-  }, []);
 
   const { start, stop, setMuted, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
@@ -628,8 +585,6 @@ export default function CallModePage() {
     onFinished: handleFinished,
     onError: handleRecorderError,
     onVolume: handleVolume,
-    onSpeechActive: handleSpeechActive,
-    onVADReady: handleVADReady,
     getContext,
   });
 
@@ -654,13 +609,11 @@ export default function CallModePage() {
     // Share AudioContext with recorder (iOS needs same context)
     recorderAudioCtxRef.current = audioCtxRef.current;
 
-    micPresetRef.current = getMicSensitivityPreset(getMicSensitivity());
     _cm_active = true;
     _cm_sending = true;
     speechBufferRef.current = "";
     isSpeakingRef.current = false;
     speechFramesRef.current = 0;
-    setVadSpeaking(false);
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
@@ -771,40 +724,6 @@ export default function CallModePage() {
       <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 16, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
         Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
       </p>
-
-      <div style={{ marginBottom: 20, width: "100%", maxWidth: 300 }}>
-        <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8, textAlign: "center" }}>
-          Mikro-Empfindlichkeit
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["quiet", "normal", "loud"] as MicSensitivity[]).map(key => {
-            const preset = getMicSensitivityPreset(key);
-            const active = micSensitivity === key;
-            return (
-              <button
-                key={key}
-                onClick={() => {
-                  setMicSensitivity(key);
-                  setMicSensitivityState(key);
-                  micPresetRef.current = preset;
-                }}
-                style={{
-                  flex: 1, padding: "8px 6px", borderRadius: 8, cursor: "pointer",
-                  border: `0.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                  background: active ? "var(--accent-glow)" : "var(--surface)",
-                  color: active ? "var(--accent)" : "var(--text-muted)",
-                  fontSize: 11,
-                }}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
-        </div>
-        <p style={{ fontSize: 10, color: "var(--text-dim)", textAlign: "center", marginTop: 6 }}>
-          {getMicSensitivityPreset(micSensitivity).description}
-        </p>
-      </div>
 
       {contextReady && limitReached && (
         <div style={{ textAlign: "center", marginBottom: 24, padding: "12px 16px", maxWidth: 300, background: "rgba(192,57,43,0.08)", border: "0.5px solid rgba(192,57,43,0.25)", borderRadius: 10 }}>
@@ -999,7 +918,7 @@ export default function CallModePage() {
                 height: `${height}px`,
                 background: callState === "speaking"
                   ? `rgba(39,174,96,${0.4 + i * 0.06})`
-                  : callState === "listening" && vadSpeaking
+                  : callState === "listening" && volume > SPEECH_THRESHOLD
                   ? `rgba(212,168,67,${0.4 + i * 0.06})`
                   : "rgba(255,255,255,0.15)",
               }} />
