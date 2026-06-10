@@ -8,26 +8,24 @@ export async function POST(req: NextRequest) {
   if (!text) return new Response("No text", { status: 400 });
 
   if (provider === "fish") {
-    console.log("Using Fish Audio TTS");
-    // Fish Audio — Maya Natural
     const res = await fetch("https://api.fish.audio/v1/tts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.FISH_AUDIO_API_KEY}`,
         "Content-Type": "application/json",
+        "model": "s2-pro",
       },
       body: JSON.stringify({
         text,
         reference_id: "5d57382c07b0434bb7958aed4cf97757",
         format: "wav",
         streaming: true,
-        latency: "normal",
+        latency: "balanced",
+        normalize: true,
       }),
     });
-    console.log("Fish Audio response status:", res.status);
     if (!res.ok) {
-      const err = await res.text();
-      console.error("Fish TTS error:", err);
+      console.error("Fish TTS error:", await res.text());
       return new Response("TTS failed", { status: 500 });
     }
     return new Response(res.body, {
@@ -39,12 +37,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Soniox — Maya Classic
-  const apiKey = process.env.SONIOX_API_KEY!;
+  // Soniox TTS
   const soniox = await fetch("https://tts-rt.soniox.com/tts", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${process.env.SONIOX_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -56,8 +53,7 @@ export async function POST(req: NextRequest) {
     }),
   });
   if (!soniox.ok) {
-    const err = await soniox.text();
-    console.error("Soniox TTS error:", err);
+    console.error("Soniox TTS error:", await soniox.text());
     return new Response("TTS failed", { status: 500 });
   }
   return new Response(soniox.body, {
