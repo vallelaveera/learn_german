@@ -321,12 +321,15 @@ export default function CallModePage() {
         silenceTimerRef.current = setTimeout(() => {
           silenceTimerRef.current = null;
           const text = speechBufferRef.current.trim();
+          console.log("Silence timer fired:", { text, _cm_sending, textLen: text.length });
           if (text && !_cm_sending) {
-            _cm_sending = true; // block immediately before async
+            _cm_sending = true;
             speechBufferRef.current = "";
             setLiveText("");
             stopRef.current();
             sendToTutor(text);
+          } else {
+            console.log("NOT sending — reason:", !text ? "empty text" : "_cm_sending is true");
           }
         }, SILENCE_DURATION);
       }
