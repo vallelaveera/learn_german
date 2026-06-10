@@ -26,12 +26,14 @@ export default function CallModePage() {
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ name: string } | null>(null);
-  const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
+  const ttsProviderRef = useRef<"soniox" | "fish">("soniox");
+  useEffect(() => {
+    const voice = (localStorage.getItem("maya_voice") ?? "soniox") as "soniox" | "fish";
+    ttsProviderRef.current = voice;
+  }, []);
 
   useEffect(() => {
     const voice = localStorage.getItem("maya_voice") ?? "soniox";
-    setTtsProvider(voice as "soniox" | "fish");
-  }, []);
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
