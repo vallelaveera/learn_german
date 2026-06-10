@@ -578,12 +578,6 @@ export default function CallModePage() {
         Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
       </p>
 
-      {!contextReady && (
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 32 }}>Maya bereitet sich vor…</p>
-      )}
-
-      {contextReady && !limitReached && <div style={{ marginBottom: 32 }} />}
-
       {contextReady && limitReached && (
         <div style={{ textAlign: "center", marginBottom: 24, padding: "12px 16px", maxWidth: 300, background: "rgba(192,57,43,0.08)", border: "0.5px solid rgba(192,57,43,0.25)", borderRadius: 10 }}>
           <p style={{ fontSize: 13, color: "var(--red)", marginBottom: 4 }}>Monatslimit erreicht</p>
@@ -593,23 +587,38 @@ export default function CallModePage() {
         </div>
       )}
 
-      <button
-        onClick={startCall}
-        disabled={!canCall}
-        style={{
-          width: 80, height: 80, borderRadius: "50%",
-          background: canCall ? "var(--green)" : "var(--border)",
-          border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: canCall ? "pointer" : "not-allowed",
-          opacity: canCall ? 1 : 0.45,
-          boxShadow: canCall ? "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)" : "none",
-          WebkitTapHighlightColor: "transparent",
-        }}
-      >
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="white">
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-        </svg>
-      </button>
+      <div style={{ position: "relative", width: 80, height: 80, marginBottom: 32, marginTop: contextReady && limitReached ? 0 : 8 }}>
+        {!canCall && !limitReached && (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute", inset: -5, borderRadius: "50%",
+              border: "3px solid rgba(212,168,67,0.15)",
+              borderTopColor: "var(--accent)",
+              animation: "spin 0.9s linear infinite",
+            }}
+          />
+        )}
+        <button
+          onClick={startCall}
+          disabled={!canCall}
+          style={{
+            width: 80, height: 80, borderRadius: "50%",
+            background: canCall ? "var(--green)" : limitReached ? "var(--border)" : "var(--surface)",
+            border: canCall ? "none" : "2px solid var(--accent-dim)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: canCall ? "pointer" : "not-allowed",
+            opacity: limitReached ? 0.45 : 1,
+            boxShadow: canCall ? "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)" : "none",
+            WebkitTapHighlightColor: "transparent",
+            position: "relative",
+          }}
+        >
+          <svg width="30" height="30" viewBox="0 0 24 24" fill={canCall ? "white" : limitReached ? "rgba(255,255,255,0.3)" : "var(--accent)"}>
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </button>
+      </div>
 
       <a href="/mode" style={{ marginTop: 40, fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>← Modus wechseln</a>
     </div>

@@ -9,8 +9,7 @@ export function stripEmojis(text: string): string {
 
 /**
  * Prepare German text for Fish Audio cloned voice.
- * Fish docs: punctuation guides pauses; (break)/(long-break) add natural rhythm.
- * https://docs.fish.audio/developer-guide/core-features/fine-grained-control
+ * Fish uses punctuation for natural pauses — no paralanguage tags needed.
  */
 export function prepareFishTTS(text: string): string {
   let t = stripEmojis(text);
@@ -19,21 +18,12 @@ export function prepareFishTTS(text: string): string {
   // Claude often joins lines with spaces — restore sentence boundaries
   t = t.replace(/([a-zäöüß])\s+([A-ZÄÖÜ])/g, "$1. $2");
 
+  // Normalize spacing around punctuation
+  t = t.replace(/\s+([,.!?;:])/g, "$1");
+  t = t.replace(/([,.!?;:])([^\s])/g, "$1 $2");
+
   // Ensure trailing punctuation so Fish doesn't run sentences together
   if (!/[.!?]$/.test(t)) t = t + ".";
-
-  // Fish paralanguage pause tags
-  t = t.replace(/([.!?])\s+/g, "$1 (long-break) ");
-  t = t.replace(/,\s*/g, ", (break) ");
-  t = t.replace(/:\s*/g, ": (break) ");
-  t = t.replace(/;\s*/g, "; (break) ");
-  t = t.replace(/—\s*/g, "— (break) ");
-
-  // Collapse duplicate tags
-  t = t.replace(/\(break\)\s+\(break\)/g, "(break)");
-  t = t.replace(/\(long-break\)\s+\(long-break\)/g, "(long-break)");
-  t = t.replace(/\(break\)\s+\(long-break\)/g, "(long-break)");
-  t = t.replace(/\(long-break\)\s+\(break\)/g, "(long-break)");
 
   return t.trim();
 }

@@ -128,13 +128,9 @@ grep -q "prepareFishTTS" lib/fish-tts.ts \
   && check "prepareFishTTS exported" "ok" \
   || check "prepareFishTTS exported" "fail"
 
-grep -q "(break)" lib/fish-tts.ts \
-  && check "Fish pause tags: (break)" "ok" \
-  || check "Fish pause tags: (break)" "fail"
+check_absent "Fish TTS: no (break) tags" "lib/fish-tts.ts" '\\(break\\)'
 
-grep -q "(long-break)" lib/fish-tts.ts \
-  && check "Fish pause tags: (long-break)" "ok" \
-  || check "Fish pause tags: (long-break)" "fail"
+check_absent "Fish TTS: no (long-break) tags" "lib/fish-tts.ts" 'long-break'
 
 grep -qE '/\\p\{' lib/fish-tts.ts \
   && check "ES5-safe emoji strip (no \\p{} regex)" "fail" \
