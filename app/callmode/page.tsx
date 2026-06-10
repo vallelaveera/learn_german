@@ -32,8 +32,6 @@ export default function CallModePage() {
     ttsProviderRef.current = voice;
   }, []);
 
-  useEffect(() => {
-    const voice = localStorage.getItem("maya_voice") ?? "soniox";
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
