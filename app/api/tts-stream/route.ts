@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
   if (!text) return new Response("No text", { status: 400 });
 
   if (provider === "fish") {
+    console.log("Using Fish Audio TTS");
     // Fish Audio — Maya Natural
     const res = await fetch("https://api.fish.audio/v1/tts", {
       method: "POST",
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
         latency: "normal",
       }),
     });
+    console.log("Fish Audio response status:", res.status);
     if (!res.ok) {
       const err = await res.text();
       console.error("Fish TTS error:", err);
