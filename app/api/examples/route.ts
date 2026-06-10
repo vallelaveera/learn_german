@@ -47,9 +47,11 @@ async function callClaude(prompt: string, system: string): Promise<string> {
 export async function GET(req: NextRequest) {
   const word = req.nextUrl.searchParams.get("word");
   const type = req.nextUrl.searchParams.get("type") ?? "sentences"; // "sentences" or "translations"
+  const context = req.nextUrl.searchParams.get("context"); // "career" for workplace examples
   if (!word) return NextResponse.json({ error: "No word" });
 
-  const cacheKey = `${word.toLowerCase()}:${type}`;
+  const careerSuffix = context === "career" ? ":career" : "";
+  const cacheKey = `${word.toLowerCase()}:${type}${careerSuffix}`;
   const cached = await getWordExamples(cacheKey);
   if (cached) return NextResponse.json({ data: cached, cached: true });
 
@@ -57,16 +59,19 @@ export async function GET(req: NextRequest) {
     let result: string[];
 
     if (type === "sentences") {
-      // Get 2 German example sentences
+      const isCareer = context === "career";
       const text = await callClaude(
-        `Give 2 natural German sentences using the word "${word}". One sentence per line. Only the sentences, nothing else.`,
-        "You are a German teacher. Return exactly 2 German sentences, one per line. No numbers, no labels, no explanations."
+        isCareer
+          ? `Give 2 natural German workplace sentences using "${word}" (job interview, office, or professional context). One sentence per line. Only the sentences, nothing else.`
+          : `Give 2 natural German sentences using the word "${word}". One sentence per line. Only the sentences, nothing else.`,
+        isCareer
+          ? "You are a German career coach. Return exactly 2 professional German sentences, one per line. No numbers, no labels, no explanations."
+          : "You are a German teacher. Return exactly 2 German sentences, one per line. No numbers, no labels, no explanations."
       );
       result = text.split("\n").filter(Boolean).slice(0, 2);
 
     } else {
-      // Get English translations — needs the German sentences first
-      const sentencesCached = await getWordExamples(`${word.toLowerCase()}:sentences`);
+      const sentencesCached = await getWordExamples(`${word.toLowerCase()}:sentences${careerSuffix}`);
       if (!sentencesCached) return NextResponse.json({ data: [] });
 
       const text = await callClaude(
@@ -76,7 +81,7 @@ export async function GET(req: NextRequest) {
       result = text.split("\n").filter(Boolean).slice(0, 2);
     }
 
-    await saveWordExamples(cacheKey, result);
+    if (result.length) await saveWordExamples(cacheKey, result);
     return NextResponse.json({ data: result, cached: false });
   } catch (e) {
     console.error(e);

@@ -61,6 +61,12 @@ export default function CareerPage() {
   const [status, setStatus] = useState<Status>("all");
   const [search, setSearch] = useState("");
   const [backfilling, setBackfilling] = useState(false);
+  const [expandedWord, setExpandedWord] = useState<string | null>(null);
+  const [sentences, setSentences] = useState<Record<string, string[]>>({});
+  const [translations, setTranslations] = useState<Record<string, string[]>>({});
+  const [loadingSentences, setLoadingSentences] = useState<string | null>(null);
+  const [loadingTranslations, setLoadingTranslations] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState<Record<string, boolean>>({});
 
   const loadReport = useCallback(() => {
     setLoading(true);
@@ -76,6 +82,34 @@ export default function CareerPage() {
   }, [category, industry, status]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
+
+  const fetchSentences = async (word: string) => {
+    if (expandedWord === word) { setExpandedWord(null); return; }
+    setExpandedWord(word);
+    if (sentences[word]) return;
+    setLoadingSentences(word);
+    try {
+      const res = await fetch(`/api/examples?word=${encodeURIComponent(word)}&type=sentences&context=career`);
+      const data = await res.json();
+      setSentences(prev => ({ ...prev, [word]: data.data ?? [] }));
+    } catch {}
+    setLoadingSentences(null);
+  };
+
+  const fetchTranslations = async (word: string) => {
+    if (translations[word]) {
+      setShowTranslation(prev => ({ ...prev, [word]: !prev[word] }));
+      return;
+    }
+    setLoadingTranslations(word);
+    try {
+      const res = await fetch(`/api/examples?word=${encodeURIComponent(word)}&type=translations&context=career`);
+      const data = await res.json();
+      setTranslations(prev => ({ ...prev, [word]: data.data ?? [] }));
+      setShowTranslation(prev => ({ ...prev, [word]: true }));
+    } catch {}
+    setLoadingTranslations(null);
+  };
 
   const runBackfill = async () => {
     setBackfilling(true);
@@ -246,6 +280,50 @@ export default function CareerPage() {
                   <span style={{ fontSize: 10, color: "var(--text-dim)", background: "var(--bg)", padding: "2px 6px", borderRadius: 4 }}>{entry.level}</span>
                   <span style={{ fontSize: 10, color: "var(--text-dim)", background: "var(--bg)", padding: "2px 6px", borderRadius: 4 }}>{entry.priority}</span>
                 </div>
+
+                <button
+                  onClick={() => fetchSentences(entry.text)}
+                  style={{
+                    marginTop: 8, fontSize: 10, color: "var(--purple)",
+                    background: "none", border: "0.5px solid rgba(124,77,170,0.35)",
+                    borderRadius: 4, padding: "2px 8px", cursor: "pointer",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {loadingSentences === entry.text ? "..." : expandedWord === entry.text ? "▲ Beispiele" : "▼ Beispiele"}
+                </button>
+
+                {expandedWord === entry.text && sentences[entry.text] && (
+                  <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--bg)", borderRadius: 6, border: "0.5px solid var(--border)" }}>
+                    {sentences[entry.text].map((s, i) => (
+                      <p key={i} style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6, margin: i > 0 ? "6px 0 0" : 0, fontStyle: "italic" }}>
+                        &quot;{s}&quot;
+                      </p>
+                    ))}
+
+                    {showTranslation[entry.text] && translations[entry.text] && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "0.5px solid var(--border)" }}>
+                        {translations[entry.text].map((t, i) => (
+                          <p key={i} style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, margin: i > 0 ? "4px 0 0" : 0 }}>
+                            {i + 1}. {t}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => fetchTranslations(entry.text)}
+                      style={{
+                        marginTop: 10, fontSize: 10, color: "var(--text-muted)",
+                        background: "none", border: "0.5px solid var(--border)",
+                        borderRadius: 4, padding: "2px 10px", cursor: "pointer",
+                        fontFamily: "var(--font-mono)", display: "block",
+                      }}
+                    >
+                      {loadingTranslations === entry.text ? "..." : showTranslation[entry.text] ? "EN verbergen" : "EN anzeigen"}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

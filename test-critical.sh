@@ -198,6 +198,10 @@ grep -q 'buildCareerVocabReport' app/api/career-vocab/route.ts \
   && check "career report page exists" "ok" \
   || check "career report page exists" "fail"
 
+grep -q "Beispiele" app/career/page.tsx \
+  && check "career: example sentences UI" "ok" \
+  || check "career: example sentences UI" "fail"
+
 echo ""
 echo "── app/callmode/page.tsx ───────────────"
 
