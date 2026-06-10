@@ -9,6 +9,8 @@ import { Message } from "@/lib/types";
 let _cm_sending = false;
 let _cm_active = false;
 let _cm_mic_start = 0;
+let _cm_mic_running = false;
+let _cm_tts_done_fired = false;
 
 const SILENCE_THRESHOLD = 25; // volume below this = silence
 const SILENCE_DURATION = 2000; // ms before auto-send
@@ -59,7 +61,11 @@ export default function CallModePage() {
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
   const nextStartRef = useRef(0);
   const transcriptRef = useRef<HTMLDivElement>(null);
-  const pendingTopicQuestionRef = useRef<string | null>(null);
+  const openingRef = useRef<string | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const finishTTSPlaybackRef = useRef<() => void>(() => {});
+  const restartMicRef = useRef<() => Promise<void>>(async () => {});
+  const endCallRef = useRef<() => void>(() => {});
   const router = useRouter();
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -84,6 +90,7 @@ export default function CallModePage() {
         systemPromptRef.current = data.systemPrompt;
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
+        if (data.opening) openingRef.current = data.opening;
       });
   }, []);
 
@@ -98,14 +105,70 @@ export default function CallModePage() {
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
     sourceQueueRef.current = [];
     nextStartRef.current = 0;
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = "";
+    }
   }, []);
 
   const startRef = useRef<() => Promise<void>>(async () => {});
   const stopRef = useRef<() => void>(() => {});
 
+  const restartMic = useCallback(async () => {
+    if (!_cm_active || _cm_mic_running) return;
+    _cm_mic_running = true;
+    try {
+      stopRef.current();
+      await new Promise(r => setTimeout(r, 600));
+      if (!_cm_active) return;
+      speechBufferRef.current = "";
+      setLiveText("");
+      _cm_mic_start = Date.now();
+      setCallState("listening");
+      await startRef.current();
+    } finally {
+      _cm_mic_running = false;
+    }
+  }, []);
+
+  const finishTTSPlayback = useCallback(() => {
+    if (_cm_tts_done_fired || !_cm_active) return;
+    _cm_tts_done_fired = true;
+    _cm_sending = false;
+    setTimeout(() => {
+      if (_cm_active) restartMicRef.current();
+    }, 400);
+  }, []);
+
+  const playMP3 = useCallback((buffer: ArrayBuffer): Promise<void> => {
+    return new Promise((resolve) => {
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current.src = "";
+      }
+      const blob = new Blob([buffer], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioElementRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        finishTTSPlaybackRef.current();
+        resolve();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        finishTTSPlaybackRef.current();
+        resolve();
+      };
+      audio.play().catch(() => {
+        finishTTSPlaybackRef.current();
+        resolve();
+      });
+    });
+  }, []);
+
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
     const ctx = getAudioCtx();
-    // iOS: always resume before playing
     if (ctx.state === "suspended") await ctx.resume();
     try {
       const decoded = await ctx.decodeAudioData(chunk.slice(0));
@@ -118,27 +181,12 @@ export default function CallModePage() {
       source.onended = () => {
         sourceQueueRef.current = sourceQueueRef.current.filter(s => s !== source);
         if (sourceQueueRef.current.length === 0 && _cm_active) {
-          // Maya finished speaking — restart mic
-          setCallState("listening");
-          _cm_sending = false;
-          speechBufferRef.current = "";
-          _cm_mic_start = Date.now();
-          setTimeout(() => {
-            if (_cm_active) startRef.current();
-          }, 400);
+          finishTTSPlaybackRef.current();
         }
       };
       sourceQueueRef.current.push(source);
     } catch (e) {
       console.error("playChunk error:", e);
-      // Even if decode fails, restart mic
-      if (_cm_active && sourceQueueRef.current.length === 0) {
-        setCallState("listening");
-        _cm_sending = false;
-        speechBufferRef.current = "";
-        _cm_mic_start = Date.now();
-        setTimeout(() => { if (_cm_active) startRef.current(); }, 400);
-      }
     }
   }, []);
 
@@ -147,7 +195,12 @@ export default function CallModePage() {
     setCallState("speaking");
     stopAudio();
     nextStartRef.current = 0;
+    _cm_tts_done_fired = false;
     const ttsText = ttsProviderRef.current === "fish" ? stripEmojis(text) : text;
+    if (!ttsText) {
+      finishTTSPlaybackRef.current();
+      return;
+    }
     try {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
@@ -156,29 +209,50 @@ export default function CallModePage() {
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
-      const CHUNK = 16384;
-      let buf = new Uint8Array(0);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-          break;
+
+      if (ttsProviderRef.current === "fish") {
+        // Fish — collect full MP3 buffer, play via HTML audio
+        let buf = new Uint8Array(0);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const nb = new Uint8Array(buf.length + value.length);
+          nb.set(buf); nb.set(value, buf.length); buf = nb;
         }
-        const nb = new Uint8Array(buf.length + value.length);
-        nb.set(buf); nb.set(value, buf.length); buf = nb;
-        if (buf.length >= CHUNK) {
-          const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
-          playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
+        if (buf.length > 0) {
+          await playMP3(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+        } else {
+          finishTTSPlaybackRef.current();
         }
+      } else {
+        // Soniox — chunked MP3 streaming
+        const CHUNK = 16384;
+        let buf = new Uint8Array(0);
+        let dispatched = false;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            if (buf.length > 0) {
+              dispatched = true;
+              playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+            }
+            break;
+          }
+          const nb = new Uint8Array(buf.length + value.length);
+          nb.set(buf); nb.set(value, buf.length); buf = nb;
+          if (buf.length >= CHUNK) {
+            const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
+            dispatched = true;
+            playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
+          }
+        }
+        if (!dispatched) finishTTSPlaybackRef.current();
       }
     } catch (e) {
       console.error("TTS error:", e);
-      setCallState("listening");
-      _cm_sending = false;
-      _cm_mic_start = Date.now();
-      if (_cm_active) startRef.current();
+      finishTTSPlaybackRef.current();
     }
-  }, [playChunk, stopAudio]);
+  }, [playChunk, playMP3, stopAudio]);
 
   // ── Send to Claude ────────────────────────────────────
   const sendToTutor = useCallback(async (text: string) => {
@@ -250,8 +324,7 @@ export default function CallModePage() {
       await streamTTS(german);
     } catch {
       _cm_sending = false;
-      setCallState("listening");
-      if (_cm_active) startRef.current();
+      if (_cm_active) restartMicRef.current();
     }
   }, [streamTTS, sessionId, sessionStart]);
 
@@ -324,11 +397,20 @@ export default function CallModePage() {
     return lastMaya?.content ?? "";
   }, []);
 
+  const handleRecorderError = useCallback((e: string) => {
+    if (e.includes("429")) {
+      setError("Zu viele Verbindungen. Bitte warte einen Moment und versuche es erneut.");
+      endCallRef.current();
+      return;
+    }
+    setError(e);
+  }, []);
+
   const { start, stop, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onFinished: handleFinished,
-    onError: (e) => setError(e),
+    onError: handleRecorderError,
     onVolume: handleVolume,
     getContext,
   });
@@ -336,6 +418,8 @@ export default function CallModePage() {
   // Keep refs in sync
   useEffect(() => { startRef.current = start; }, [start]);
   useEffect(() => { stopRef.current = stop; }, [stop]);
+  useEffect(() => { restartMicRef.current = restartMic; }, [restartMic]);
+  useEffect(() => { finishTTSPlaybackRef.current = finishTTSPlayback; }, [finishTTSPlayback]);
 
   // ── Start call ────────────────────────────────────────
   const startCall = async () => {
@@ -355,7 +439,6 @@ export default function CallModePage() {
     _cm_sending = true;
     speechBufferRef.current = "";
     setError(null);
-    setMessages([]);
     setLiveText("");
     setDuration(0);
 
@@ -366,25 +449,29 @@ export default function CallModePage() {
     durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
     setPhase("active");
 
-    try {
-      const r = await fetch("/api/context");
-      const data = await r.json();
-      if (data?.opening) {
-        const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
-        setMessages([msg]);
-        messagesRef.current = [msg];
-        await streamTTS(data.opening);
-      } else {
-        _cm_sending = false;
-        _cm_mic_start = Date.now();
-        await start();
-        setCallState("listening");
-      }
-    } catch {
+    let opening = openingRef.current;
+    if (!opening) {
+      try {
+        const r = await fetch("/api/context");
+        const data = await r.json();
+        if (data?.opening) {
+          opening = data.opening;
+          openingRef.current = data.opening;
+        }
+      } catch {}
+    }
+
+    if (opening) {
+      const msg: Message = { role: "assistant", content: opening, timestamp: Date.now() };
+      setMessages([msg]);
+      messagesRef.current = [msg];
+      setCallState("speaking");
+      await streamTTS(opening);
+    } else {
+      setMessages([]);
+      messagesRef.current = [];
       _cm_sending = false;
-      _cm_mic_start = Date.now();
-      await start();
-      setCallState("listening");
+      await restartMicRef.current();
     }
   };
 
@@ -393,6 +480,8 @@ export default function CallModePage() {
     if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
     _cm_active = false;
     _cm_sending = false;
+    _cm_mic_running = false;
+    _cm_tts_done_fired = true;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     stop();
@@ -408,6 +497,8 @@ export default function CallModePage() {
     }
     setPhase("ended");
   }, [stop, stopAudio]);
+
+  useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
   // Cleanup on unmount
   useEffect(() => {
