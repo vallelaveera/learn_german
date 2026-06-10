@@ -606,4 +606,3 @@ export default function CallModePage() {
     </div>
   );
 }
-}
