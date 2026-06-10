@@ -19,9 +19,10 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text,
         reference_id: "5d57382c07b0434bb7958aed4cf97757",
-        format: "wav",
+        format: "opus",
         streaming: true,
-        latency: "normal",
+        latency: "balanced",
+        chunk_length: 100,
       }),
     });
     console.log("Fish Audio response status:", res.status);
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
     return new Response(res.body, {
       headers: {
-        "Content-Type": "audio/wav",
+        "Content-Type": "audio/opus",
         "Transfer-Encoding": "chunked",
         "X-Accel-Buffering": "no",
       },
