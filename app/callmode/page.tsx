@@ -75,15 +75,24 @@ export default function CallModePage() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, liveText]);
 
-  // Prefetch context + opening before call can start
+  // Prefetch context + opening (never show green button until status is known)
   useEffect(() => {
+    let limitHit = false;
+    const timeout = setTimeout(() => {
+      if (!limitHit) setContextReady(true);
+    }, 8000);
+
     fetch("/api/context")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
-        if (!data) return;
+        if (!data || data.error) return;
         if (data.limitReached) {
+          limitHit = true;
           setLimitReached(true);
-          setUser({ name: data.user.name });
+          if (data.user) setUser({ name: data.user.name });
+          if (data.used !== undefined && data.limit !== undefined) {
+            setUsage({ used: data.used, limit: data.limit, remaining: 0 });
+          }
           return;
         }
         setUser({ name: data.user.name });
@@ -96,7 +105,10 @@ export default function CallModePage() {
         }
       })
       .catch(console.error)
-      .finally(() => setContextReady(true));
+      .finally(() => {
+        clearTimeout(timeout);
+        setContextReady(true);
+      });
   }, []);
 
   // ── Audio playback ─────────────────────────────────────
@@ -518,6 +530,8 @@ export default function CallModePage() {
   const fmt = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
+  const canCall = contextReady && !limitReached;
+
   // ── IDLE ──────────────────────────────────────────────
   if (phase === "idle") return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
@@ -549,20 +563,29 @@ export default function CallModePage() {
         </p>
       )}
 
-      {!contextReady && !cachedOpening && (
+      {!contextReady && (
         <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 32 }}>Maya bereitet sich vor…</p>
+      )}
+
+      {contextReady && limitReached && (
+        <div style={{ textAlign: "center", marginBottom: 24, padding: "12px 16px", maxWidth: 300, background: "rgba(192,57,43,0.08)", border: "0.5px solid rgba(192,57,43,0.25)", borderRadius: 10 }}>
+          <p style={{ fontSize: 13, color: "var(--red)", marginBottom: 4 }}>Monatslimit erreicht</p>
+          <p style={{ fontSize: 12, color: "#8a7060", lineHeight: 1.5 }}>
+            {usage ? `${usage.used} / ${usage.limit} Minuten genutzt` : "Keine Minuten mehr diesen Monat"}
+          </p>
+        </div>
       )}
 
       <button
         onClick={startCall}
-        disabled={limitReached}
+        disabled={!canCall}
         style={{
           width: 80, height: 80, borderRadius: "50%",
-          background: limitReached ? "var(--border)" : "var(--green)",
+          background: canCall ? "var(--green)" : "var(--border)",
           border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: limitReached ? "not-allowed" : "pointer",
-          opacity: limitReached ? 0.45 : 1,
-          boxShadow: limitReached ? "none" : "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)",
+          cursor: canCall ? "pointer" : "not-allowed",
+          opacity: canCall ? 1 : 0.45,
+          boxShadow: canCall ? "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)" : "none",
           WebkitTapHighlightColor: "transparent",
         }}
       >

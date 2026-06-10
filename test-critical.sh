@@ -188,9 +188,13 @@ grep -qE 'disabled=.*cachedOpening' app/callmode/page.tsx \
   && check "call button NOT blocked on missing cachedOpening" "fail" \
   || check "call button NOT blocked on missing cachedOpening" "ok"
 
-grep -q 'disabled={limitReached}' app/callmode/page.tsx \
-  && check "call button only disabled on limitReached" "ok" \
-  || check "call button only disabled on limitReached" "fail"
+grep -q 'contextReady && !limitReached' app/callmode/page.tsx \
+  && check "call button: canCall = contextReady && !limitReached" "ok" \
+  || check "call button: canCall = contextReady && !limitReached" "fail"
+
+grep -q 'disabled={!canCall}' app/callmode/page.tsx \
+  && check "call button disabled when !canCall" "ok" \
+  || check "call button disabled when !canCall" "fail"
 
 check_absent "startCall does NOT bail if no opening" "app/callmode/page.tsx" 'if \(!opening\) return'
 
