@@ -14,8 +14,13 @@ const SILENCE_THRESHOLD = 25; // volume below this = silence
 const SILENCE_DURATION = 2000; // ms before auto-send
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 
+// ES5-safe — tsconfig targets es5, so no \p{...} unicode property escapes
 const stripEmojis = (text: string) =>
-  text.replace(/\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+  text
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
+    .replace(/[\u2600-\u27BF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
 type Phase = "idle" | "active" | "ended";
 type CallState = "listening" | "thinking" | "speaking";
