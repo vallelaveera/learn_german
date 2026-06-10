@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
-import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
+import { FISH_SPOKEN_RULES } from "@/lib/fish-tts";
 import { Message } from "@/lib/types";
 
 // ── Module-level flags ─────────────────────────────────────
@@ -338,9 +338,7 @@ export default function CallModePage() {
       if (!fullText) throw new Error();
       const allLines = fullText.split("\n").filter(Boolean);
       const speechLines = allLines.filter(l => !l.startsWith("💡"));
-      const german = ttsProviderRef.current === "fish"
-        ? prepareFishTTS(speechLines.join("\n"))
-        : speechLines.join(" ").trim();
+      const german = speechLines.join(" ").trim();
       const hintLines = allLines
         .filter(l => l.startsWith("💡"))
         .map(l => l.replace(/^💡\s*/, "").trim())
