@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { listSessions, saveVocabWords, markWordsUsedByUser } from "@/lib/kv";
+import { listSessions, saveVocabWords, markWordsUsedByUser, updateCareerVocabProgress } from "@/lib/kv";
+import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
 
 export const runtime = "nodejs";
 
@@ -21,8 +22,14 @@ export async function GET(req: NextRequest) {
     const sessions = await listSessions(user.userId, 999);
     const mayaWords = new Set<string>();
     const userWords = new Set<string>();
+    const careerUserMatched = new Set<string>();
+    const careerMayaMatched = new Set<string>();
 
     for (const session of sessions) {
+      const career = matchCareerVocabFromMessages(session.messages ?? []);
+      career.userMatched.forEach(id => careerUserMatched.add(id));
+      career.mayaMatched.forEach(id => careerMayaMatched.add(id));
+
       for (const msg of session.messages ?? []) {
         const words = getWords(msg.content);
         if (msg.role === "assistant") words.forEach(w => mayaWords.add(w));
@@ -32,6 +39,11 @@ export async function GET(req: NextRequest) {
 
     await saveVocabWords(user.userId, Array.from(mayaWords));
     await markWordsUsedByUser(user.userId, Array.from(userWords));
+    await updateCareerVocabProgress(
+      user.userId,
+      Array.from(careerUserMatched),
+      Array.from(careerMayaMatched)
+    );
 
     const newWords = Array.from(mayaWords)
       .filter(w => !userWords.has(w))
@@ -43,6 +55,8 @@ export async function GET(req: NextRequest) {
       maya_total: mayaWords.size,
       user_total: userWords.size,
       new_words: newWords.length,
+      career_used: careerUserMatched.size,
+      career_exposed: careerMayaMatched.size,
       sample: newWords.slice(0, 20),
     });
   } catch (e) {

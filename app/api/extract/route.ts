@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes } from "@/lib/kv";
+import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress } from "@/lib/kv";
+import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
 import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions } from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
 
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     );
 
     const newQuestions = extractAskedQuestionsFromMessages(messages);
+    const careerMatches = matchCareerVocabFromMessages(messages);
 
     const [newFacts, profileFacts, newTopics] = await Promise.all([
       extractFacts(messages, user.facts),
@@ -52,6 +54,7 @@ export async function POST(req: NextRequest) {
       saveVocabWords(user.userId, mayaWords),
       markWordsUsedByUser(user.userId, userWords),
       updateUserFacts(user.userId, mergedFacts),
+      updateCareerVocabProgress(user.userId, careerMatches.userMatched, careerMatches.mayaMatched),
     ];
 
     // Track minutes — only called once at session end

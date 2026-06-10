@@ -120,6 +120,7 @@ export default function ModePage() {
       <div style={{ display: "flex", gap: 8, marginTop: 32, width: "100%", maxWidth: 360 }}>
         {[
           { href: "/words", label: "Wörter", icon: "📚" },
+          { href: "/career", label: "Karriere", icon: "💼" },
           { href: "/progress", label: "Fortschritt", icon: "📈" },
           { href: "/history", label: "Verlauf", icon: "🕐" },
           { href: "/profile", label: "Profil", icon: "👤" },

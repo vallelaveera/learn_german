@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { Session, VocabWord, UserProfile, UserFacts } from "./types";
+import type { CareerVocabUserProgress } from "./career-vocab/types";
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -223,6 +224,75 @@ export async function getUsageStats(userId: string): Promise<{ used: number; lim
 
 export async function saveWordExamples(word: string, sentences: string[]): Promise<void> {
   await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
+}
+
+// ── Career vocabulary progress ─────────────────────────────
+
+function emptyCareerVocabProgress(userId: string): CareerVocabUserProgress {
+  return { userId, updatedAt: Date.now(), entries: {} };
+}
+
+export async function getCareerVocabProgress(userId: string): Promise<CareerVocabUserProgress> {
+  try {
+    const data = await redis.get<string>(`career_vocab:${userId}`);
+    if (!data) return emptyCareerVocabProgress(userId);
+    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    return {
+      userId,
+      updatedAt: parsed.updatedAt ?? Date.now(),
+      entries: parsed.entries ?? {},
+    };
+  } catch {
+    return emptyCareerVocabProgress(userId);
+  }
+}
+
+export async function updateCareerVocabProgress(
+  userId: string,
+  userMatchedIds: string[],
+  mayaMatchedIds: string[]
+): Promise<void> {
+  if (!userMatchedIds.length && !mayaMatchedIds.length) return;
+
+  const now = Date.now();
+  const progress = await getCareerVocabProgress(userId);
+
+  for (let i = 0; i < userMatchedIds.length; i++) {
+    const id = userMatchedIds[i];
+    const existing = progress.entries[id];
+    if (existing) {
+      existing.usedByUser = true;
+      existing.timesUsed = (existing.timesUsed ?? 0) + 1;
+      existing.lastUsedAt = now;
+      if (!existing.firstUsedAt) existing.firstUsedAt = now;
+    } else {
+      progress.entries[id] = {
+        entryId: id,
+        usedByUser: true,
+        timesUsed: 1,
+        firstUsedAt: now,
+        lastUsedAt: now,
+      };
+    }
+  }
+
+  for (let j = 0; j < mayaMatchedIds.length; j++) {
+    const id = mayaMatchedIds[j];
+    const existing = progress.entries[id];
+    if (existing) {
+      existing.exposedByMaya = true;
+    } else {
+      progress.entries[id] = {
+        entryId: id,
+        usedByUser: false,
+        timesUsed: 0,
+        exposedByMaya: true,
+      };
+    }
+  }
+
+  progress.updatedAt = now;
+  await redis.set(`career_vocab:${userId}`, JSON.stringify(progress));
 }
 
 export async function getWordExamples(word: string): Promise<string[] | null> {

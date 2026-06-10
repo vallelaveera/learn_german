@@ -182,6 +182,22 @@ grep -q 'extractAskedQuestionsFromMessages' app/api/extract/route.ts \
   && check "extract: saves askedQuestions" "ok" \
   || check "extract: saves askedQuestions" "fail"
 
+grep -q 'updateCareerVocabProgress' app/api/extract/route.ts \
+  && check "extract: career vocab progress" "ok" \
+  || check "extract: career vocab progress" "fail"
+
+grep -q 'buildCareerVocabReport' app/api/career-vocab/route.ts \
+  && check "career-vocab API route" "ok" \
+  || check "career-vocab API route" "fail"
+
+[ -f "data/career-vocab/german_career_vocab.json" ] \
+  && check "german_career_vocab.json exists" "ok" \
+  || check "german_career_vocab.json exists" "fail"
+
+[ -f "app/career/page.tsx" ] \
+  && check "career report page exists" "ok" \
+  || check "career report page exists" "fail"
+
 echo ""
 echo "── app/callmode/page.tsx ───────────────"
 
