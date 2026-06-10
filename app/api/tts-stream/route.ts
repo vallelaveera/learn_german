@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { prepareFishTTS } from "@/lib/fish-tts";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -8,21 +9,26 @@ export async function POST(req: NextRequest) {
   if (!text) return new Response("No text", { status: 400 });
 
   if (provider === "fish") {
+    const fishText = prepareFishTTS(text);
+    if (!fishText) return new Response("No text", { status: 400 });
+
     console.log("Using Fish Audio TTS");
-    // Fish Audio — Maya Natural
     const res = await fetch("https://api.fish.audio/v1/tts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.FISH_AUDIO_API_KEY}`,
         "Content-Type": "application/json",
+        model: "s2-pro",
       },
       body: JSON.stringify({
-        text,
+        text: fishText,
         reference_id: "5d57382c07b0434bb7958aed4cf97757",
         format: "mp3",
         streaming: true,
         latency: "balanced",
         mp3_bitrate: 128,
+        normalize: true,
+        prosody: { speed: 0.95, volume: 0 },
       }),
     });
     console.log("Fish Audio response status:", res.status);

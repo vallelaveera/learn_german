@@ -16,14 +16,6 @@ const SILENCE_THRESHOLD = 25; // volume below this = silence
 const SILENCE_DURATION = 2000; // ms before auto-send
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 
-// ES5-safe — tsconfig targets es5, so no \p{...} unicode property escapes
-const stripEmojis = (text: string) =>
-  text
-    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
-    .replace(/[\u2600-\u27BF]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
 type Phase = "idle" | "active" | "ended";
 type CallState = "listening" | "thinking" | "speaking";
 
@@ -44,6 +36,8 @@ export default function CallModePage() {
 
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [limitReached, setLimitReached] = useState(false);
+  const [contextReady, setContextReady] = useState(false);
+  const [cachedOpening, setCachedOpening] = useState<string | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
@@ -65,6 +59,7 @@ export default function CallModePage() {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
   const restartMicRef = useRef<() => Promise<void>>(async () => {});
+  const streamTTSRef = useRef<((text: string) => Promise<void>) | null>(null);
   const endCallRef = useRef<() => void>(() => {});
   const router = useRouter();
 
@@ -75,7 +70,7 @@ export default function CallModePage() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, liveText]);
 
-  // Load user + context on mount (limit check, system prompt — opening plays in startCall)
+  // Prefetch context + opening before call can start
   useEffect(() => {
     fetch("/api/context")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
@@ -90,8 +85,13 @@ export default function CallModePage() {
         systemPromptRef.current = data.systemPrompt;
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
-        if (data.opening) openingRef.current = data.opening;
-      });
+        if (data.opening) {
+          openingRef.current = data.opening;
+          setCachedOpening(data.opening);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setContextReady(true));
   }, []);
 
   // ── Audio playback ─────────────────────────────────────
@@ -196,8 +196,7 @@ export default function CallModePage() {
     stopAudio();
     nextStartRef.current = 0;
     _cm_tts_done_fired = false;
-    const ttsText = ttsProviderRef.current === "fish" ? stripEmojis(text) : text;
-    if (!ttsText) {
+    if (!text.trim()) {
       finishTTSPlaybackRef.current();
       return;
     }
@@ -205,7 +204,7 @@ export default function CallModePage() {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: ttsText, provider: ttsProviderRef.current }),
+        body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
@@ -253,6 +252,8 @@ export default function CallModePage() {
       finishTTSPlaybackRef.current();
     }
   }, [playChunk, playMP3, stopAudio]);
+
+  useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 
   // ── Send to Claude ────────────────────────────────────
   const sendToTutor = useCallback(async (text: string) => {
@@ -446,33 +447,18 @@ export default function CallModePage() {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
     } catch {}
 
-    durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    const opening = openingRef.current ?? cachedOpening;
+    if (!opening) return;
+
+    const msg: Message = { role: "assistant", content: opening, timestamp: Date.now() };
+    setMessages([msg]);
+    messagesRef.current = [msg];
+    setCallState("speaking");
     setPhase("active");
 
-    let opening = openingRef.current;
-    if (!opening) {
-      try {
-        const r = await fetch("/api/context");
-        const data = await r.json();
-        if (data?.opening) {
-          opening = data.opening;
-          openingRef.current = data.opening;
-        }
-      } catch {}
-    }
+    durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
 
-    if (opening) {
-      const msg: Message = { role: "assistant", content: opening, timestamp: Date.now() };
-      setMessages([msg]);
-      messagesRef.current = [msg];
-      setCallState("speaking");
-      await streamTTS(opening);
-    } else {
-      setMessages([]);
-      messagesRef.current = [];
-      _cm_sending = false;
-      await restartMicRef.current();
-    }
+    await streamTTSRef.current?.(opening);
   };
 
   // ── End call ──────────────────────────────────────────
@@ -536,11 +522,33 @@ export default function CallModePage() {
       <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", marginBottom: 8 }}>
         Maya ruft an{user ? `, ${user.name}` : ""}
       </p>
-      <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 48, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
+      <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 16, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
         Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
       </p>
 
-      <button onClick={startCall} style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--green)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)", WebkitTapHighlightColor: "transparent" }}>
+      {cachedOpening && contextReady && (
+        <p style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", lineHeight: 1.6, maxWidth: 300, marginBottom: 32, padding: "0 16px" }}>
+          &ldquo;{cachedOpening}&rdquo;
+        </p>
+      )}
+
+      {!contextReady && (
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 32 }}>Maya bereitet sich vor…</p>
+      )}
+
+      <button
+        onClick={startCall}
+        disabled={!contextReady || limitReached || !cachedOpening}
+        style={{
+          width: 80, height: 80, borderRadius: "50%",
+          background: contextReady && cachedOpening && !limitReached ? "var(--green)" : "var(--border)",
+          border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: contextReady && cachedOpening && !limitReached ? "pointer" : "not-allowed",
+          opacity: contextReady && cachedOpening && !limitReached ? 1 : 0.45,
+          boxShadow: contextReady && cachedOpening && !limitReached ? "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)" : "none",
+          WebkitTapHighlightColor: "transparent",
+        }}
+      >
         <svg width="30" height="30" viewBox="0 0 24 24" fill="white">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
         </svg>
