@@ -132,13 +132,21 @@ check_absent "Fish TTS: no (break) tags" "lib/fish-tts.ts" '\\(break\\)'
 
 check_absent "Fish TTS: no (long-break) tags" "lib/fish-tts.ts" 'long-break'
 
-check_absent "Fish TTS: no period injection hack" "lib/fish-tts.ts" 'A-ZÄÖÜ'
+grep -q "A-ZÄÖÜ" lib/fish-tts.ts \
+  && check "Fish TTS: sentence boundary fix" "ok" \
+  || check "Fish TTS: sentence boundary fix" "fail"
 
-check_absent "Fish TTS: no trailing period hack" "lib/fish-tts.ts" '/\[\.!\?\]\$/'
+grep -q "FISH_SPOKEN_RULES" lib/fish-tts.ts \
+  && check "Fish TTS: spoken rules for Claude" "ok" \
+  || check "Fish TTS: spoken rules for Claude" "fail"
 
-grep -q "return stripEmojis" lib/fish-tts.ts \
-  && check "Fish TTS: prepareFishTTS is emoji-only" "ok" \
-  || check "Fish TTS: prepareFishTTS is emoji-only" "fail"
+grep -q "FISH_SPOKEN_RULES" app/callmode/page.tsx \
+  && check "callmode: Fish spoken rules in prompt" "ok" \
+  || check "callmode: Fish spoken rules in prompt" "fail"
+
+grep -q "prepareFishTTS" app/callmode/page.tsx \
+  && check "callmode: prepareFishTTS for Maya B display+TTS" "ok" \
+  || check "callmode: prepareFishTTS for Maya B display+TTS" "fail"
 
 grep -qE '/\\p\{' lib/fish-tts.ts \
   && check "ES5-safe emoji strip (no \\p{} regex)" "fail" \
