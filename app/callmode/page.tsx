@@ -184,6 +184,7 @@ export default function CallModePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
+      console.log("chat response:", res.status);
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
 
@@ -213,9 +214,11 @@ export default function CallModePage() {
 
   // ── Send to Claude ────────────────────────────────────
   const sendToTutor = useCallback(async (text: string) => {
+    console.log("sendToTutor called:", text.slice(0, 30));
     if (!text.trim() || _cm_sending) return;
     _cm_sending = true;
     setCallState("thinking");
+    console.log("sendToTutor: calling /api/chat");
     setShowSilenceHint(false);
     if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
     // Don't clear liveText here — clear it after message bubble appears
@@ -279,6 +282,7 @@ export default function CallModePage() {
       const withAssistant = [...messagesRef.current, assistantMsg];
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
+      console.log("calling streamTTS:", german.slice(0, 30));
       await streamTTS(german);
     } catch {
       _cm_sending = false;
