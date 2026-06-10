@@ -14,6 +14,9 @@ const SILENCE_THRESHOLD = 25; // volume below this = silence
 const SILENCE_DURATION = 2000; // ms before auto-send
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 
+const stripEmojis = (text: string) =>
+  text.replace(/\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+
 type Phase = "idle" | "active" | "ended";
 type CallState = "listening" | "thinking" | "speaking";
 
@@ -61,7 +64,7 @@ export default function CallModePage() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, liveText]);
 
-  // Load user + context
+  // Load user + context on mount (limit check, system prompt — opening plays in startCall)
   useEffect(() => {
     fetch("/api/context")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
@@ -76,11 +79,6 @@ export default function CallModePage() {
         systemPromptRef.current = data.systemPrompt;
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
-        // Show topic question after opening TTS finishes
-        // Store topic question to speak after opening finishes
-        if (data.topicQuestion) {
-          pendingTopicQuestionRef.current = data.topicQuestion;
-        }
       });
   }, []);
 
@@ -119,6 +117,7 @@ export default function CallModePage() {
           setCallState("listening");
           _cm_sending = false;
           speechBufferRef.current = "";
+          _cm_mic_start = Date.now();
           setTimeout(() => {
             if (_cm_active) startRef.current();
           }, 400);
@@ -132,45 +131,49 @@ export default function CallModePage() {
         setCallState("listening");
         _cm_sending = false;
         speechBufferRef.current = "";
+        _cm_mic_start = Date.now();
         setTimeout(() => { if (_cm_active) startRef.current(); }, 400);
       }
     }
   }, []);
 
   // ── TTS ───────────────────────────────────────────────
-  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
-
   const streamTTS = useCallback(async (text: string) => {
     setCallState("speaking");
     stopAudio();
     nextStartRef.current = 0;
+    const ttsText = ttsProviderRef.current === "fish" ? stripEmojis(text) : text;
     try {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, provider: ttsProviderRef.current }),
+        body: JSON.stringify({ text: ttsText, provider: ttsProviderRef.current }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
-
-      // Collect full audio then play — works on all platforms
+      const CHUNK = 16384;
       let buf = new Uint8Array(0);
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+          break;
+        }
         const nb = new Uint8Array(buf.length + value.length);
         nb.set(buf); nb.set(value, buf.length); buf = nb;
-      }
-      if (buf.length > 0) {
-        await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+        if (buf.length >= CHUNK) {
+          const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
+          playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
+        }
       }
     } catch (e) {
       console.error("TTS error:", e);
       setCallState("listening");
       _cm_sending = false;
+      _cm_mic_start = Date.now();
       if (_cm_active) startRef.current();
     }
-  }, [playChunk, stopAudio, isIOS]);
+  }, [playChunk, stopAudio]);
 
   // ── Send to Claude ────────────────────────────────────
   const sendToTutor = useCallback(async (text: string) => {
@@ -344,8 +347,7 @@ export default function CallModePage() {
     recorderAudioCtxRef.current = audioCtxRef.current;
 
     _cm_active = true;
-    _cm_sending = false;
-    _cm_mic_start = Date.now();
+    _cm_sending = true;
     speechBufferRef.current = "";
     setError(null);
     setMessages([]);
@@ -356,25 +358,29 @@ export default function CallModePage() {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
     } catch {}
 
-    await start();
-    setCallState("listening");
-
     durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
-
-    // Load Maya's opening
-    fetch("/api/context")
-      .then(r => r.json())
-      .then(data => {
-        if (data?.opening) {
-          const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
-          setMessages([msg]);
-          messagesRef.current = [msg];
-          stop(); // pause mic while Maya speaks opening
-          streamTTS(data.opening);
-        }
-      });
-
     setPhase("active");
+
+    try {
+      const r = await fetch("/api/context");
+      const data = await r.json();
+      if (data?.opening) {
+        const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
+        setMessages([msg]);
+        messagesRef.current = [msg];
+        await streamTTS(data.opening);
+      } else {
+        _cm_sending = false;
+        _cm_mic_start = Date.now();
+        await start();
+        setCallState("listening");
+      }
+    } catch {
+      _cm_sending = false;
+      _cm_mic_start = Date.now();
+      await start();
+      setCallState("listening");
+    }
   };
 
   // ── End call ──────────────────────────────────────────

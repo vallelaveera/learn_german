@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       model: "tts-rt-v1",
       language: "de",
       voice: "Maya",
-      audio_format: "wav",
+      audio_format: "mp3",
     }),
   });
   if (!soniox.ok) {
@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
   }
   return new Response(soniox.body, {
     headers: {
-      "Content-Type": "audio/wav",
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": "no-store",
       "Transfer-Encoding": "chunked",
       "X-Accel-Buffering": "no",
     },
