@@ -1,5 +1,15 @@
 import { Redis } from "@upstash/redis";
-import { Session, VocabWord, UserProfile, UserFacts } from "./types";
+import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssignment, HomeworkRep, HomeworkSentence } from "./types";
+import { v4 as uuidv4 } from "uuid";
+
+function isAssignmentComplete(assignment: HomeworkAssignment): boolean {
+  const totalReps = assignment.sentences.length * 3;
+  let completedReps = 0;
+  for (const sentence of assignment.sentences) {
+    completedReps += (assignment.progress[sentence.id] ?? []).length;
+  }
+  return completedReps >= totalReps && totalReps > 0;
+}
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -233,4 +243,115 @@ export async function getWordExamples(word: string): Promise<string[] | null> {
   } catch {
     return null;
   }
+}
+
+// ── User features ─────────────────────────────────────────
+
+export async function getUserFeatures(userId: string): Promise<UserFeatures> {
+  try {
+    const data = await redis.get<string>(`features:${userId}`);
+    if (!data) return {};
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return {};
+  }
+}
+
+export async function setUserFeature(
+  userId: string,
+  feature: keyof UserFeatures,
+  value: boolean
+): Promise<void> {
+  const features = await getUserFeatures(userId);
+  features[feature] = value;
+  await redis.set(`features:${userId}`, JSON.stringify(features));
+}
+
+// ── Homework ──────────────────────────────────────────────
+
+export async function getHomework(id: string): Promise<HomeworkAssignment | null> {
+  const data = await redis.get<string>(`homework:${id}`);
+  if (!data) return null;
+  return typeof data === "string" ? JSON.parse(data) : data;
+}
+
+export async function saveHomeworkRecord(assignment: HomeworkAssignment): Promise<void> {
+  await redis.set(`homework:${assignment.id}`, JSON.stringify(assignment));
+}
+
+export async function getActiveHomework(userId: string): Promise<HomeworkAssignment | null> {
+  const id = await redis.get<string>(`homework:active:${userId}`);
+  if (!id) return null;
+  const assignment = await getHomework(id);
+  if (!assignment || assignment.status !== "pending") return null;
+  return assignment;
+}
+
+export async function archiveActiveHomework(userId: string): Promise<void> {
+  const active = await getActiveHomework(userId);
+  if (!active) return;
+  await redis.zadd(`homework:history:${userId}`, {
+    score: active.createdAt,
+    member: active.id,
+  });
+}
+
+export async function saveHomework(
+  userId: string,
+  sessionId: string | undefined,
+  sentences: HomeworkSentence[]
+): Promise<string> {
+  await archiveActiveHomework(userId);
+
+  const assignment: HomeworkAssignment = {
+    id: uuidv4(),
+    userId,
+    sessionId,
+    createdAt: Date.now(),
+    status: "pending",
+    sentences,
+    progress: {},
+  };
+
+  await saveHomeworkRecord(assignment);
+  await redis.set(`homework:active:${userId}`, assignment.id);
+  return assignment.id;
+}
+
+export async function updateHomeworkProgress(
+  homeworkId: string,
+  sentenceId: string,
+  rep: HomeworkRep
+): Promise<HomeworkAssignment | null> {
+  const assignment = await getHomework(homeworkId);
+  if (!assignment) return null;
+
+  const existing = assignment.progress[sentenceId] ?? [];
+  const filtered = existing.filter(r => r.repIndex !== rep.repIndex);
+  assignment.progress[sentenceId] = [...filtered, rep].sort((a, b) => a.repIndex - b.repIndex);
+
+  if (isAssignmentComplete(assignment)) {
+    assignment.status = "completed";
+    await redis.del(`homework:active:${assignment.userId}`);
+  }
+
+  await saveHomeworkRecord(assignment);
+  return assignment;
+}
+
+export async function skipHomework(homeworkId: string): Promise<HomeworkAssignment | null> {
+  const assignment = await getHomework(homeworkId);
+  if (!assignment) return null;
+  assignment.status = "skipped";
+  await saveHomeworkRecord(assignment);
+  await redis.del(`homework:active:${assignment.userId}`);
+  return assignment;
+}
+
+export async function clearActiveHomework(userId: string): Promise<void> {
+  const active = await getActiveHomework(userId);
+  if (!active) return;
+  active.status = "skipped";
+  await saveHomeworkRecord(active);
+  await redis.del(`homework:active:${userId}`);
 }

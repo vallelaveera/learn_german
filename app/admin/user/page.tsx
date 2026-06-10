@@ -14,6 +14,19 @@ interface Session {
   messages: { role: string; content: string; translation?: string }[];
 }
 
+interface HomeworkProgress {
+  completedReps: number;
+  totalReps: number;
+  completedSentences: number;
+}
+
+interface HomeworkInfo {
+  id: string;
+  status: string;
+  sentences: { text: string }[];
+  progress?: HomeworkProgress;
+}
+
 export default function AdminUserPage() {
   return <Suspense fallback={<div style={{padding:24,color:"var(--text-muted)"}}>Lädt...</div>}><AdminUserContent /></Suspense>;
 }
@@ -44,6 +57,9 @@ function AdminUserContent() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [newLimit, setNewLimit] = useState("");
   const [limitSaved, setLimitSaved] = useState(false);
+  const [homeworkEnabled, setHomeworkEnabled] = useState(false);
+  const [homeworkInfo, setHomeworkInfo] = useState<HomeworkInfo | null>(null);
+  const [homeworkSaved, setHomeworkSaved] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
   const userId = params.get("id");
@@ -59,6 +75,13 @@ function AdminUserContent() {
         setVocab(d.vocab);
         setUsage(d.usage);
         setLoading(false);
+      });
+    fetch(`/api/admin/homework?userId=${userId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setHomeworkEnabled(d.homeworkEnabled === true);
+        setHomeworkInfo(d.assignment);
       });
   }, [userId]);
 
@@ -170,6 +193,52 @@ function AdminUserContent() {
               </div>
             </div>
           )}
+
+          {/* Homework control */}
+          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Hausaufgaben</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={homeworkEnabled}
+                onChange={async e => {
+                  const enabled = e.target.checked;
+                  setHomeworkEnabled(enabled);
+                  await fetch("/api/admin/homework", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId, enabled }),
+                  });
+                  setHomeworkSaved(true);
+                  setTimeout(() => setHomeworkSaved(false), 2000);
+                }}
+              />
+              <span style={{ fontSize: 13, color: "var(--text)" }}>Homework enabled for this user</span>
+            </label>
+            {homeworkSaved && <span style={{ fontSize: 11, color: "var(--green)" }}>✓ Gespeichert</span>}
+            {homeworkInfo && (
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.6 }}>
+                Pending: {homeworkInfo.sentences?.length ?? 0} sentences
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetch("/api/admin/homework", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userId, action: "clear" }),
+                    });
+                    setHomeworkInfo(null);
+                  }}
+                  style={{ display: "block", marginTop: 8, fontSize: 11, color: "var(--red)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  Clear pending homework
+                </button>
+              </div>
+            )}
+            <p style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 10 }}>
+              Requires HOMEWORK_ENABLED=true globally + BLOB_READ_WRITE_TOKEN
+            </p>
+          </div>
 
           {/* Sessions list */}
           <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Sessions ({sessions.length})</div>

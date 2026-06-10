@@ -70,6 +70,8 @@ export default function CallModePage() {
   const [limitReached, setLimitReached] = useState(false);
   const [contextReady, setContextReady] = useState(false);
   const [cachedOpening, setCachedOpening] = useState<string | null>(null);
+  const [pendingHomework, setPendingHomework] = useState<{ id: string; progress?: { completedReps: number; totalReps: number } } | null>(null);
+  const [newHomeworkId, setNewHomeworkId] = useState<string | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
@@ -96,6 +98,7 @@ export default function CallModePage() {
   const nextStartRef = useRef(0);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const openingRef = useRef<string | null>(null);
+  const normalOpeningRef = useRef<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
   const restartMicRef = useRef<() => Promise<void>>(async () => {});
@@ -137,6 +140,12 @@ export default function CallModePage() {
         if (data.opening) {
           openingRef.current = data.opening;
           setCachedOpening(data.opening);
+        }
+        if (data.normalOpening) {
+          normalOpeningRef.current = data.normalOpening;
+        }
+        if (data.pendingHomework) {
+          setPendingHomework(data.pendingHomework);
         }
       })
       .catch(console.error)
@@ -589,7 +598,7 @@ export default function CallModePage() {
   useEffect(() => { finishTTSPlaybackRef.current = finishTTSPlayback; }, [finishTTSPlayback]);
 
   // ── Start call ────────────────────────────────────────
-  const startCall = async () => {
+  const startCall = async (skipNag = false) => {
     if (navigator.vibrate) navigator.vibrate(40);
 
     // iOS CRITICAL: Create AND resume AudioContext directly on user gesture
@@ -623,16 +632,20 @@ export default function CallModePage() {
     durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
     setPhase("active");
 
-    let opening = openingRef.current ?? cachedOpening;
+    let opening = skipNag
+      ? (normalOpeningRef.current ?? openingRef.current ?? cachedOpening)
+      : (openingRef.current ?? cachedOpening);
     if (!opening) {
       try {
         const r = await fetch("/api/context");
         const data = await r.json();
         if (data?.opening) {
-          opening = data.opening;
           openingRef.current = data.opening;
           setCachedOpening(data.opening);
+          if (skipNag && data.normalOpening) opening = data.normalOpening;
+          else opening = data.opening;
         }
+        if (data?.normalOpening) normalOpeningRef.current = data.normalOpening;
         if (data?.systemPrompt) systemPromptRef.current = data.systemPrompt;
       } catch {}
     }
@@ -668,11 +681,19 @@ export default function CallModePage() {
       fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: messagesRef.current, sessionStart, sessionEnd: Date.now() }),
-      });
+        body: JSON.stringify({
+          messages: messagesRef.current,
+          sessionStart,
+          sessionEnd: Date.now(),
+          sessionId,
+        }),
+      })
+        .then(r => r.json())
+        .then(data => { if (data?.homeworkId) setNewHomeworkId(data.homeworkId); })
+        .catch(() => {});
     }
     setPhase("ended");
-  }, [stop, stopAudio]);
+  }, [stop, stopAudio, sessionStart, sessionId]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
@@ -727,7 +748,24 @@ export default function CallModePage() {
         </div>
       )}
 
-      <div style={{ position: "relative", width: 80, height: 80, marginBottom: 32, marginTop: contextReady && limitReached ? 0 : 8 }}>
+      {pendingHomework && pendingHomework.progress && pendingHomework.progress.completedReps < pendingHomework.progress.totalReps && (
+        <div style={{ textAlign: "center", marginBottom: 20, padding: "12px 16px", maxWidth: 300, background: "rgba(212,168,67,0.08)", border: "0.5px solid var(--accent-dim)", borderRadius: 10 }}>
+          <p style={{ fontSize: 13, color: "var(--accent)", marginBottom: 8 }}>
+            📋 Hausaufgaben offen ({pendingHomework.progress.totalReps - pendingHomework.progress.completedReps} Aufnahmen)
+          </p>
+          <a href="/homework" style={{ display: "inline-block", fontSize: 12, color: "var(--text)", marginBottom: 8, textDecoration: "underline" }}>
+            Hausaufgaben machen →
+          </a>
+        </div>
+      )}
+
+      {cachedOpening && contextReady && (
+        <p style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", lineHeight: 1.6, maxWidth: 300, marginBottom: 24, padding: "0 16px" }}>
+          &ldquo;{cachedOpening}&rdquo;
+        </p>
+      )}
+
+      <div style={{ position: "relative", width: 80, height: 80, marginBottom: pendingHomework ? 12 : 32, marginTop: contextReady && limitReached ? 0 : 8 }}>
         {!canCall && !limitReached && (
           <div
             aria-hidden
@@ -740,7 +778,7 @@ export default function CallModePage() {
           />
         )}
         <button
-          onClick={startCall}
+          onClick={() => startCall()}
           disabled={!canCall}
           style={{
             width: 80, height: 80, borderRadius: "50%",
@@ -759,6 +797,16 @@ export default function CallModePage() {
           </svg>
         </button>
       </div>
+
+      {pendingHomework && pendingHomework.progress && pendingHomework.progress.completedReps < pendingHomework.progress.totalReps && canCall && (
+        <button
+          type="button"
+          onClick={() => startCall(true)}
+          style={{ marginBottom: 16, padding: "10px 20px", borderRadius: 8, border: "0.5px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 12, cursor: "pointer" }}
+        >
+          Direkt reden (Skip Erinnerung)
+        </button>
+      )}
 
       <a href="/mode" style={{ marginTop: 40, fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>← Modus wechseln</a>
     </div>
@@ -784,13 +832,20 @@ export default function CallModePage() {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid #e0d8f0", background: "#ffffff", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {newHomeworkId && (
+          <a href="/homework" style={{ padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none" }}>
+            Deine Hausaufgaben sind bereit →
+          </a>
+        )}
+        <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); setNewHomeworkId(null); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid #e0d8f0", background: "#ffffff", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
           Nochmal
         </button>
         <a href="/mode" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
           Fertig
         </a>
+        </div>
       </div>
     </div>
   );

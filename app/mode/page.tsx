@@ -5,11 +5,20 @@ import { useState, useEffect } from "react";
 export default function ModePage() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; totalSessions: number } | null>(null);
+  const [homeworkPending, setHomeworkPending] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(d => { if (d?.user) setUser(d.user); });
+    fetch("/api/homework")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.assignment && d?.progress && d.progress.completedReps < d.progress.totalReps) {
+          setHomeworkPending(true);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -138,6 +147,7 @@ export default function ModePage() {
       {/* Bottom tab bar */}
       <div style={{ display: "flex", gap: 8, marginTop: 32, width: "100%", maxWidth: 360 }}>
         {[
+          { href: "/homework", label: "Hausaufg.", icon: "📋" },
           { href: "/words", label: "Wörter", icon: "📚" },
           { href: "/progress", label: "Fortschritt", icon: "📈" },
           { href: "/history", label: "Verlauf", icon: "🕐" },
@@ -147,9 +157,12 @@ export default function ModePage() {
             flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
             gap: 4, padding: "10px 4px", borderRadius: 12,
             background: "var(--surface)", border: "0.5px solid var(--border)",
-            textDecoration: "none",
+            textDecoration: "none", position: "relative",
           }}>
             <span style={{ fontSize: 18 }}>{l.icon}</span>
+            {l.href === "/homework" && homeworkPending && (
+              <span style={{ position: "absolute", top: 6, right: 8, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+            )}
             <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{l.label}</span>
           </a>
         ))}

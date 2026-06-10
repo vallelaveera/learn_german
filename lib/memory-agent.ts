@@ -1,4 +1,5 @@
-import { Message, UserFacts, UserProfile } from "./types";
+import { Message, UserFacts, UserProfile, HomeworkSentence } from "./types";
+import { v4 as uuidv4 } from "uuid";
 
 // Extract profile facts from onboarding conversation
 export async function extractProfileFacts(
@@ -325,10 +326,120 @@ export function buildOnboardingOpening(userName: string): string {
   return `Hallo ${userName}! Ich bin Maya — deine neue Deutschfreundin. Ich rufe dich jeden Tag an und wir üben zusammen Deutsch, ganz entspannt. Aber zuerst — bist du Student oder berufstätig?`;
 }
 
+export async function generateHomework(
+  messages: Message[],
+  germanLevel?: string
+): Promise<HomeworkSentence[]> {
+  const userTurns = messages.filter(m => m.role === "user").length;
+  if (userTurns === 0) return [];
+
+  const conversation = messages
+    .map(m => `${m.role === "user" ? "User" : "Maya"}: ${m.content}`)
+    .join("\n");
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 800,
+      system: `Extract homework sentences from this German learning conversation.
+Return ONLY valid JSON:
+{
+  "sentences": [
+    {
+      "text": "correct German sentence to practice",
+      "userSaid": "what the user said wrong (optional)",
+      "note": "brief English hint why to practice this (optional)",
+      "source": "correction" or "useful"
+    }
+  ]
+}
+
+Rules:
+- Return exactly 5 sentences if possible
+- Prefer "correction" sentences where the user made grammar/pronunciation mistakes and Maya modeled the correct form
+- If fewer than 5 corrections, fill with "useful" sentences — key phrases from the conversation worth repeating
+- Each "text" must be a natural German sentence at ${germanLevel ?? "B1/B2"} level, max 15 words
+- Never invent mistakes — only use what appears in the transcript`,
+      messages: [{ role: "user", content: conversation }],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text ?? '{"sentences":[]}';
+  try {
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    const raw = Array.isArray(parsed.sentences) ? parsed.sentences : [];
+    const sentences: HomeworkSentence[] = raw.slice(0, 5).map((s: {
+      text?: string;
+      userSaid?: string;
+      note?: string;
+      source?: string;
+    }) => ({
+      id: uuidv4(),
+      text: String(s.text ?? "").trim(),
+      userSaid: s.userSaid ? String(s.userSaid).trim() : undefined,
+      note: s.note ? String(s.note).trim() : undefined,
+      source: s.source === "correction" ? "correction" : "useful",
+    })).filter((s: HomeworkSentence) => s.text.length > 0);
+
+    // Pad with useful Maya phrases if needed
+    if (sentences.length < 5) {
+      const mayaLines = messages
+        .filter(m => m.role === "assistant")
+        .map(m => m.content.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length >= 10 && s.length <= 80))
+        .flat();
+      for (const line of mayaLines) {
+        if (sentences.length >= 5) break;
+        if (sentences.some(s => s.text.toLowerCase() === line.toLowerCase())) continue;
+        sentences.push({ id: uuidv4(), text: line, source: "useful" });
+      }
+    }
+
+    return sentences.slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+export async function generateHomeworkNagOpening(
+  name: string,
+  pendingCount: number
+): Promise<string> {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 120,
+      system: `You are Maya, a playful German friend. Generate ONE short German greeting.
+User has ${pendingCount} homework recordings still to do.
+Tone: warm, friendly, lightly teasing — like "do your homework or I won't talk to you" but clearly a joke between friends.
+Max 25 words. Mention Hausaufgaben. End inviting them to chat anyway.`,
+      messages: [{ role: "user", content: `User name: ${name}` }],
+    }),
+  });
+
+  const data = await response.json();
+  return data.content?.[0]?.text ??
+    `Hey ${name}! Deine Hausaufgaben warten noch — ${pendingCount} Aufnahmen offen. Mach sie bald, sonst rede ich nicht mit dir! 😄`;
+}
+
 export function buildSystemPrompt(
   profile: UserProfile,
   daysSinceLastCall: number,
-  unpracticedWords: string[]
+  unpracticedWords: string[],
+  homeworkNagActive = false
 ): string {
   const facts = profile.facts;
   // GDPR: Personal details commented out — only keep language learning context
@@ -362,5 +473,6 @@ RULES:
 6. After your German reply, add "💡 " with a brief English hint only if you used something advanced.
 7. Ask follow-up questions to keep conversation going.
 8. NEVER say goodbye or imply the call is over (no "Bis dann", "Ich rufe dich morgen an", "bis später", etc.) unless the user clearly wants to stop.
-9. Remember everything. You are their friend who genuinely cares.`;
+${homeworkNagActive ? "9. User has pending homework — mention it once warmly at the start, then continue normal conversation if they want to chat about something else. Do not refuse to talk." : ""}
+${homeworkNagActive ? "10" : "9"}. Remember everything. You are their friend who genuinely cares.`;
 }
