@@ -1,7 +1,10 @@
 "use client";
 import { useRef, useCallback } from "react";
+import { getMicSensitivityPreset } from "@/lib/mic-sensitivity";
 
 const SONIOX_WS_URL = "wss://stt-rt.soniox.com/transcribe-websocket";
+const VAD_ASSET_BASE = "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/";
+const ONNX_WASM_BASE = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/";
 
 interface CallRecorderOptions {
   apiKey: string;
@@ -9,8 +12,16 @@ interface CallRecorderOptions {
   onFinished: () => void;
   onError: (e: string) => void;
   onVolume: (level: number) => void;
-  getContext?: () => string; // last Maya message for better accuracy
+  onSpeechActive?: (active: boolean) => void;
+  onVADReady?: (ready: boolean) => void;
+  getContext?: () => string;
 }
+
+type MicVADInstance = {
+  start: () => Promise<void>;
+  pause: () => Promise<void>;
+  destroy: () => Promise<void>;
+};
 
 export function useCallRecorder({
   apiKey,
@@ -18,6 +29,8 @@ export function useCallRecorder({
   onFinished,
   onError,
   onVolume,
+  onSpeechActive,
+  onVADReady,
   getContext,
 }: CallRecorderOptions) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -29,10 +42,23 @@ export function useCallRecorder({
   const silentNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const finalBufferRef = useRef("");
   const mutedRef = useRef(false);
+  const sendAudioRef = useRef(false);
+  const vadRef = useRef<MicVADInstance | null>(null);
+  const hangoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHangover = useCallback(() => {
+    if (hangoverTimerRef.current) {
+      clearTimeout(hangoverTimerRef.current);
+      hangoverTimerRef.current = null;
+    }
+  }, []);
 
   const start = useCallback(async () => {
     finishedFiredRef.current = false;
     finalBufferRef.current = "";
+    sendAudioRef.current = false;
+    clearHangover();
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -40,7 +66,7 @@ export function useCallRecorder({
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
+          autoGainControl: false,
         },
       });
       streamRef.current = stream;
@@ -49,7 +75,6 @@ export function useCallRecorder({
       audioCtxRef.current = ctx;
       if (ctx.state === "suspended") await ctx.resume();
 
-      // iOS: silent looping buffer keeps AudioContext alive
       const silentBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const silentSource = ctx.createBufferSource();
       silentSource.buffer = silentBuffer;
@@ -58,7 +83,6 @@ export function useCallRecorder({
       silentSource.start();
       silentNodeRef.current = silentSource;
 
-      // Volume tracking
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
@@ -72,11 +96,11 @@ export function useCallRecorder({
         }
         analyser.getByteFrequencyData(data);
         // Speech band only (~300–3400 Hz) — ignores low rumble / chair creaks
-        const start = Math.floor(data.length * 0.08);
-        const end = Math.floor(data.length * 0.55);
+        const bandStart = Math.floor(data.length * 0.08);
+        const bandEnd = Math.floor(data.length * 0.55);
         let sum = 0;
-        for (let i = start; i < end; i++) sum += data[i];
-        onVolume(sum / (end - start));
+        for (let i = bandStart; i < bandEnd; i++) sum += data[i];
+        onVolume(sum / (bandEnd - bandStart));
         animFrameRef.current = requestAnimationFrame(tick);
       };
       tick();
@@ -85,14 +109,13 @@ export function useCallRecorder({
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Get last Maya message as context for better accuracy
         const context = getContext?.() ?? "";
 
         ws.send(JSON.stringify({
           api_key: apiKey,
           model: "stt-rt-v4",
           audio_format: "auto",
-          language_hints: ["de"], // German only — much better accuracy
+          language_hints: ["de"],
           enable_endpoint_detection: true,
           ...(context ? { context } : {}),
         }));
@@ -111,7 +134,7 @@ export function useCallRecorder({
         mediaRecorderRef.current = mr;
 
         mr.ondataavailable = (e) => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN && sendAudioRef.current) {
             ws.send(e.data);
           }
         };
@@ -151,7 +174,6 @@ export function useCallRecorder({
 
         if (res.finished && !finishedFiredRef.current) {
           finishedFiredRef.current = true;
-          // Min 3 words filter — avoid garbage like "vie" or "navigator"
           const words = finalBufferRef.current.trim().split(/\s+/).filter(Boolean);
           if (words.length >= 1) {
             onFinished();
@@ -161,10 +183,58 @@ export function useCallRecorder({
 
       ws.onerror = () => onError("Verbindungsfehler");
       ws.onclose = () => {};
+
+      const preset = getMicSensitivityPreset();
+      try {
+        const { MicVAD } = await import("@ricky0123/vad-web");
+        const vad = await MicVAD.new({
+          audioContext: ctx,
+          getStream: async () => {
+            if (!streamRef.current) throw new Error("No microphone stream");
+            return streamRef.current;
+          },
+          pauseStream: async () => {},
+          resumeStream: async () => {
+            if (!streamRef.current) throw new Error("No microphone stream");
+            return streamRef.current;
+          },
+          baseAssetPath: VAD_ASSET_BASE,
+          onnxWASMBasePath: ONNX_WASM_BASE,
+          processorType: "auto",
+          startOnLoad: false,
+          positiveSpeechThreshold: preset.vadPositive,
+          negativeSpeechThreshold: preset.vadNegative,
+          minSpeechMs: preset.minSpeechMs,
+          redemptionMs: preset.redemptionMs,
+          onSpeechStart: () => {
+            if (mutedRef.current) return;
+            clearHangover();
+            sendAudioRef.current = true;
+            onSpeechActive?.(true);
+          },
+          onSpeechEnd: () => {
+            if (mutedRef.current) return;
+            onSpeechActive?.(false);
+            clearHangover();
+            hangoverTimerRef.current = setTimeout(() => {
+              sendAudioRef.current = false;
+              hangoverTimerRef.current = null;
+            }, preset.audioHangoverMs);
+          },
+          onVADMisfire: () => {},
+        });
+        vadRef.current = vad;
+        if (!mutedRef.current) await vad.start();
+        onVADReady?.(true);
+      } catch (vadErr) {
+        console.warn("Silero VAD unavailable, using volume fallback", vadErr);
+        sendAudioRef.current = !mutedRef.current;
+        onVADReady?.(false);
+      }
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
     }
-  }, [apiKey, onTranscript, onFinished, onError, onVolume, getContext]);
+  }, [apiKey, onTranscript, onFinished, onError, onVolume, onSpeechActive, onVADReady, getContext, clearHangover]);
 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
@@ -174,16 +244,34 @@ export function useCallRecorder({
       if (muted && mr.state === "recording") mr.pause();
       else if (!muted && mr.state === "paused") mr.resume();
     }
-    if (muted) onVolume(0);
-  }, [onVolume]);
+    if (muted) {
+      clearHangover();
+      sendAudioRef.current = false;
+      onSpeechActive?.(false);
+      onVolume(0);
+      vadRef.current?.pause().catch(() => {});
+    } else {
+      sendAudioRef.current = !!vadRef.current;
+      vadRef.current?.start().catch(() => {
+        sendAudioRef.current = true;
+      });
+    }
+  }, [onVolume, onSpeechActive, clearHangover]);
 
   const stop = useCallback(() => {
     finishedFiredRef.current = true;
     mutedRef.current = false;
+    clearHangover();
+    sendAudioRef.current = false;
     cancelAnimationFrame(animFrameRef.current);
     onVolume(0);
+    onSpeechActive?.(false);
     try { silentNodeRef.current?.stop(); } catch {}
     silentNodeRef.current = null;
+    if (vadRef.current) {
+      vadRef.current.destroy().catch(() => {});
+      vadRef.current = null;
+    }
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -195,7 +283,7 @@ export function useCallRecorder({
     }, 500);
     mediaRecorderRef.current = null;
     streamRef.current = null;
-  }, [onVolume]);
+  }, [onVolume, onSpeechActive, clearHangover]);
 
   return { start, stop, setMuted, audioCtxRef };
 }
