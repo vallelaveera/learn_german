@@ -166,8 +166,8 @@ export default function CallModePage() {
         }
         resolve();
       };
-      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.play().catch(() => resolve());
+      audio.onerror = (e) => { console.error("audio error:", e); URL.revokeObjectURL(url); resolve(); };
+      audio.play().then(() => console.log('audio playing')).catch((e) => { console.error('play failed:', e); resolve(); });
     });
   }, []);
 
