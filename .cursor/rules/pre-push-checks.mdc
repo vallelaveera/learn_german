@@ -1,0 +1,41 @@
+---
+description: Mandatory test + build before every commit and push
+alwaysApply: true
+---
+
+# Pre-push checks (required)
+
+Before **every** `git commit` and `git push` for this repo, run:
+
+```bash
+bash test-critical.sh && npm run build 2>&1 | tail -5
+```
+
+Or use the npm shortcut:
+
+```bash
+npm run prepush
+```
+
+Only commit and push if both pass. If tests fail, fix before pushing.
+
+## What test-critical.sh guards
+
+- **SpeechRecorder** — endpoint detection, WebSocket close timing
+- **app/call/page.tsx** — module-level send guards, Soniox chunked streaming
+- **app/api/tts-stream** — Maya A (Soniox MP3), Maya B (Fish MP3 + streaming)
+- **lib/fish-tts.ts** — pause tags, ES5-safe emoji strip
+- **app/callmode/page.tsx** — separate TTS paths, welcome fallback, mic/429 guards
+
+## Call mode TTS rules (do not break)
+
+| Voice | API | Client playback |
+|-------|-----|-----------------|
+| Maya A (soniox) | `audio_format: mp3`, `audio/mpeg` | Chunked `playChunk` (16KB) |
+| Maya B (fish) | `format: mp3`, `streaming: true`, `prepareFishTTS` | Full buffer + `playMP3` |
+
+- Never disable the call button on `cachedOpening` — use `fallbackOpening` instead
+- Never use chunked `playChunk` for Fish WAV/MP3 streams
+- Never use `\p{}` regex (tsconfig targets ES5)
+
+See `CRITICAL.md` for full rules.

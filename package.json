@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:critical": "bash test-critical.sh",
+    "prepush": "bash scripts/prepush.sh"
   },
   "dependencies": {
     "@soniox/speech-to-text-web": "^1.4.0",

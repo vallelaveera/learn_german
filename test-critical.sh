@@ -20,25 +20,33 @@ check() {
   fi
 }
 
+# Fail if pattern found (inverted check)
+check_absent() {
+  local desc=$1
+  local file=$2
+  local pattern=$3
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    check "$desc" "fail"
+  else
+    check "$desc" "ok"
+  fi
+}
+
 echo "── SpeechRecorder.tsx ──────────────────"
 
-# 1. endpoint detection must be true
 grep -q "enable_endpoint_detection: true" components/SpeechRecorder.tsx \
   && check "endpoint_detection is true" "ok" \
   || check "endpoint_detection is true" "fail"
 
-# 2. endFiredRef must NOT be in stop()
 STOP_BLOCK=$(awk '/const stop = useCallback/,/\}, \[onVolume\]/' components/SpeechRecorder.tsx)
 echo "$STOP_BLOCK" | grep -q "endFiredRef" \
   && check "endFiredRef NOT in stop()" "fail" \
   || check "endFiredRef NOT in stop()" "ok"
 
-# 3. WebSocket must stay open 2000ms
 echo "$STOP_BLOCK" | grep -qE "500|1000|2000" \
   && check "WebSocket delayed close present" "ok" \
   || check "WebSocket delayed close present" "fail"
 
-# 4. onEnd only fires via res.finished
 grep -q "onEnd();" components/SpeechRecorder.tsx \
   && check "onEnd fires via res.finished" "ok" \
   || check "onEnd fires via res.finished" "fail"
@@ -46,22 +54,18 @@ grep -q "onEnd();" components/SpeechRecorder.tsx \
 echo ""
 echo "── app/call/page.tsx ───────────────────"
 
-# 5. _isSending reset on new recording
 grep -q "_isSending = false" app/call/page.tsx \
   && check "_isSending reset on start" "ok" \
   || check "_isSending reset on start" "fail"
 
-# 6. finalBufferRef cleared on start
 grep -q 'finalBufferRef.current = ""' app/call/page.tsx \
   && check "finalBufferRef cleared on start" "ok" \
   || check "finalBufferRef cleared on start" "fail"
 
-# 7. _isSending reset in catch block
 grep -A3 "catch {" app/call/page.tsx | grep -q "_isSending = false" \
   && check "_isSending reset in catch block" "ok" \
   || check "_isSending reset in catch block" "fail"
 
-# 8. module level flags exist
 grep -q "^let _isSending = false" app/call/page.tsx \
   && check "module-level _isSending exists" "ok" \
   || check "module-level _isSending exists" "fail"
@@ -70,15 +74,148 @@ grep -q "^let _callModeActive = false" app/call/page.tsx \
   && check "module-level _callModeActive exists" "ok" \
   || check "module-level _callModeActive exists" "fail"
 
+# Maya A streaming in manual call mode
+grep -q "CHUNK = 16384" app/call/page.tsx \
+  && check "manual mode: Soniox chunked streaming (16KB)" "ok" \
+  || check "manual mode: Soniox chunked streaming (16KB)" "fail"
+
+LISTENING_BLOCK=$(awk '/else if.*callState.*listening/,/else if.*callState.*speaking/' app/call/page.tsx)
+echo "$LISTENING_BLOCK" | grep -q 'finalBufferRef.current = ""' \
+  && check "buffer NOT cleared on tap-to-send" "fail" \
+  || check "buffer NOT cleared on tap-to-send" "ok"
+
+echo ""
+echo "── app/api/tts-stream/route.ts ─────────"
+
+# Maya A — Soniox MP3 streaming
+grep -q 'audio_format: "mp3"' app/api/tts-stream/route.ts \
+  && check "Maya A API: Soniox audio_format mp3" "ok" \
+  || check "Maya A API: Soniox audio_format mp3" "fail"
+
+grep -q '"Content-Type": "audio/mpeg"' app/api/tts-stream/route.ts \
+  && check "Maya A API: returns audio/mpeg" "ok" \
+  || check "Maya A API: returns audio/mpeg" "fail"
+
+check_absent "Maya A API: NOT wav format" "app/api/tts-stream/route.ts" 'audio_format: "wav"'
+
+# Maya B — Fish MP3 streaming
+grep -q 'format: "mp3"' app/api/tts-stream/route.ts \
+  && check "Maya B API: Fish format mp3" "ok" \
+  || check "Maya B API: Fish format mp3" "fail"
+
+grep -q "streaming: true" app/api/tts-stream/route.ts \
+  && check "Maya B API: Fish streaming enabled" "ok" \
+  || check "Maya B API: Fish streaming enabled" "fail"
+
+grep -q "prepareFishTTS" app/api/tts-stream/route.ts \
+  && check "Maya B API: uses prepareFishTTS" "ok" \
+  || check "Maya B API: uses prepareFishTTS" "fail"
+
+check_absent "Maya B API: NOT wav format" "app/api/tts-stream/route.ts" 'format: "wav"'
+
+echo ""
+echo "── lib/fish-tts.ts ─────────────────────"
+
+[ -f "lib/fish-tts.ts" ] \
+  && check "fish-tts.ts exists" "ok" \
+  || check "fish-tts.ts exists" "fail"
+
+grep -q "prepareFishTTS" lib/fish-tts.ts \
+  && check "prepareFishTTS exported" "ok" \
+  || check "prepareFishTTS exported" "fail"
+
+grep -q "(break)" lib/fish-tts.ts \
+  && check "Fish pause tags: (break)" "ok" \
+  || check "Fish pause tags: (break)" "fail"
+
+grep -q "(long-break)" lib/fish-tts.ts \
+  && check "Fish pause tags: (long-break)" "ok" \
+  || check "Fish pause tags: (long-break)" "fail"
+
+grep -qE '/\\p\{' lib/fish-tts.ts \
+  && check "ES5-safe emoji strip (no \\p{} regex)" "fail" \
+  || check "ES5-safe emoji strip (no \\p{} regex)" "ok"
+
+echo ""
+echo "── app/callmode/page.tsx ───────────────"
+
+[ -f "components/CallRecorder.tsx" ] \
+  && check "CallRecorder.tsx exists" "ok" \
+  || check "CallRecorder.tsx exists" "fail"
+
+grep -q "useCallRecorder" app/callmode/page.tsx \
+  && check "callmode uses CallRecorder" "ok" \
+  || check "callmode uses CallRecorder" "fail"
+
+check_absent "callmode does NOT use SpeechRecorder" "app/callmode/page.tsx" "useSpeechRecorder"
+
+grep -q "_cm_sending" app/callmode/page.tsx \
+  && check "callmode has own module flags" "ok" \
+  || check "callmode has own module flags" "fail"
+
+# Maya A — chunked Soniox playback in callmode
+grep -q "CHUNK = 16384" app/callmode/page.tsx \
+  && check "Maya A callmode: chunked playChunk (16KB)" "ok" \
+  || check "Maya A callmode: chunked playChunk (16KB)" "fail"
+
+grep -q "playChunk" app/callmode/page.tsx \
+  && check "Maya A callmode: playChunk exists" "ok" \
+  || check "Maya A callmode: playChunk exists" "fail"
+
+# Maya B — full buffer + HTML audio (not chunked WAV decode)
+grep -q "playMP3" app/callmode/page.tsx \
+  && check "Maya B callmode: playMP3 (HTML audio)" "ok" \
+  || check "Maya B callmode: playMP3 (HTML audio)" "fail"
+
+grep -q 'ttsProviderRef.current === "fish"' app/callmode/page.tsx \
+  && check "callmode: separate Fish vs Soniox TTS path" "ok" \
+  || check "callmode: separate Fish vs Soniox TTS path" "fail"
+
+grep -q "provider: ttsProviderRef.current" app/callmode/page.tsx \
+  && check "callmode: provider sent to tts-stream API" "ok" \
+  || check "callmode: provider sent to tts-stream API" "fail"
+
+# Welcome message
+grep -q "fallbackOpening" app/callmode/page.tsx \
+  && check "welcome: fallbackOpening exists" "ok" \
+  || check "welcome: fallbackOpening exists" "fail"
+
+grep -q "streamTTSRef" app/callmode/page.tsx \
+  && check "welcome: streamTTSRef for reliable TTS" "ok" \
+  || check "welcome: streamTTSRef for reliable TTS" "fail"
+
+grep -qE 'disabled=.*cachedOpening' app/callmode/page.tsx \
+  && check "call button NOT blocked on missing cachedOpening" "fail" \
+  || check "call button NOT blocked on missing cachedOpening" "ok"
+
+grep -q 'disabled={limitReached}' app/callmode/page.tsx \
+  && check "call button only disabled on limitReached" "ok" \
+  || check "call button only disabled on limitReached" "fail"
+
+check_absent "startCall does NOT bail if no opening" "app/callmode/page.tsx" 'if \(!opening\) return'
+
+# Mic / 429 guards
+grep -q "_cm_mic_running" app/callmode/page.tsx \
+  && check "mic guard: _cm_mic_running" "ok" \
+  || check "mic guard: _cm_mic_running" "fail"
+
+grep -q "finishTTSPlayback" app/callmode/page.tsx \
+  && check "single TTS finish path" "ok" \
+  || check "single TTS finish path" "fail"
+
+grep -q 'e.includes("429")' app/callmode/page.tsx \
+  && check "429 hard stop on concurrent STT" "ok" \
+  || check "429 hard stop on concurrent STT" "fail"
+
+check_absent "ES5-safe (no \\p{} in callmode)" "app/callmode/page.tsx" '\\p\{'
+
 echo ""
 echo "── middleware.ts ───────────────────────"
 
-# 9. login route is public
 grep -q '"/login"' middleware.ts \
   && check "login route is public" "ok" \
   || check "login route is public" "fail"
 
-# 10. auth/login API is public  
 grep -q '"/api/auth/login"' middleware.ts \
   && check "api/auth/login is public" "ok" \
   || check "api/auth/login is public" "fail"
@@ -94,22 +231,6 @@ if [ $FAIL -gt 0 ]; then
   echo ""
   exit 1
 fi
-
-# 12. Buffer must NOT be cleared in listening branch of handleNormalButton
-LISTENING_BLOCK=$(awk '/else if.*callState.*listening/,/else if.*callState.*speaking/' app/call/page.tsx)
-echo "$LISTENING_BLOCK" | grep -q 'finalBufferRef.current = ""'   && check "buffer NOT cleared on tap-to-send" "fail"   || check "buffer NOT cleared on tap-to-send" "ok"
-
-echo "── components/CallRecorder.tsx ─────────"
-
-# CallRecorder must be separate from SpeechRecorder
-[ -f "components/CallRecorder.tsx" ]   && check "CallRecorder.tsx exists" "ok"   || check "CallRecorder.tsx exists" "fail"
-
-grep -q "useCallRecorder" app/callmode/page.tsx   && check "callmode uses CallRecorder not SpeechRecorder" "ok"   || check "callmode uses CallRecorder not SpeechRecorder" "fail"
-
-grep -q "useSpeechRecorder" app/call/page.tsx   && check "manual mode uses SpeechRecorder" "ok"   || check "manual mode uses SpeechRecorder" "fail"
-
-# Module flags must be separate
-grep -q "_cm_sending" app/callmode/page.tsx   && check "callmode has own module flags" "ok"   || check "callmode has own module flags" "fail"
 
 echo "  All good — safe to push."
 echo ""
