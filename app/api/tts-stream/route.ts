@@ -19,10 +19,9 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text,
         reference_id: "5d57382c07b0434bb7958aed4cf97757",
-        format: "mp3",
+        format: "wav",
         streaming: true,
-        latency: "balanced",
-        mp3_bitrate: 128,
+        latency: "normal",
       }),
     });
     console.log("Fish Audio response status:", res.status);

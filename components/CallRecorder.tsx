@@ -154,17 +154,10 @@ export function useCallRecorder({
     finishedFiredRef.current = true;
     cancelAnimationFrame(animFrameRef.current);
     onVolume(0);
-    // Stop silent node
     try { silentNodeRef.current?.stop(); } catch {}
     silentNodeRef.current = null;
-    // Stop MediaRecorder first, then stream tracks
-    try { mediaRecorderRef.current?.stop(); } catch {}
-    mediaRecorderRef.current = null;
-    // Stop stream tracks AFTER MediaRecorder
-    setTimeout(() => {
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }, 100);
+    mediaRecorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send("");
     }
@@ -172,7 +165,8 @@ export function useCallRecorder({
       wsRef.current?.close();
       wsRef.current = null;
     }, 500);
-    // Don't close AudioContext — needed for TTS playback
+    mediaRecorderRef.current = null;
+    streamRef.current = null;
   }, [onVolume]);
 
   return { start, stop, audioCtxRef };

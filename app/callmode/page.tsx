@@ -95,11 +95,6 @@ export default function CallModePage() {
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
     sourceQueueRef.current = [];
     nextStartRef.current = 0;
-    // Also stop HTML audio element
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
-      audioElementRef.current.src = "";
-    }
   }, []);
 
   const startRef = useRef<() => Promise<void>>(async () => {});
@@ -142,35 +137,6 @@ export default function CallModePage() {
     }
   }, []);
 
-  // ── HTML Audio playback for MP3 (Fish Audio) ─────────
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
-
-  const playMP3 = useCallback((buffer: ArrayBuffer): Promise<void> => {
-    return new Promise((resolve) => {
-      // Stop any existing audio
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-        audioElementRef.current.src = "";
-      }
-      const blob = new Blob([buffer], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioElementRef.current = audio;
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        if (_cm_active) {
-          setCallState("listening");
-          _cm_sending = false;
-          speechBufferRef.current = "";
-          setTimeout(() => { if (_cm_active) startRef.current(); }, 400);
-        }
-        resolve();
-      };
-      audio.onerror = (e) => { console.error("audio error:", e); URL.revokeObjectURL(url); resolve(); };
-      audio.play().then(() => console.log('audio playing')).catch((e) => { console.error('play failed:', e); resolve(); });
-    });
-  }, []);
-
   // ── TTS ───────────────────────────────────────────────
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
@@ -184,11 +150,10 @@ export default function CallModePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
-      console.log("chat response:", res.status);
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
 
-      // Collect full audio — works reliably on all platforms and formats
+      // Collect full audio then play — works on all platforms
       let buf = new Uint8Array(0);
       while (true) {
         const { done, value } = await reader.read();
@@ -196,7 +161,6 @@ export default function CallModePage() {
         const nb = new Uint8Array(buf.length + value.length);
         nb.set(buf); nb.set(value, buf.length); buf = nb;
       }
-      // Both providers now return WAV — use same playChunk
       if (buf.length > 0) {
         await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
       }
@@ -210,20 +174,17 @@ export default function CallModePage() {
 
   // ── Send to Claude ────────────────────────────────────
   const sendToTutor = useCallback(async (text: string) => {
-    console.log("sendToTutor called:", text.slice(0, 30));
     if (!text.trim() || _cm_sending) return;
     _cm_sending = true;
     setCallState("thinking");
-    console.log("sendToTutor: calling /api/chat");
     setShowSilenceHint(false);
     if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
-    // Don't clear liveText here — clear it after message bubble appears
+    setLiveText("");
 
     const userMsg: Message = { role: "user", content: text.replace(/<end>/g, "").trim(), timestamp: Date.now() };
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
-    setLiveText(""); // clear only after bubble appears
 
     // Auto-save
     fetch("/api/sessions", {
@@ -278,7 +239,6 @@ export default function CallModePage() {
       const withAssistant = [...messagesRef.current, assistantMsg];
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
-      console.log("calling streamTTS:", german.slice(0, 30));
       await streamTTS(german);
     } catch {
       _cm_sending = false;
@@ -321,15 +281,10 @@ export default function CallModePage() {
         silenceTimerRef.current = setTimeout(() => {
           silenceTimerRef.current = null;
           const text = speechBufferRef.current.trim();
-          console.log("Silence timer fired:", { text, _cm_sending, textLen: text.length });
           if (text && !_cm_sending) {
-            _cm_sending = true;
             speechBufferRef.current = "";
-            setLiveText("");
             stopRef.current();
             sendToTutor(text);
-          } else {
-            console.log("NOT sending — reason:", !text ? "empty text" : "_cm_sending is true");
           }
         }, SILENCE_DURATION);
       }
@@ -562,7 +517,7 @@ export default function CallModePage() {
         ))}
 
         {/* Live text while speaking */}
-        {liveText && (callState === "listening" || callState === "thinking") && (
+        {liveText && callState === "listening" && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))", border: "0.5px solid rgba(124,77,170,0.2)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
