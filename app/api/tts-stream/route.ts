@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         latency: "balanced",
         mp3_bitrate: 128,
         normalize: true,
-        prosody: { speed: 0.95, volume: 0 },
+        prosody: { speed: 1.0, volume: 0 },
       }),
     });
     console.log("Fish Audio response status:", res.status);

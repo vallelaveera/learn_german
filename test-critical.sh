@@ -111,6 +111,10 @@ grep -q "prepareFishTTS" app/api/tts-stream/route.ts \
   && check "Maya B API: uses prepareFishTTS" "ok" \
   || check "Maya B API: uses prepareFishTTS" "fail"
 
+grep -q "speed: 1" app/api/tts-stream/route.ts \
+  && check "Maya B API: normal prosody speed" "ok" \
+  || check "Maya B API: normal prosody speed" "fail"
+
 check_absent "Maya B API: NOT wav format" "app/api/tts-stream/route.ts" 'format: "wav"'
 
 echo ""
@@ -152,6 +156,18 @@ check_absent "callmode does NOT use SpeechRecorder" "app/callmode/page.tsx" "use
 grep -q "_cm_sending" app/callmode/page.tsx \
   && check "callmode has own module flags" "ok" \
   || check "callmode has own module flags" "fail"
+
+grep -q "SPEECH_THRESHOLD" app/callmode/page.tsx \
+  && check "VAD: speech threshold gate" "ok" \
+  || check "VAD: speech threshold gate" "fail"
+
+grep -q "isSpeakingRef" app/callmode/page.tsx \
+  && check "VAD: transcript gated on isSpeakingRef" "ok" \
+  || check "VAD: transcript gated on isSpeakingRef" "fail"
+
+grep -q "Speech band only" components/CallRecorder.tsx \
+  && check "CallRecorder: speech-frequency volume" "ok" \
+  || check "CallRecorder: speech-frequency volume" "fail"
 
 # Maya A — chunked Soniox playback in callmode
 grep -q "CHUNK = 16384" app/callmode/page.tsx \

@@ -12,7 +12,9 @@ let _cm_mic_start = 0;
 let _cm_mic_running = false;
 let _cm_tts_done_fired = false;
 
-const SILENCE_THRESHOLD = 25; // volume below this = silence
+const SPEECH_THRESHOLD = 42; // sustained level = human speech (not chair/noise)
+const SILENCE_THRESHOLD = 30; // below this = silence
+const SPEECH_FRAMES_MIN = 12; // ~200ms sustained speech before accepting STT
 const SILENCE_DURATION = 2000; // ms before auto-send
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 
@@ -52,6 +54,8 @@ export default function CallModePage() {
 
   // Refs
   const speechBufferRef = useRef("");
+  const isSpeakingRef = useRef(false);
+  const speechFramesRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef<Message[]>([]);
   const systemPromptRef = useRef<string | undefined>();
@@ -139,6 +143,8 @@ export default function CallModePage() {
       await new Promise(r => setTimeout(r, 600));
       if (!_cm_active) return;
       speechBufferRef.current = "";
+      isSpeakingRef.current = false;
+      speechFramesRef.current = 0;
       setLiveText("");
       _cm_mic_start = Date.now();
       setCallState("listening");
@@ -346,47 +352,59 @@ export default function CallModePage() {
     }
   }, [streamTTS, sessionId, sessionStart]);
 
-  // ── VAD — silence detection ───────────────────────────
+  // ── VAD — silence detection (hysteresis + sustained speech gate) ──
   const handleVolume = useCallback((vol: number) => {
     setVolume(vol);
     if (!_cm_active || _cm_sending) return;
-    if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return; // warmup period
+    if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return;
 
-    // Show silence hint after 2s of no speech
-    if (vol < SILENCE_THRESHOLD) {
-      if (!silenceHintRef.current && !speechBufferRef.current) {
-        silenceHintRef.current = setTimeout(() => {
-          setShowSilenceHint(true);
-        }, 2000);
+    if (vol >= SPEECH_THRESHOLD) {
+      speechFramesRef.current++;
+      if (speechFramesRef.current >= SPEECH_FRAMES_MIN) {
+        isSpeakingRef.current = true;
       }
-    } else {
-      // User is speaking — hide hint
+    } else if (vol < SILENCE_THRESHOLD) {
+      speechFramesRef.current = 0;
+    }
+
+    const speaking = isSpeakingRef.current;
+
+    if (!speaking) {
       setShowSilenceHint(false);
       if (silenceHintRef.current) {
         clearTimeout(silenceHintRef.current);
         silenceHintRef.current = null;
       }
-    }
-
-    if (vol > SILENCE_THRESHOLD) {
-      // User is speaking — cancel silence timer
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
-    } else {
-      // Silence — start timer if we have speech
-      if (speechBufferRef.current.trim() && !silenceTimerRef.current) {
-        silenceTimerRef.current = setTimeout(() => {
-          silenceTimerRef.current = null;
-          const text = speechBufferRef.current.trim();
-          if (text && !_cm_sending) {
-            speechBufferRef.current = "";
-            stopRef.current();
-            sendToTutor(text);
-          }
-        }, SILENCE_DURATION);
+      return;
+    }
+
+    setShowSilenceHint(false);
+    if (silenceHintRef.current) {
+      clearTimeout(silenceHintRef.current);
+      silenceHintRef.current = null;
+    }
+
+    if (vol >= SILENCE_THRESHOLD) {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
+    } else if (speechBufferRef.current.trim() && !silenceTimerRef.current) {
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null;
+        isSpeakingRef.current = false;
+        speechFramesRef.current = 0;
+        const text = speechBufferRef.current.trim();
+        if (text && !_cm_sending) {
+          speechBufferRef.current = "";
+          stopRef.current();
+          sendToTutor(text);
+        }
+      }, SILENCE_DURATION);
     }
   }, [sendToTutor]);
 
@@ -394,6 +412,7 @@ export default function CallModePage() {
   const nonFinalRef = useRef("");
 
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (!isSpeakingRef.current) return;
     if (isFinal) {
       speechBufferRef.current += text;
       nonFinalRef.current = "";
@@ -456,6 +475,8 @@ export default function CallModePage() {
     _cm_active = true;
     _cm_sending = true;
     speechBufferRef.current = "";
+    isSpeakingRef.current = false;
+    speechFramesRef.current = 0;
     setError(null);
     setLiveText("");
     setDuration(0);
@@ -557,15 +578,11 @@ export default function CallModePage() {
         Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
       </p>
 
-      {cachedOpening && contextReady && (
-        <p style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", lineHeight: 1.6, maxWidth: 300, marginBottom: 32, padding: "0 16px" }}>
-          &ldquo;{cachedOpening}&rdquo;
-        </p>
-      )}
-
       {!contextReady && (
         <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 32 }}>Maya bereitet sich vor…</p>
       )}
+
+      {contextReady && !limitReached && <div style={{ marginBottom: 32 }} />}
 
       {contextReady && limitReached && (
         <div style={{ textAlign: "center", marginBottom: 24, padding: "12px 16px", maxWidth: 300, background: "rgba(192,57,43,0.08)", border: "0.5px solid rgba(192,57,43,0.25)", borderRadius: 10 }}>
@@ -707,7 +724,7 @@ export default function CallModePage() {
                 height: `${height}px`,
                 background: callState === "speaking"
                   ? `rgba(39,174,96,${0.4 + i * 0.06})`
-                  : callState === "listening" && volume > SILENCE_THRESHOLD
+                  : callState === "listening" && volume > SPEECH_THRESHOLD
                   ? `rgba(212,168,67,${0.4 + i * 0.06})`
                   : "rgba(255,255,255,0.15)",
               }} />

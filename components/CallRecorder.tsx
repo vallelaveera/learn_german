@@ -65,7 +65,12 @@ export function useCallRecorder({
       const data = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
         analyser.getByteFrequencyData(data);
-        onVolume(data.reduce((a, b) => a + b, 0) / data.length);
+        // Speech band only (~300–3400 Hz) — ignores low rumble / chair creaks
+        const start = Math.floor(data.length * 0.08);
+        const end = Math.floor(data.length * 0.55);
+        let sum = 0;
+        for (let i = start; i < end; i++) sum += data[i];
+        onVolume(sum / (end - start));
         animFrameRef.current = requestAnimationFrame(tick);
       };
       tick();
