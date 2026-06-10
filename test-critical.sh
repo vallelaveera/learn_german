@@ -137,6 +137,15 @@ grep -qE '/\\p\{' lib/fish-tts.ts \
   || check "ES5-safe emoji strip (no \\p{} regex)" "ok"
 
 echo ""
+echo "── lib/memory-agent.ts ─────────────────"
+
+check_absent "onboarding: no forced farewell phrase" "lib/memory-agent.ts" 'Ich rufe dich morgen wieder an'
+
+grep -q 'NEVER say goodbye' lib/memory-agent.ts \
+  && check "prompts: never-farewell rule" "ok" \
+  || check "prompts: never-farewell rule" "fail"
+
+echo ""
 echo "── app/callmode/page.tsx ───────────────"
 
 [ -f "components/CallRecorder.tsx" ] \
