@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
     return new Response(res.body, {
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": "audio/wav",
         "Transfer-Encoding": "chunked",
         "X-Accel-Buffering": "no",
       },

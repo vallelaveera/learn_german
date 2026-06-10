@@ -196,13 +196,9 @@ export default function CallModePage() {
         const nb = new Uint8Array(buf.length + value.length);
         nb.set(buf); nb.set(value, buf.length); buf = nb;
       }
+      // Both providers now return WAV — use same playChunk
       if (buf.length > 0) {
-        if (ttsProviderRef.current === "fish") {
-          // Fish Audio — use HTML audio element for reliable MP3 playback
-          await playMP3(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-        } else {
-          await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-        }
+        await playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
       }
     } catch (e) {
       console.error("TTS error:", e);
