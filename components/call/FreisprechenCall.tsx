@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
 import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
+import { computeCallReportStats } from "@/lib/call-report-stats";
 import { Message } from "@/lib/types";
 
 // ── Module-level flags ─────────────────────────────────────
@@ -315,6 +316,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
         messages: history,
         title: history.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
         totalMessages: history.length,
+        newWords: computeCallReportStats(history, Math.max(0, Math.round((Date.now() - sessionStart) / 1000))).newWords,
       }),
     });
 
