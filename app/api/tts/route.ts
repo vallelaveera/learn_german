@@ -6,29 +6,34 @@ export const maxDuration = 30;
 export async function POST(req: NextRequest) {
   const { text } = await req.json();
 
-  if (!text) {
+  if (!text?.trim()) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
   }
 
-  // Soniox TTS REST API — returns MP3 audio
-  const response = await fetch("https://tts.soniox.com/generate", {
+  const apiKey = process.env.SONIOX_API_KEY;
+  if (!apiKey) {
+    console.error("[tts] SONIOX_API_KEY not configured");
+    return NextResponse.json({ error: "TTS not configured" }, { status: 503 });
+  }
+
+  const response = await fetch("https://tts-rt.soniox.com/tts", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.SONIOX_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      text,
-      model: "tts-v1",
-      language: "de", // German
-      voice: "de-DE-FemaleA",
+      text: text.trim(),
+      model: "tts-rt-v1",
+      language: "de",
+      voice: "Maya",
       audio_format: "mp3",
     }),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    console.error("Soniox TTS error:", err);
+    console.error("[tts] Soniox error:", err);
     return NextResponse.json({ error: "TTS failed" }, { status: 500 });
   }
 

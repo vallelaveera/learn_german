@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { HomeworkRecorder, playBlobUrl } from "@/components/HomeworkRecorder";
-import { fetchTTS } from "@/components/AudioPlayer";
+import { speakExercisePrompt, unlockExerciseAudio } from "@/lib/exercise-speech";
 import {
   HomeworkAssignment,
   HomeworkSentence,
@@ -110,10 +110,10 @@ export function HomeworkPractice() {
   const playMaya = async () => {
     if (!sentence) return;
     setTtsLoading(true);
+    setError(null);
     try {
-      const url = await fetchTTS(sentence.text);
-      const audio = new Audio(url);
-      await audio.play();
+      unlockExerciseAudio();
+      await speakExercisePrompt(sentence.text, "de");
     } catch {
       setError("TTS fehlgeschlagen");
     } finally {
