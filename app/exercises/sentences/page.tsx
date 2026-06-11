@@ -34,6 +34,7 @@ function SentencesInner() {
   const [wrongId, setWrongId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showEnHint, setShowEnHint] = useState(false);
 
   const current = exercises[index];
 
@@ -52,6 +53,10 @@ function SentencesInner() {
     const t = setTimeout(() => setPhase("build"), 3000);
     return () => clearTimeout(t);
   }, [phase, current, index]);
+
+  useEffect(() => {
+    setShowEnHint(false);
+  }, [index, phase]);
 
   const saveResult = (correct: boolean) => {
     if (!current) return;
@@ -190,7 +195,37 @@ function SentencesInner() {
 
         {phase === "build" && current && (
           <>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginBottom: 12 }}>Tippe die Wörter in der richtigen Reihenfolge</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: showEnHint ? 8 : 12 }}>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, flex: 1 }}>Tippe die Wörter in der richtigen Reihenfolge</p>
+              <button
+                type="button"
+                onClick={() => setShowEnHint(true)}
+                disabled={showEnHint}
+                style={{
+                  flexShrink: 0,
+                  fontSize: 10,
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.06em",
+                  padding: "5px 10px",
+                  borderRadius: 6,
+                  border: `0.5px solid ${showEnHint ? "var(--accent-dim)" : "var(--border)"}`,
+                  background: showEnHint ? "var(--accent-glow)" : "var(--surface)",
+                  color: showEnHint ? "var(--accent)" : "var(--text-muted)",
+                  cursor: showEnHint ? "default" : "pointer",
+                  opacity: showEnHint ? 0.85 : 1,
+                }}
+              >
+                {showEnHint ? "EN ✓" : "EN"}
+              </button>
+            </div>
+            {showEnHint && current.english && (
+              <p style={{
+                fontSize: 13, color: "var(--text-muted)", fontStyle: "italic",
+                textAlign: "center", lineHeight: 1.5, margin: "0 0 16px",
+              }}>
+                {current.english}
+              </p>
+            )}
 
             <div style={{
               minHeight: 52, padding: "10px 12px", marginBottom: 16, borderRadius: 10,
