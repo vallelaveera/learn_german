@@ -2,6 +2,7 @@ import placementData from "@/data/flashcards/placement.json";
 import commonData from "@/data/flashcards/common.json";
 import sentencesData from "@/data/flashcards/sentences.json";
 import { getCareerVocabEntries } from "@/lib/career-vocab/load";
+import { loadCorpusSentences } from "@/lib/vocab/load";
 
 export interface ContentWord {
   id: string;
@@ -16,6 +17,9 @@ export interface ContentSentence {
   german: string;
   english: string;
   level: string;
+  source?: "static" | "generated";
+  category?: string;
+  topic?: string;
 }
 
 export interface ContentCatalog {
@@ -82,9 +86,9 @@ export function getExerciseContentCatalog(): ContentCatalog {
 
   words.sort((a, b) => a.level.localeCompare(b.level) || a.german.localeCompare(b.german, "de"));
 
-  const sentences = (sentencesData as ContentSentence[]).slice().sort(
-    (a, b) => a.level.localeCompare(b.level) || a.german.localeCompare(b.german, "de")
-  );
+  const sentences = (sentencesData as ContentSentence[])
+    .map(s => ({ ...s, source: "static" as const }))
+    .sort((a, b) => a.level.localeCompare(b.level) || a.german.localeCompare(b.german, "de"));
 
   const placementCount = words.filter(w => w.source === "placement").length;
   const commonCount = words.filter(w => w.source === "common").length;
@@ -101,6 +105,45 @@ export function getExerciseContentCatalog(): ContentCatalog {
         career: careerCount,
         byLevel: countByLevel(words),
       },
+      sentences: {
+        total: sentences.length,
+        byLevel: countByLevel(sentences),
+      },
+    },
+  };
+}
+
+export async function getExerciseContentCatalogAsync(): Promise<ContentCatalog> {
+  const base = getExerciseContentCatalog();
+  const corpus = await loadCorpusSentences();
+
+  const seen = new Set(base.sentences.map(s => s.german.toLowerCase().trim()));
+  const generated: ContentSentence[] = [];
+
+  for (const s of corpus) {
+    const key = s.de.toLowerCase().trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    generated.push({
+      id: s.id,
+      german: s.de,
+      english: s.en,
+      level: s.level,
+      source: "generated",
+      category: s.category,
+      topic: s.topic,
+    });
+  }
+
+  const sentences = [...base.sentences, ...generated].sort(
+    (a, b) => a.level.localeCompare(b.level) || a.german.localeCompare(b.german, "de")
+  );
+
+  return {
+    ...base,
+    sentences,
+    counts: {
+      ...base.counts,
       sentences: {
         total: sentences.length,
         byLevel: countByLevel(sentences),

@@ -17,6 +17,9 @@ interface ContentSentence {
   german: string;
   english: string;
   level: string;
+  source?: "static" | "generated";
+  category?: string;
+  topic?: string;
 }
 
 interface Catalog {
@@ -162,10 +165,17 @@ export default function AdminContentPage() {
               <div key={s.id} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 10, color: "#7F77DD", fontFamily: "var(--font-mono)" }}>{s.level}</span>
-                  <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{s.id}</span>
+                  <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
+                    {s.source === "generated" ? "generated" : "static"} · {s.id}
+                  </span>
                 </div>
                 <p style={{ fontFamily: "var(--font-serif)", fontSize: 14, color: "var(--text)", margin: "0 0 4px", lineHeight: 1.4 }}>{s.german}</p>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, fontStyle: "italic" }}>{s.english}</p>
+                {s.source === "generated" && (s.category || s.topic) && (
+                  <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", fontFamily: "var(--font-mono)" }}>
+                    {[s.category, s.topic].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
             ))}
 

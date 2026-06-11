@@ -1,5 +1,6 @@
 import sentencesData from "@/data/flashcards/sentences.json";
 import { getExerciseExcludedKeys } from "@/lib/kv";
+import { loadCorpusSentences } from "@/lib/vocab/load";
 import { isExerciseEntryExcluded } from "./exclusion";
 import { isLevelAppropriate } from "./levels";
 import type { UserProfile } from "@/lib/types";
@@ -19,7 +20,21 @@ export interface SentenceExercise {
   words: string[];
 }
 
-const bank = sentencesData as SentenceEntry[];
+const staticBank = sentencesData as SentenceEntry[];
+
+async function getSentenceBank(): Promise<SentenceEntry[]> {
+  const corpus = await loadCorpusSentences();
+  const seen = new Set(staticBank.map(e => e.german.toLowerCase().trim()));
+  const generated = corpus
+    .filter(s => !seen.has(s.de.toLowerCase().trim()))
+    .map(s => ({
+      id: s.id,
+      german: s.de,
+      english: s.en,
+      level: s.level,
+    }));
+  return [...staticBank, ...generated];
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -45,6 +60,7 @@ export async function selectSentenceExercises(
 ): Promise<SentenceExercise[]> {
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
   const excluded = await getExerciseExcludedKeys(userId, "sentence");
+  const bank = await getSentenceBank();
 
   let pool = bank.filter(
     e =>
