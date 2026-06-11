@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AdminSubTabs } from "@/components/admin/AdminShell";
 
 interface ContentWord {
   id: string;
@@ -76,23 +76,12 @@ export default function AdminContentPage() {
   }, [catalog, level, search]);
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "var(--sat)", paddingBottom: "var(--sab)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--red)", color: "white", padding: "2px 6px", borderRadius: 3 }}>ADMIN</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Übungsinhalt</span>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Link href="/admin/generate" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>Generieren</Link>
-          <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Nutzer</Link>
-        </div>
-      </header>
-
-      {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, padding: 24 }}>Lädt...</p>}
+    <>
+      {loading && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}
 
       {catalog && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
             <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: 14 }}>
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Wörter</div>
               <div style={{ fontSize: 26, fontWeight: 500, color: "var(--accent)", marginBottom: 6 }}>{catalog.counts.words.total}</div>
@@ -109,26 +98,16 @@ export default function AdminContentPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, padding: "0 16px 12px" }}>
-            {(["words", "sentences"] as const).map(t => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                style={{
-                  flex: 1, minHeight: 44, borderRadius: 8, fontSize: 13, fontFamily: "var(--font-mono)",
-                  border: "0.5px solid var(--border)",
-                  background: tab === t ? "#7F77DD" : "var(--surface)",
-                  color: tab === t ? "#fff" : "var(--text-muted)",
-                  cursor: "pointer",
-                }}
-              >
-                {t === "words" ? "Wörter" : "Sätze"}
-              </button>
-            ))}
-          </div>
+          <AdminSubTabs
+            tabs={[
+              { id: "words", label: "Wörter" },
+              { id: "sentences", label: "Sätze" },
+            ]}
+            active={tab}
+            onChange={id => setTab(id as "words" | "sentences")}
+          />
 
-          <div style={{ padding: "0 16px 12px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             {LEVELS.map(lv => (
               <button
                 key={lv}
@@ -147,16 +126,16 @@ export default function AdminContentPage() {
             ))}
           </div>
 
-          <div style={{ padding: "0 16px 12px" }}>
+          <div style={{ marginBottom: 12 }}>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={tab === "words" ? "Wort suchen..." : "Satz suchen..."}
-              style={{ width: "100%", padding: "10px 14px", background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
+              style={{ width: "100%", padding: "10px 14px", background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)", boxSizing: "border-box" }}
             />
           </div>
 
-          <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {tab === "words" ? filteredWords.map(w => (
               <div key={w.id} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
@@ -196,9 +175,8 @@ export default function AdminContentPage() {
               <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 24 }}>Keine Sätze gefunden.</p>
             )}
           </div>
-          <div style={{ height: 32 }} />
         </>
       )}
-    </div>
+    </>
   );
 }

@@ -2,6 +2,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CorpusMatrixDashboard, type MatrixCategoryRow } from "@/components/admin/CorpusMatrixDashboard";
+import { AdminSubTabs, AdminCard, AdminStatGrid } from "@/components/admin/AdminShell";
+
+const PURPLE = "#7F77DD";
 
 interface UserSummary {
   userId: string;
@@ -31,10 +35,26 @@ interface CoverageGap {
   needsSentences: number;
 }
 
+interface CoverageReport {
+  totals: { words: number; sentences: number };
+  targets: { words: number; sentences: number };
+  categories: MatrixCategoryRow[];
+  gaps: CoverageGap[];
+}
+
+type DashboardTab = "overview" | "corpus" | "users";
+
+const DASHBOARD_TABS = [
+  { id: "overview" as const, label: "Übersicht" },
+  { id: "corpus" as const, label: "Corpus" },
+  { id: "users" as const, label: "Nutzer" },
+];
+
 export default function AdminPage() {
+  const [tab, setTab] = useState<DashboardTab>("overview");
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
-  const [contentGaps, setContentGaps] = useState<CoverageGap[]>([]);
+  const [coverage, setCoverage] = useState<CoverageReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -53,138 +73,236 @@ export default function AdminPage() {
           setStats(adminData.stats);
           setUsers(adminData.users);
         }
-        if (generateData?.coverage?.gaps) {
-          setContentGaps(generateData.coverage.gaps.slice(0, 4));
-        }
+        if (generateData?.coverage) setCoverage(generateData.coverage);
         setLoading(false);
       })
       .catch(e => { setError(String(e)); setLoading(false); });
   }, [router]);
 
   const filtered = users.filter(u =>
-    search ? (u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())) : true
+    search
+      ? u.name.toLowerCase().includes(search.toLowerCase()) ||
+        u.email.toLowerCase().includes(search.toLowerCase())
+      : true,
   );
 
-  const fmt = (ts: number) => new Date(ts).toLocaleDateString("de-DE", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
-  });
+  const fmt = (ts: number) =>
+    new Date(ts).toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  if (loading) {
+    return <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>;
+  }
+
+  if (error) {
+    return <p style={{ color: "var(--red)", fontSize: 13 }}>{error}</p>;
+  }
+
+  if (!stats) return null;
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "var(--sat)", paddingBottom: "var(--sab)" }}>
-      {/* Header */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--red)", color: "white", padding: "2px 6px", borderRadius: 3 }}>ADMIN</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>CallMeDaily</span>
-        </div>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← App</Link>
-      </header>
+    <>
+      <AdminSubTabs tabs={DASHBOARD_TABS} active={tab} onChange={id => setTab(id as DashboardTab)} />
 
-      {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, padding: 24 }}>Lädt...</p>}
-      {error && <p style={{ color: "var(--red)", fontSize: 13, padding: 24 }}>{error}</p>}
-
-      {!loading && stats && (
+      {tab === "overview" && (
         <>
-          {/* Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "16px" }}>
-            {[
-              { label: "Nutzer gesamt", value: stats.totalUsers },
-              { label: "Aktiv heute", value: stats.activeToday },
-              { label: "Sessions gesamt", value: stats.totalSessions },
-              { label: "Minuten gesprochen", value: stats.totalMinutes },
-            ].map(s => (
-              <div key={s.label} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "14px" }}>
-                <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</div>
-                <div style={{ fontSize: 26, fontWeight: 500, color: "var(--accent)" }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
+          <AdminStatGrid stats={[
+            { label: "Nutzer gesamt", value: stats.totalUsers },
+            { label: "Aktiv heute", value: stats.activeToday, accent: "#059669" },
+            { label: "Sessions", value: stats.totalSessions },
+            { label: "Minuten", value: stats.totalMinutes },
+          ]} />
 
-          {contentGaps.length > 0 && (
-            <div style={{ padding: "0 16px 12px" }}>
-              <div style={{ background: "#FFFBEB", border: "0.5px solid #FDE68A", borderRadius: 10, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-                  Inhalt-Lücken (generiert)
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                  {contentGaps.map(gap => (
-                    <div key={gap.category} style={{ fontSize: 12, color: "#B45309", fontFamily: "var(--font-mono)" }}>
-                      {gap.labelDe ?? gap.category}: {gap.words} W · {gap.sentences} S
-                      {(gap.needsWords > 0 || gap.needsSentences > 0) && (
-                        <span style={{ color: "#92400E" }}> — fehlen ~{gap.needsWords} W, ~{gap.needsSentences} S</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <Link href="/admin/generate" style={{ fontSize: 12, color: "#7F77DD", fontWeight: 500, textDecoration: "none" }}>
-                  Inhalt generieren →
-                </Link>
+          {coverage && (
+            <AdminCard style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                Corpus auf einen Blick
               </div>
-            </div>
+              <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 600, color: PURPLE, fontFamily: "var(--font-mono)" }}>{coverage.totals.words}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)" }}>Wörter generiert</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 600, color: PURPLE, fontFamily: "var(--font-mono)" }}>{coverage.totals.sentences}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)" }}>Sätze generiert</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 600, color: coverage.gaps.length ? "#D97706" : "#059669", fontFamily: "var(--font-mono)" }}>
+                    {coverage.gaps.length}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)" }}>Kategorien mit Lücken</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab("corpus")}
+                style={{ fontSize: 12, color: PURPLE, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)", padding: 0 }}
+              >
+                Matrix ansehen →
+              </button>
+            </AdminCard>
           )}
 
-          {/* Content catalog */}
-          <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
             <Link href="/admin/content" style={{ textDecoration: "none" }}>
-              <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, marginBottom: 4 }}>Übungsinhalt</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Wörter & Sätze in der App ansehen</div>
-                </div>
-                <span style={{ color: "var(--text-dim)", fontSize: 16 }}>→</span>
-              </div>
+              <AdminCard style={{ height: "100%", cursor: "pointer", transition: "border-color 0.15s" }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Übungsinhalt</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Wörter & Sätze durchsuchen</div>
+                <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Öffnen →</div>
+              </AdminCard>
             </Link>
             <Link href="/admin/generate" style={{ textDecoration: "none" }}>
-              <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, marginBottom: 4 }}>Inhalt generieren</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Wörter & Sätze mit Claude erstellen</div>
-                </div>
-                <span style={{ color: "var(--text-dim)", fontSize: 16 }}>→</span>
-              </div>
+              <AdminCard style={{ height: "100%", cursor: "pointer" }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Inhalt generieren</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Claude-Pipeline · Kategorien & Themen</div>
+                <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Generieren →</div>
+              </AdminCard>
             </Link>
+            <button
+              type="button"
+              onClick={() => setTab("users")}
+              style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+            >
+              <AdminCard style={{ height: "100%" }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Nutzer</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>{stats.totalUsers} registriert · {stats.activeToday} aktiv heute</div>
+                <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Liste →</div>
+              </AdminCard>
+            </button>
           </div>
+        </>
+      )}
 
-          {/* Search */}
-          <div style={{ padding: "0 16px 12px" }}>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Nutzer suchen..."
-              style={{ width: "100%", padding: "10px 14px", background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
-            />
+      {tab === "corpus" && coverage && (
+        <>
+          <AdminCard style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Corpus-Matrix</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Kategorien × Level — Wörter & Sätze</div>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
+                {coverage.totals.words} W · {coverage.totals.sentences} S
+              </div>
+            </div>
+            <CorpusMatrixDashboard categories={coverage.categories} targets={coverage.targets} />
+          </AdminCard>
+
+          {coverage.gaps.length > 0 && (
+            <AdminCard style={{ background: "#FFFBEB", borderColor: "#FDE68A" }}>
+              <div style={{ fontSize: 11, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                Lücken ({coverage.gaps.length} Kategorien)
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                {coverage.gaps.map(gap => (
+                  <div key={gap.category} style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    color: "#B45309",
+                    fontFamily: "var(--font-mono)",
+                    flexWrap: "wrap",
+                  }}>
+                    <span style={{ fontWeight: 500 }}>{gap.labelDe ?? gap.category}</span>
+                    <span>
+                      {gap.words} W · {gap.sentences} S
+                      {(gap.needsWords > 0 || gap.needsSentences > 0) && (
+                        <span style={{ color: "#92400E" }}> · −{gap.needsWords} W / −{gap.needsSentences} S</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <Link href="/admin/generate" style={{ fontSize: 12, color: PURPLE, fontWeight: 600, textDecoration: "none" }}>
+                Lücken füllen →
+              </Link>
+            </AdminCard>
+          )}
+        </>
+      )}
+
+      {tab === "corpus" && !coverage && (
+        <AdminCard>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>Corpus-Daten nicht verfügbar.</p>
+        </AdminCard>
+      )}
+
+      {tab === "users" && (
+        <>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Name oder E-Mail suchen…"
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              background: "var(--surface)",
+              border: "0.5px solid var(--border)",
+              borderRadius: 10,
+              color: "var(--text)",
+              fontSize: 15,
+              fontFamily: "var(--font-mono)",
+              marginBottom: 12,
+              boxSizing: "border-box",
+            }}
+          />
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 10, fontFamily: "var(--font-mono)" }}>
+            {filtered.length} von {users.length} Nutzer
           </div>
-
-          {/* User list */}
-          <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {filtered.map(u => (
               <Link key={u.userId} href={`/admin/user?id=${u.userId}`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 12, alignItems: "center" }}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, color: "var(--accent)" }}>{u.name[0]?.toUpperCase()}</span>
+                <AdminCard style={{ padding: "12px 14px", display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "color-mix(in srgb, #7F77DD 15%, var(--bg))",
+                    border: "1px solid color-mix(in srgb, #7F77DD 30%, var(--border))",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, color: PURPLE }}>{u.name[0]?.toUpperCase()}</span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 14, color: "var(--text)", fontWeight: 500 }}>{u.name}</span>
-                      {u.streak > 0 && <span style={{ fontSize: 11, color: "var(--accent)" }}>🔥 {u.streak}</span>}
-                      <span style={{ fontSize: 10, color: "var(--text-muted)", background: "var(--surface)", border: "0.5px solid var(--border)", padding: "1px 6px", borderRadius: 4 }}>{u.germanLevel ?? "?"}</span>
+                      {u.streak > 0 && <span style={{ fontSize: 11, color: PURPLE }}>🔥 {u.streak}</span>}
+                      <span style={{
+                        fontSize: 10,
+                        color: "var(--text-muted)",
+                        background: "var(--bg)",
+                        border: "0.5px solid var(--border)",
+                        padding: "2px 7px",
+                        borderRadius: 4,
+                        fontFamily: "var(--font-mono)",
+                      }}>
+                        {u.germanLevel ?? "?"}
+                      </span>
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>{u.email}</div>
-                    <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--text-dim)" }}>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{u.email}</div>
+                    <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
                       <span>{u.totalSessions} Sessions</span>
                       <span>{u.totalMinutes} min</span>
-                      <span>Zuletzt: {fmt(u.lastActiveAt)}</span>
+                      <span>Zuletzt {fmt(u.lastActiveAt)}</span>
                     </div>
                   </div>
-                  <span style={{ color: "var(--text-dim)", fontSize: 16 }}>→</span>
-                </div>
+                  <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
+                </AdminCard>
               </Link>
             ))}
           </div>
-          <div style={{ height: 32 }} />
         </>
       )}
-    </div>
+    </>
   );
 }
