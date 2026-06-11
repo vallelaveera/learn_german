@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DirectionToggle, type ExerciseDirection } from "@/components/DirectionToggle";
 import { speakExercisePrompt, stopExerciseSpeech } from "@/lib/exercise-speech";
 
 interface Chip {
@@ -38,19 +37,14 @@ function SentencesInner() {
   const [wrongId, setWrongId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [direction, setDirection] = useState<ExerciseDirection>("en-de");
   const [showEnHint, setShowEnHint] = useState(false);
 
   const current = exercises[index];
-  const promptText = current
-    ? (direction === "en-de" ? current.english : current.german)
-    : "";
-  const promptSpeechLang = direction === "en-de" ? "en" : "de";
 
-  const playPrompt = useCallback(() => {
-    if (!promptText) return;
-    speakExercisePrompt(promptText, promptSpeechLang).catch(() => {});
-  }, [promptText, promptSpeechLang]);
+  const playGerman = useCallback(() => {
+    if (!current) return;
+    speakExercisePrompt(current.german, "de").catch(() => {});
+  }, [current]);
 
   useEffect(() => {
     const url = fromCall
@@ -64,17 +58,17 @@ function SentencesInner() {
 
   useEffect(() => {
     if (phase !== "preview" || !current) return;
-    playPrompt();
+    playGerman();
     const t = setTimeout(() => setPhase("build"), PREVIEW_MS);
     return () => {
       clearTimeout(t);
       stopExerciseSpeech();
     };
-  }, [phase, current, index, direction, playPrompt]);
+  }, [phase, current, index, playGerman]);
 
   useEffect(() => {
     setShowEnHint(false);
-  }, [index, phase, direction]);
+  }, [index, phase]);
 
   const saveResult = (correct: boolean) => {
     if (!current) return;
@@ -123,70 +117,10 @@ function SentencesInner() {
     }
   };
 
-  const previewLabel = fromCall
-    ? "KORREKTUR AUS DEINEM ANRUF"
-    : direction === "en-de"
-      ? "BAUE DIESEN SATZ"
-      : "MERKE DIR DEN SATZ";
-
-  const renderPromptCard = (compact?: boolean) => {
-    if (!current) return null;
-    return (
-      <div style={{
-        textAlign: "center",
-        padding: compact ? "14px 16px" : "28px 20px",
-        marginBottom: compact ? 16 : 24,
-        background: "var(--accent-glow)",
-        border: "0.5px solid var(--accent-dim)",
-        borderRadius: 12,
-      }}>
-        {!compact && (
-          <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
-            {previewLabel}
-          </p>
-        )}
-        {fromCall && current.said && !compact && (
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic" }}>
-            Du sagtest: ÔÇ×{current.said}"
-          </p>
-        )}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: compact ? 0 : 4 }}>
-          <p style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: compact ? 17 : 20,
-            color: "var(--text)",
-            lineHeight: 1.45,
-            margin: 0,
-            fontStyle: direction === "en-de" ? "italic" : "normal",
-          }}>
-            {promptText}
-          </p>
-          <button
-            type="button"
-            onClick={playPrompt}
-            style={{
-              flexShrink: 0,
-              fontSize: 10,
-              padding: "4px 8px",
-              borderRadius: 4,
-              border: "0.5px solid var(--accent-dim)",
-              background: "var(--surface)",
-              color: "var(--accent)",
-              cursor: "pointer",
-            }}
-            aria-label="Nochmal anh├Âren"
-          >
-            ­ƒöè
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>S├ñtze werden geladen...</p>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
       </div>
     );
   }
@@ -196,10 +130,10 @@ function SentencesInner() {
       <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: 24, textAlign: "center" }}>
         <p style={{ marginTop: 80, color: "var(--text-muted)" }}>
           {fromCall
-            ? "Keine ├╝bbaren Korrekturen aus diesem Anruf (S├ñtze zu kurz oder schon ge├╝bt)."
-            : "Keine S├ñtze verf├╝gbar."}
+            ? "Keine übbaren Korrekturen aus diesem Anruf (Sätze zu kurz oder schon geübt)."
+            : "Keine Sätze verfügbar."}
         </p>
-        <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>ÔåÉ Zur├╝ck</Link>
+        <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>← Zurück</Link>
       </div>
     );
   }
@@ -210,15 +144,15 @@ function SentencesInner() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <p style={{ fontSize: 40, marginBottom: 12 }}>­ƒº®</p>
+        <p style={{ fontSize: 40, marginBottom: 12 }}>🧩</p>
         <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
           {score} / {exercises.length} richtig
         </h1>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>
-          {fromCall ? "Satzbau ÔÇö aus deinem Anruf" : "Satzbau ÔÇö W├Ârter in der richtigen Reihenfolge"}
+          {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
         </p>
         <Link href="/mode" style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none" }}>
-          Zur├╝ck
+          Zurück
         </Link>
       </div>
     );
@@ -231,22 +165,49 @@ function SentencesInner() {
       paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)",
       paddingLeft: 20, paddingRight: 20,
     }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, maxWidth: 400, margin: "0 auto 16px" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, maxWidth: 400, margin: "0 auto 24px" }}>
         <div>
           <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>
-            {fromCall ? "Satzbau ┬À Anruf" : "Satzbau"}
+            {fromCall ? "Satzbau · Anruf" : "Satzbau"}
           </p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} ┬À {current?.level}</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} · {current?.level}</p>
         </div>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>ÔåÉ Zur├╝ck</Link>
+        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
       </header>
 
-      <div style={{ maxWidth: 400, margin: "0 auto 16px" }}>
-        <DirectionToggle value={direction} onChange={setDirection} />
-      </div>
-
       <div style={{ maxWidth: 400, margin: "0 auto" }}>
-        {phase === "preview" && renderPromptCard()}
+        {phase === "preview" && current && (
+          <div style={{
+            textAlign: "center", padding: "28px 20px", marginBottom: 24,
+            background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", borderRadius: 12,
+          }}>
+            <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
+              {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : "MERKE DIR DEN SATZ"}
+            </p>
+            {fromCall && current.said && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic" }}>
+                Du sagtest: „{current.said}"
+              </p>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.45, margin: 0 }}>
+                {current.german}
+              </p>
+              <button
+                type="button"
+                onClick={playGerman}
+                style={{
+                  flexShrink: 0, fontSize: 10, padding: "4px 8px", borderRadius: 4,
+                  border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
+                  color: "var(--accent)", cursor: "pointer",
+                }}
+                aria-label="Nochmal anhören"
+              >
+                🔊
+              </button>
+            </div>
+          </div>
+        )}
 
         {phase === "complete" && current && (
           <div style={{
@@ -261,38 +222,46 @@ function SentencesInner() {
 
         {phase === "build" && current && (
           <>
-            {renderPromptCard(true)}
-
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
               <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, flex: 1 }}>
-                Tippe die W├Ârter in der richtigen Reihenfolge
+                Baue den Satz aus dem Gedächtnis
               </p>
-              {direction === "de-en" && (
-                <button
-                  type="button"
-                  onClick={() => setShowEnHint(true)}
-                  disabled={showEnHint}
-                  style={{
-                    flexShrink: 0,
-                    fontSize: 10,
-                    fontFamily: "var(--font-mono)",
-                    letterSpacing: "0.06em",
-                    padding: "5px 10px",
-                    borderRadius: 6,
-                    border: `0.5px solid ${showEnHint ? "var(--accent-dim)" : "var(--border)"}`,
-                    background: showEnHint ? "var(--accent-glow)" : "var(--surface)",
-                    color: showEnHint ? "var(--accent)" : "var(--text-muted)",
-                    cursor: showEnHint ? "default" : "pointer",
-                  }}
-                >
-                  {showEnHint ? "EN Ô£ô" : "EN"}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={playGerman}
+                style={{
+                  flexShrink: 0, fontSize: 10, padding: "5px 10px", borderRadius: 6,
+                  border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
+                  color: "var(--accent)", cursor: "pointer",
+                }}
+                aria-label="Nochmal anhören"
+              >
+                🔊
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEnHint(true)}
+                disabled={showEnHint}
+                style={{
+                  flexShrink: 0,
+                  fontSize: 10,
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.06em",
+                  padding: "5px 10px",
+                  borderRadius: 6,
+                  border: `0.5px solid ${showEnHint ? "var(--accent-dim)" : "var(--border)"}`,
+                  background: showEnHint ? "var(--accent-glow)" : "var(--surface)",
+                  color: showEnHint ? "var(--accent)" : "var(--text-muted)",
+                  cursor: showEnHint ? "default" : "pointer",
+                }}
+              >
+                {showEnHint ? "EN ✓" : "EN"}
+              </button>
             </div>
-            {direction === "de-en" && showEnHint && (
+            {showEnHint && (
               <p style={{
                 fontSize: 13, color: "var(--text-muted)", fontStyle: "italic",
-                textAlign: "center", lineHeight: 1.5, margin: "0 0 12px",
+                textAlign: "center", lineHeight: 1.5, margin: "0 0 16px",
               }}>
                 {current.english}
               </p>
@@ -352,7 +321,7 @@ export default function SentencesPage() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>S├ñtze werden geladen...</p>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
       </div>
     }>
       <SentencesInner />
