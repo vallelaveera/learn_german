@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { Message } from "@/lib/types";
+import { nextGermanLevel } from "@/lib/levels";
 
 export interface CallReportStats {
   durationLabel: string;
@@ -13,11 +15,47 @@ interface CallReportProps {
   messages: Message[];
   stats: CallReportStats;
   userName?: string;
+  currentLevel?: string;
+  completedCalls?: number;
   onCallAgain: () => void;
   onClose: () => void;
 }
 
-export function CallReport({ messages, stats, userName, onCallAgain, onClose }: CallReportProps) {
+export function CallReport({
+  messages,
+  stats,
+  userName,
+  currentLevel = "A1",
+  completedCalls = 0,
+  onCallAgain,
+  onClose,
+}: CallReportProps) {
+  const [levelConfirmed, setLevelConfirmed] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  const suggestedLevel = nextGermanLevel(currentLevel);
+  const showLevelSuggestion =
+    !dismissed &&
+    !levelConfirmed &&
+    completedCalls > 0 &&
+    completedCalls % 3 === 0 &&
+    suggestedLevel !== null;
+
+  const acceptLevel = async () => {
+    if (!suggestedLevel) return;
+    setUpdating(true);
+    try {
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ germanLevel: suggestedLevel }),
+      });
+      setLevelConfirmed(true);
+    } finally {
+      setUpdating(false);
+    }
+  };
   return (
     <div
       style={{
@@ -68,6 +106,65 @@ export function CallReport({ messages, stats, userName, onCallAgain, onClose }: 
             </div>
           ))}
         </div>
+
+        {showLevelSuggestion && suggestedLevel && (
+          <div style={{
+            marginBottom: 20,
+            padding: "14px 16px",
+            borderRadius: 12,
+            background: "#EEEDFE",
+            border: "1.5px solid #7F77DD",
+          }}>
+            {levelConfirmed ? (
+              <p style={{ fontSize: 14, color: "#7F77DD", margin: 0, textAlign: "center" }}>
+                Level auf {suggestedLevel} angepasst ✓
+              </p>
+            ) : (
+              <>
+                <p style={{ fontSize: 14, color: "var(--text)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  Maya denkt, du bist bereit für {suggestedLevel}. Möchtest du dein Level anpassen?
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={acceptLevel}
+                    disabled={updating}
+                    style={{
+                      flex: 1,
+                      minHeight: 44,
+                      borderRadius: 10,
+                      border: "none",
+                      background: "#7F77DD",
+                      color: "#fff",
+                      fontSize: 14,
+                      cursor: updating ? "wait" : "pointer",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    {updating ? "..." : "Ja, anpassen"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    style={{
+                      flex: 1,
+                      minHeight: 44,
+                      borderRadius: 10,
+                      border: "0.5px solid var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--text-muted)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    Nein, danke
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {stats.newWords.length > 0 && (
           <div style={{ marginBottom: 20 }}>
