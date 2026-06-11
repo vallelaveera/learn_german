@@ -1,5 +1,6 @@
 import { callClaude, parseJsonArray } from "./generate";
 import type { SentenceInput } from "@/lib/vocab/types";
+import { countGermanWords, isWithinWordLimit, MAX_GERMAN_WORDS } from "./word-count";
 
 interface ValidationResult {
   id: number;
@@ -29,6 +30,7 @@ For each sentence check:
 4. Level accuracy — does vocabulary and grammar 
    actually match the stated CEFR level?
 5. Translation accuracy — does English match German?
+6. Length — German sentence must be at most ${MAX_GERMAN_WORDS} words; reject if longer
 
 Output ONLY valid JSON array, no markdown, no commentary:
 [
@@ -55,7 +57,7 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
   const rejected: ValidateOutput["rejected"] = [];
 
   try {
-    const userPrompt = `Check these sentences:\n${JSON.stringify(sentences)}`;
+    const userPrompt = `Check these sentences. Each German sentence must be at most ${MAX_GERMAN_WORDS} words.\n${JSON.stringify(sentences)}`;
     const text = await callClaude(SYSTEM_PROMPT, userPrompt);
     const results = parseJsonArray<ValidationResult>(text);
 
@@ -96,6 +98,19 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
         en: result.corrections?.en ?? sentence.en,
       });
     }
+
+    // Hard word-count guard after corrections
+    const withinLimit: SentenceInput[] = [];
+    for (const sentence of passed) {
+      if (isWithinWordLimit(sentence.de)) {
+        withinLimit.push(sentence);
+        continue;
+      }
+      const issues = [`Too long: ${countGermanWords(sentence.de)} words (max ${MAX_GERMAN_WORDS})`];
+      rejected.push({ sentence, issues });
+      console.warn("[validate] REJECTED", JSON.stringify({ de: sentence.de, en: sentence.en, issues }));
+    }
+    return { passed: withinLimit, rejected };
   } catch (e) {
     console.error("[validate] Claude call failed:", e);
     for (const sentence of sentences) {

@@ -80,7 +80,10 @@ export default function AdminContentPage() {
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--red)", color: "white", padding: "2px 6px", borderRadius: 3 }}>ADMIN</span>
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Übungsinhalt</span>
         </div>
-        <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Nutzer</Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/admin/generate" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>Generieren</Link>
+          <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Nutzer</Link>
+        </div>
       </header>
 
       {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, padding: 24 }}>Lädt...</p>}

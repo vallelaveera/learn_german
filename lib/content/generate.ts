@@ -1,4 +1,5 @@
 import type { CEFRLevel, SentenceInput, SentenceType, VocabCategory } from "@/lib/vocab/types";
+import { countGermanWords, isWithinWordLimit, MAX_GERMAN_WORDS } from "./word-count";
 
 const MODEL = "claude-haiku-4-5";
 
@@ -63,6 +64,8 @@ practice sentences for learners.
 
 Rules:
 - Every sentence must be natural spoken German
+- Maximum ${MAX_GERMAN_WORDS} words per German sentence — count every word, never exceed this
+- Keep sentences short and simple, like spoken phrases in real conversation
 - No brand names, no proper nouns, no political topics
 - No incomplete sentences
 - No sentences that only make sense with context
@@ -85,6 +88,7 @@ Output ONLY valid JSON array, no markdown, no commentary:
 function buildUserPrompt(params: GenerateParams): string {
   const topicClause = params.topic ? `, topic ${params.topic}` : "";
   return `Generate ${params.count} German sentences for level ${params.level}, category ${params.category}${topicClause}.
+Each German sentence must be at most ${MAX_GERMAN_WORDS} words. Shorter is better.
 Return only the JSON array.`;
 }
 
@@ -114,7 +118,15 @@ export async function generateSentences(params: GenerateParams): Promise<Sentenc
 
     return parsed
       .map(item => normalizeSentence(item, params))
-      .filter((s): s is SentenceInput => s !== null);
+      .filter((s): s is SentenceInput => {
+        if (s === null) return false;
+        if (isWithinWordLimit(s.de)) return true;
+        console.warn(
+          "[generate] dropped (too long)",
+          JSON.stringify({ de: s.de, words: countGermanWords(s.de), max: MAX_GERMAN_WORDS })
+        );
+        return false;
+      });
   } catch (e) {
     console.error("[generate] Claude call failed:", e);
     return [];
