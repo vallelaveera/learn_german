@@ -3,7 +3,8 @@ import { verifyToken } from "@/lib/auth";
 import { runGenerationPipeline } from "@/lib/content/pipeline";
 import { runWordGenerationPipeline } from "@/lib/content/pipeline-words";
 import type { CEFRLevel, VocabCategory } from "@/lib/vocab/types";
-import { CATEGORY_TOPICS, VOCAB_CATEGORIES } from "./topics";
+import { CATEGORY_TOPICS, VOCAB_CATEGORIES } from "@/lib/content/topics";
+import { getCorpusCoverageReport } from "@/lib/content/coverage";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
     topics: CATEGORY_TOPICS[id],
   }));
 
-  return NextResponse.json({ categories });
+  const coverage = await getCorpusCoverageReport();
+
+  return NextResponse.json({ categories, coverage });
 }
 
 export async function POST(req: NextRequest) {
