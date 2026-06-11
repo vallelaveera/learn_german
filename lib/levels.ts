@@ -21,6 +21,14 @@ export function isBeginnerLevel(level?: string): boolean {
   return level === "A1" || level === "A2";
 }
 
+/** Map placement quirks (e.g. B1+) to a valid CEFR chip on the home screen. */
+export function normalizeGermanLevel(level?: string): GermanLevel {
+  if (!level) return "A1";
+  if (level === "B1+") return "B1";
+  if (GERMAN_LEVELS.includes(level as GermanLevel)) return level as GermanLevel;
+  return "A1";
+}
+
 export function shouldSkipLevelOnLogin(user: {
   totalSessions?: number;
   createdAt?: number;

@@ -1,9 +1,9 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { useState, useEffect, type ReactNode } from "react";
+import { Suspense, useState, useEffect, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelStrip } from "@/components/level/LevelStrip";
-import type { GermanLevel } from "@/lib/levels";
+import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
 
 const PURPLE = "#7F77DD";
 
@@ -74,23 +74,45 @@ function HomeButton({ primary, icon, label, subtext, onClick }: HomeButtonProps)
 }
 
 export default function ModePage() {
+  return (
+    <Suspense fallback={null}>
+      <ModePageInner />
+    </Suspense>
+  );
+}
+
+function ModePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<{ name: string; germanLevel?: string } | null>(null);
   const [level, setLevel] = useState<string>("A1");
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    const urlLevel = searchParams.get("level");
+    if (urlLevel) {
+      setLevel(normalizeGermanLevel(urlLevel));
+    }
+
+    fetch("/api/auth/me", { cache: "no-store" })
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(d => {
         if (d?.user) {
           setUser(d.user);
-          setLevel(d.user.germanLevel ?? "A1");
+          setLevel(normalizeGermanLevel(d.user.germanLevel));
         }
       });
-    fetch("/api/exercises/status")
+
+    fetch("/api/exercises/status", { cache: "no-store" })
       .then(r => (r.status === 401 ? null : r.ok ? r.json() : null))
-      .then(d => { if (d && !d.placementDone) router.push("/exercises/placement"); });
-  }, [router]);
+      .then(d => {
+        if (d && !d.placementDone) router.push("/exercises/placement");
+        else if (d?.germanLevel) setLevel(normalizeGermanLevel(d.germanLevel));
+      });
+
+    if (urlLevel) {
+      router.replace("/mode", { scroll: false });
+    }
+  }, [router, searchParams]);
 
   const saveLevel = async (next: GermanLevel) => {
     const res = await fetch("/api/profile", {

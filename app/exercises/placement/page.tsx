@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
 import type { BinaryCard, PlacementLevel } from "@/lib/exercises/types";
+import { normalizeGermanLevel } from "@/lib/levels";
 
 export default function PlacementPage() {
   const router = useRouter();
@@ -22,7 +23,11 @@ export default function PlacementPage() {
     fetch(`/api/exercises/placement?level=${lvl}`)
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
-        if (data?.done) { router.push("/mode"); return; }
+        if (data?.done) {
+          const lvl = normalizeGermanLevel(data.currentLevel);
+          router.push(`/mode?level=${lvl}`);
+          return;
+        }
         if (data?.round) {
           setLevel(data.round.level);
           setCards(data.round.cards);
@@ -44,7 +49,8 @@ export default function PlacementPage() {
     });
     const data = await res.json();
     if (data.done) {
-      setFinished({ level: data.level, score: data.score });
+      const lvl = normalizeGermanLevel(data.level);
+      setFinished({ level: lvl, score: data.score });
       return;
     }
     if (data.nextRound) {
@@ -92,7 +98,7 @@ export default function PlacementPage() {
           Maya passt ihre Sprache an dein Niveau an.
         </p>
         <button
-          onClick={() => router.push("/mode")}
+          onClick={() => router.push(`/mode?level=${finished.level}`)}
           style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", border: "none", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)" }}
         >
           Weiter →

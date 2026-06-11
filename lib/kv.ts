@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis";
 import type { CallCorrection } from "./corrections";
 import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssignment, HomeworkRep, HomeworkSentence } from "./types";
 import type { CareerVocabUserProgress } from "./career-vocab/types";
+import { normalizeGermanLevel } from "./levels";
 import { v4 as uuidv4 } from "uuid";
 
 function isAssignmentComplete(assignment: HomeworkAssignment): boolean {
@@ -375,14 +376,16 @@ export async function completePlacement(
   level: string,
   score: number
 ): Promise<void> {
+  const normalized = normalizeGermanLevel(level);
   const profile = await getUserProfile(userId);
   if (!profile) return;
-  profile.germanLevel = level;
+  profile.germanLevel = normalized;
   profile.facts = {
     ...profile.facts,
     placementDone: true,
     placementScore: score,
-    germanLevel: level,
+    germanLevel: normalized,
+    levelOnboarded: true,
     lastUpdated: Date.now(),
   };
   profile.lastActiveAt = Date.now();
