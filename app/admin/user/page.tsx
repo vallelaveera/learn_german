@@ -96,19 +96,11 @@ function AdminUserContent() {
   };
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "var(--sat)", paddingBottom: "var(--sab)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--red)", color: "white", padding: "2px 6px", borderRadius: 3 }}>ADMIN</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Nutzerprofil</span>
-        </div>
-        <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
-      </header>
-
-      {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, padding: 24 }}>Lädt...</p>}
+    <>
+      {loading && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}
 
       {!loading && profile && (
-        <div style={{ padding: 16 }}>
+        <div>
           {/* Profile card */}
           <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 16, marginBottom: 16, display: "flex", gap: 14, alignItems: "center" }}>
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--accent-glow)", border: "2px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -274,6 +266,6 @@ function AdminUserContent() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
