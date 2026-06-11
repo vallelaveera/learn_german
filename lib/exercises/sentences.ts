@@ -3,6 +3,7 @@ import { getExerciseExcludedKeys } from "@/lib/kv";
 import { loadCorpusSentences } from "@/lib/vocab/load";
 import { isExerciseEntryExcluded } from "./exclusion";
 import { isLevelAppropriate } from "./levels";
+import { matchesSentenceCategory, type SentenceExerciseCategory } from "./categories";
 import type { UserProfile } from "@/lib/types";
 
 export interface SentenceEntry {
@@ -56,7 +57,8 @@ export function tokenizeSentence(german: string): string[] {
 export async function selectSentenceExercises(
   userId: string,
   profile: UserProfile,
-  limit = 5
+  limit = 5,
+  category: SentenceExerciseCategory = "everyday",
 ): Promise<SentenceExercise[]> {
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
   const excluded = await getExerciseExcludedKeys(userId, "sentence");
@@ -65,16 +67,17 @@ export async function selectSentenceExercises(
   let pool = bank.filter(
     e =>
       isLevelAppropriate(e.level, userLevel) &&
-      !isExerciseEntryExcluded(e.id, e.german, excluded)
+      !isExerciseEntryExcluded(e.id, e.german, excluded) &&
+      matchesSentenceCategory(e.german, category)
   );
 
   if (pool.length < limit) {
-    const extra = bank.filter(
+    const fallback = bank.filter(
       e =>
         isLevelAppropriate(e.level, userLevel) &&
         !isExerciseEntryExcluded(e.id, e.german, excluded)
     );
-    pool = [...pool, ...extra.filter(e => !pool.some(p => p.id === e.id))];
+    pool = [...pool, ...fallback.filter(e => !pool.some(p => p.id === e.id))];
   }
 
   return shuffle(pool)

@@ -8,6 +8,7 @@ import {
 } from "@/lib/kv";
 import { buildCallSentenceExercises } from "@/lib/exercises/call-sentences";
 import { selectSentenceExercises, shuffleWords } from "@/lib/exercises/sentences";
+import { parseSentenceCategory } from "@/lib/exercises/categories";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ exercises, source: "call" });
     }
 
-    const sentences = await selectSentenceExercises(user.userId, user, 5);
+    const sentences = await selectSentenceExercises(
+      user.userId,
+      user,
+      5,
+      parseSentenceCategory(req.nextUrl.searchParams.get("category")),
+    );
     const exercises = sentences.map(s => ({
       ...s,
       chips: shuffleWords(s.words),

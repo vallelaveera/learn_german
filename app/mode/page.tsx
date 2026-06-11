@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Phone, PenLine, BookOpen } from "lucide-react";
+import { Phone } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelStrip } from "@/components/level/LevelStrip";
 import { MayaAvatar } from "@/components/ui/MayaAvatar";
@@ -77,7 +77,8 @@ function ModePageInner() {
 
           <ActivityCard
             primary
-            tone="teal"
+            tone="orange"
+            emoji="📞"
             icon={<Phone size={22} color="#fff" strokeWidth={2} />}
             label="Mit Maya sprechen"
             subtext="Freisprechen — wie ein echtes Gespräch"
@@ -97,17 +98,17 @@ function ModePageInner() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <ActivityCard
-            tone="sky"
-            icon={<PenLine size={20} strokeWidth={2} />}
+            tone="purple"
+            emoji="🧩"
             label="Sätze üben"
-            subtext="Flashcards mit Maya-Stimme"
+            subtext="Themen wählen · Satzbau mit Maya"
             onClick={() => router.push("/exercises/sentences")}
           />
           <ActivityCard
-            tone="mint"
-            icon={<BookOpen size={20} strokeWidth={2} />}
+            tone="blue"
+            emoji="📚"
             label="Wörter üben"
-            subtext="Vokabeln aus deinen Gesprächen"
+            subtext="Kategorien · Flashcards mit Maya"
             onClick={() => router.push("/exercises/words")}
           />
         </div>

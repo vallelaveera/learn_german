@@ -30,9 +30,9 @@ export function DecorativeBackground() {
       >
         <defs>
           <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#52c4aa" stopOpacity="0.35" />
-            <stop offset="50%" stopColor="#6ec4e8" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#89dce8" stopOpacity="0.15" />
+            <stop offset="0%" stopColor="#FF9A56" stopOpacity="0.35" />
+            <stop offset="50%" stopColor="#FFD166" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#FF6B35" stopOpacity="0.15" />
           </linearGradient>
         </defs>
         <path

@@ -3,7 +3,13 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Puzzle, Volume2 } from "lucide-react";
+import { Volume2 } from "lucide-react";
+import { ExerciseCategoryPicker } from "@/components/exercises/ExerciseCategoryPicker";
+import {
+  getSentenceCategoryMeta,
+  parseSentenceCategory,
+  type SentenceExerciseCategory,
+} from "@/lib/exercises/categories";
 import {
   prefetchExerciseGerman,
   revokeExerciseSpeechPrefetch,
@@ -34,8 +40,23 @@ const PREVIEW_MS = 5000;
 function SentencesInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const fromCall = params.get("source") === "call";
-  const sessionId = params.get("session");
+  const rawCategory = params.get("category");
+  if (!rawCategory) return <ExerciseCategoryPicker type="sentences" />;
+
+  const category = parseSentenceCategory(rawCategory);
+  return <SentencesPractice category={category} sessionId={params.get("session")} />;
+}
+
+function SentencesPractice({
+  category,
+  sessionId,
+}: {
+  category: SentenceExerciseCategory;
+  sessionId: string | null;
+}) {
+  const router = useRouter();
+  const meta = getSentenceCategoryMeta(category);
+  const fromCall = category === "call";
 
   const [exercises, setExercises] = useState<SentenceExercise[]>([]);
   const [index, setIndex] = useState(0);
@@ -52,7 +73,7 @@ function SentencesInner() {
 
   const exercisesUrl = fromCall
     ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
-    : "/api/exercises/sentences";
+    : `/api/exercises/sentences?category=${category}`;
 
   const loadExercises = useCallback(async (isMore = false) => {
     if (isMore) setLoadingMore(true);
@@ -175,12 +196,15 @@ function SentencesInner() {
   if (!exercises.length) {
     return (
       <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: 24, textAlign: "center" }}>
-        <p style={{ marginTop: 80, color: "var(--text-muted)" }}>
+        <p style={{ fontSize: 40, marginBottom: 12 }}>{meta?.emoji ?? "🧩"}</p>
+        <p style={{ marginTop: 40, color: "var(--text-muted)" }}>
           {fromCall
-            ? "Keine übbaren Korrekturen aus diesem Anruf (Sätze zu kurz oder schon geübt)."
-            : "Keine Sätze verfügbar."}
+            ? "Keine übbaren Korrekturen aus deinem Anruf."
+            : "Keine Sätze in dieser Kategorie."}
         </p>
-        <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>← Zurück</Link>
+        <Link href="/exercises/sentences" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>
+          ← Andere Kategorie
+        </Link>
       </div>
     );
   }
@@ -191,26 +215,27 @@ function SentencesInner() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <div
+        <span
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: "50%",
-            background: "var(--accent-soft)",
-            color: "var(--accent)",
+            width: 80,
+            height: 80,
+            borderRadius: 24,
+            background: meta?.gradient ?? "var(--gradient)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            fontSize: 40,
             marginBottom: 16,
+            boxShadow: `0 8px 28px ${meta?.shadow ?? "var(--accent-glow)"}`,
           }}
         >
-          <Puzzle size={32} />
-        </div>
+          {meta?.emoji ?? "🧩"}
+        </span>
         <h1 className="ui-title-serif" style={{ fontSize: 26, marginBottom: 8 }}>
           {score} / {exercises.length} richtig
         </h1>
         <p className="ui-muted" style={{ marginBottom: noMore ? 12 : 28 }}>
-          {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
+          {meta?.label ?? "Sätze üben"}
         </p>
         {noMore && (
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
@@ -229,8 +254,8 @@ function SentencesInner() {
               {loadingMore ? "Lädt..." : "Weiter üben"}
             </button>
           )}
-          <Link href="/mode" className="ui-btn-ghost" style={{ textDecoration: "none", minHeight: 48, justifyContent: "center" }}>
-            Zurück
+          <Link href="/exercises/sentences" className="ui-btn-ghost" style={{ textDecoration: "none", minHeight: 48, justifyContent: "center" }}>
+            Kategorien
           </Link>
         </div>
       </div>
@@ -245,13 +270,32 @@ function SentencesInner() {
       paddingLeft: 20, paddingRight: 20,
     }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, maxWidth: 400, margin: "0 auto 24px" }}>
-        <div>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>
-            {fromCall ? "Satzbau · Anruf" : "Satzbau"}
-          </p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} · {current?.level}</p>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <span
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              background: meta?.gradient ?? "var(--gradient)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+              flexShrink: 0,
+            }}
+          >
+            {meta?.emoji ?? "🧩"}
+          </span>
+          <div>
+            <p className="ui-title-serif" style={{ fontSize: 18, marginBottom: 4 }}>
+              {meta?.label ?? "Satzbau"}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              {index + 1} / {exercises.length} · {current?.level}
+            </p>
+          </div>
         </div>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
+        <Link href="/exercises/sentences" style={{ fontSize: 11, color: "var(--text-muted)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 10, textDecoration: "none" }}>←</Link>
       </header>
 
       <div style={{ maxWidth: 400, margin: "0 auto" }}>
