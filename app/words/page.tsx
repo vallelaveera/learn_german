@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { PageShell } from "@/components/layout/PageShell";
 
 interface VocabWord {
   word: string;
@@ -9,6 +10,16 @@ interface VocabWord {
   lastSeen: number;
   usedByUser?: boolean;
 }
+
+interface CareerEntry {
+  id: string;
+  text: string;
+  english: string;
+  category: string;
+  status: "used" | "exposed" | "unused";
+}
+
+type WordView = "vocab" | "karriere";
 
 export default function WordsPage() {
   const [vocab, setVocab] = useState<VocabWord[]>([]);
@@ -22,12 +33,41 @@ export default function WordsPage() {
   const [loadingSentences, setLoadingSentences] = useState<string | null>(null);
   const [loadingTranslations, setLoadingTranslations] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState<Record<string, boolean>>({});
+  const [view, setView] = useState<WordView>("vocab");
+  const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
+  const [careerLoading, setCareerLoading] = useState(false);
+  const [careerAvailable, setCareerAvailable] = useState(true);
 
   useEffect(() => {
     fetch("/api/vocab")
       .then(r => r.json())
       .then(d => { setVocab(d.words ?? []); setLoading(false); });
   }, []);
+
+  useEffect(() => {
+    if (view !== "karriere") return;
+    setCareerLoading(true);
+    fetch("/api/career-vocab")
+      .then(r => {
+        if (!r.ok) {
+          setCareerAvailable(false);
+          setCareerEntries([]);
+          return null;
+        }
+        return r.json();
+      })
+      .then(d => {
+        if (d) {
+          setCareerAvailable(true);
+          setCareerEntries(d.entries ?? []);
+        }
+        setCareerLoading(false);
+      })
+      .catch(() => {
+        setCareerAvailable(false);
+        setCareerLoading(false);
+      });
+  }, [view]);
 
   const filtered = vocab
     .filter(w => filter === "all" ? true : filter === "practiced" ? w.usedByUser : !w.usedByUser)
@@ -67,25 +107,55 @@ export default function WordsPage() {
     setLoadingTranslations(null);
   };
 
-    const total = vocab.length;
-  const practiced = vocab.filter(w => w.usedByUser).length;
-  const newWords = vocab.filter(w => !w.usedByUser).length; // SET_M - SET_U
+  const newWords = vocab.filter(w => !w.usedByUser).length;
+
+  const filteredCareer = careerEntries
+    .filter(e => (search ? e.text.toLowerCase().includes(search.toLowerCase()) || e.english.toLowerCase().includes(search.toLowerCase()) : true));
+
+  const careerStatusColor = (status: CareerEntry["status"]) => {
+    if (status === "used") return "var(--green)";
+    if (status === "exposed") return "#7F77DD";
+    return "var(--text-dim)";
+  };
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "var(--sat)", paddingBottom: "var(--sab)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Vokabeln</span>
+    <PageShell title="Wörter">
+      <div style={{ padding: "16px 18px" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          {(
+            [
+              ["vocab", "Allgemein"],
+              ["karriere", "Karriere"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setView(key)}
+              style={{
+                flex: 1,
+                minHeight: 44,
+                borderRadius: 10,
+                border: "0.5px solid var(--border)",
+                background: view === key ? "var(--accent-glow)" : "var(--surface)",
+                color: view === key ? "var(--accent)" : "var(--text-muted)",
+                fontSize: 12,
+                fontFamily: "var(--font-mono)",
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
-      </header>
 
+        {view === "vocab" && (
+          <>
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, padding: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
         {[
-          { label: "Gesamt", value: total, color: "var(--text)" },
-          { label: "Gelernt", value: practiced, color: "var(--green)" },
+          { label: "Gesamt", value: vocab.length, color: "var(--text)" },
+          { label: "Gelernt", value: vocab.filter(w => w.usedByUser).length, color: "var(--green)" },
           { label: "Neu", value: newWords, color: "var(--accent)" },
         ].map(s => (
           <div key={s.label} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px" }}>
@@ -96,7 +166,7 @@ export default function WordsPage() {
       </div>
 
       {/* Search */}
-      <div style={{ padding: "0 16px 12px" }}>
+      <div style={{ marginBottom: 12 }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -106,7 +176,7 @@ export default function WordsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: "flex", borderBottom: "0.5px solid var(--border)", margin: "0 16px 16px" }}>
+      <div style={{ display: "flex", borderBottom: "0.5px solid var(--border)", marginBottom: 16 }}>
         {(["all", "new", "practiced"] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{
             flex: 1, padding: "10px", fontSize: 11, letterSpacing: "0.06em",
@@ -121,7 +191,7 @@ export default function WordsPage() {
       </div>
 
       {/* Sort buttons */}
-      <div style={{ display: "flex", gap: 8, padding: "0 16px 12px" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         {([["length", "Länge"], ["frequency", "Häufigkeit"], ["recent", "Zuletzt"]] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSort(key)} style={{
             padding: "5px 12px", borderRadius: 20, fontSize: 11,
@@ -134,7 +204,7 @@ export default function WordsPage() {
       </div>
 
       {/* Word list */}
-      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 20 }}>Lädt...</p>}
         {!loading && filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: 40 }}>
@@ -196,7 +266,61 @@ export default function WordsPage() {
           </div>
         ))}
       </div>
-      <div style={{ height: 32 }} />
-    </div>
+          </>
+        )}
+
+        {view === "karriere" && (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Berufsvokabel suchen..."
+                style={{ width: "100%", padding: "10px 14px", background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
+              />
+            </div>
+            {careerLoading && <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>Lädt...</p>}
+            {!careerLoading && !careerAvailable && (
+              <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 24 }}>
+                Karriere-Vokabeln sind auf diesem Branch noch nicht verfügbar.
+              </p>
+            )}
+            {!careerLoading && careerAvailable && filteredCareer.length === 0 && (
+              <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 24 }}>Keine Einträge gefunden.</p>
+            )}
+            {!careerLoading && filteredCareer.map(entry => (
+              <div
+                key={entry.id}
+                style={{
+                  background: "var(--surface)",
+                  border: "0.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  marginBottom: 8,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16, fontFamily: "var(--font-serif)", color: "var(--text)" }}>{entry.text}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: "3px 8px",
+                      borderRadius: 10,
+                      color: careerStatusColor(entry.status),
+                      border: `0.5px solid ${careerStatusColor(entry.status)}`,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {entry.status === "used" ? "Gesagt" : entry.status === "exposed" ? "Gehört" : "Neu"}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 6px" }}>{entry.english}</p>
+                <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{entry.category}</span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </PageShell>
   );
 }

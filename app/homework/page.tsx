@@ -161,7 +161,7 @@ export default function HomeworkPage() {
           <p style={{ fontSize: 48, marginBottom: 16 }}>🎉</p>
           <p style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "var(--text)", marginBottom: 8 }}>Super gemacht!</p>
           <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 32 }}>Alle 15 Aufnahmen fertig. Maya ist stolz auf dich.</p>
-          <a href="/callmode" style={{ display: "inline-block", padding: "14px 28px", borderRadius: 10, background: "var(--green)", color: "white", textDecoration: "none", fontSize: 14 }}>Jetzt mit Maya reden</a>
+          <a href="/call" style={{ display: "inline-block", padding: "14px 28px", borderRadius: 10, background: "var(--green)", color: "white", textDecoration: "none", fontSize: 14 }}>Jetzt mit Maya reden</a>
         </div>
       ) : (
         <div style={{ padding: 16 }}>

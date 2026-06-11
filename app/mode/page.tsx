@@ -1,10 +1,29 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { PageShell } from "@/components/layout/PageShell";
+
+const secondaryLinkStyle = {
+  flex: 1,
+  minHeight: 48,
+  padding: "14px 12px",
+  borderRadius: 12,
+  border: "0.5px solid var(--border)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  fontSize: 13,
+  fontFamily: "var(--font-serif)" as const,
+  textDecoration: "none" as const,
+  display: "flex" as const,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  textAlign: "center" as const,
+};
 
 export default function ModePage() {
   const router = useRouter();
-  const [user, setUser] = useState<{ name: string; totalSessions: number } | null>(null);
+  const [user, setUser] = useState<{ name: string } | null>(null);
   const [homeworkPending, setHomeworkPending] = useState(false);
 
   useEffect(() => {
@@ -12,168 +31,147 @@ export default function ModePage() {
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(d => { if (d?.user) setUser(d.user); });
     fetch("/api/homework")
-      .then(r => r.ok ? r.json() : null)
+      .then(r => (r.ok ? r.json() : null))
       .then(d => {
         if (d?.assignment && d?.progress && d.progress.completedReps < d.progress.totalReps) {
           setHomeworkPending(true);
         }
       })
       .catch(() => {});
-  }, []);
+  }, [router]);
 
   return (
-    <div style={{
-      minHeight: "100dvh", background: "var(--bg)",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      padding: "24px 20px",
-      paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-    }}>
-      {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: 48 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)" }}>CallMeDaily</span>
-        </div>
-        <p style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6 }}>
+    <PageShell title="Home">
+      <div style={{ padding: "24px 18px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 24 }}>
           {user ? `Hey ${user.name}!` : "Hey!"} Wie möchtest du heute üben?
         </p>
-      </div>
 
-      {/* Maya avatar */}
-      <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--surface)", border: "2px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 40, position: "relative" }}>
-        <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "var(--accent)" }}>M</span>
-        <div style={{ position: "absolute", bottom: 0, right: 0, width: 16, height: 16, borderRadius: "50%", background: "var(--green)", border: "2px solid var(--bg)" }} />
-      </div>
-
-      {/* Mode cards */}
-      <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14 }}>
-
-        {/* Call mode — two voice options */}
-        <div style={{ width: "100%" }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-            📞 Call Mode — Stimme wählen
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            {/* Maya Classic — Soniox */}
-            <button
-              onClick={() => { localStorage.setItem("maya_voice", "soniox"); router.push("/callmode"); }}
-              style={{
-                flex: 1, padding: "16px 12px", borderRadius: 14,
-                background: "var(--surface)", border: "1px solid var(--border)",
-                cursor: "pointer", textAlign: "center",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              <div style={{ fontSize: 28, marginBottom: 6 }}>🎙️</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Maya A</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Classic</div>
-            </button>
-
-            {/* Maya Natural — Fish Audio */}
-            <button
-              onClick={() => { localStorage.setItem("maya_voice", "fish"); router.push("/callmode"); }}
-              style={{
-                flex: 1, padding: "16px 12px", borderRadius: 14,
-                background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))",
-                border: "1px solid rgba(124,77,170,0.3)",
-                cursor: "pointer", textAlign: "center",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              <div style={{ fontSize: 28, marginBottom: 6 }}>✨</div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "#7c4daa", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Maya B</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)"}}>Natural</div>
-            </button>
-          </div>
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: "var(--surface)",
+            border: "2px solid var(--accent-dim)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 28,
+            position: "relative",
+          }}
+        >
+          <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "var(--accent)" }}>M</span>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              right: 0,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: "var(--green)",
+              border: "2px solid var(--bg)",
+            }}
+          />
         </div>
 
-        {/* Practice mode */}
         <button
-          onClick={() => router.push("/practice")}
-          style={{
-            width: "100%", padding: "20px", borderRadius: 14,
-            background: "linear-gradient(135deg, rgba(232,100,58,0.06), rgba(124,77,170,0.06))",
-            border: "1px solid rgba(232,100,58,0.3)",
-            cursor: "pointer", textAlign: "left",
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(232,100,58,0.1)", border: "1px solid rgba(232,100,58,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>
-              🎭
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 15, fontWeight: 500, color: "#e8643a", fontFamily: "var(--font-serif)" }}>Üben</span>
-                <span style={{ fontSize: 10, background: "rgba(232,100,58,0.1)", color: "#e8643a", border: "0.5px solid rgba(232,100,58,0.3)", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>ROLLENSPIEL</span>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Bäckerei, Café, Bahnhof — übe echte Situationen Schritt für Schritt.</div>
-            </div>
-            <span style={{ color: "#e8643a", fontSize: 18 }}>→</span>
-          </div>
-        </button>
-
-        {/* Manual mode */}
-        <button
+          type="button"
           onClick={() => router.push("/call")}
           style={{
-            width: "100%", padding: "20px", borderRadius: 14,
-            background: "var(--surface)", border: "1px solid var(--border)",
-            cursor: "pointer", textAlign: "left",
+            width: "100%",
+            minHeight: 52,
+            padding: "16px",
+            borderRadius: 14,
+            border: "none",
+            background: "#7F77DD",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 500,
+            fontFamily: "var(--font-mono)",
+            cursor: "pointer",
+            marginBottom: 12,
             WebkitTapHighlightColor: "transparent",
-            transition: "border-color 0.2s",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Manual</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Drücke den Knopf zum Sprechen. Du kontrollierst wann Maya antwortet.</div>
-            </div>
-            <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
-          </div>
+          Jetzt anrufen
         </button>
-      </div>
 
-      {/* Bottom tab bar */}
-      <div style={{ display: "flex", gap: 8, marginTop: 32, width: "100%", maxWidth: 360 }}>
-        {[
-          { href: "/homework", label: "Hausaufg.", icon: "📋" },
-          { href: "/words", label: "Wörter", icon: "📚" },
-          { href: "/progress", label: "Fortschritt", icon: "📈" },
-          { href: "/history", label: "Verlauf", icon: "🕐" },
-          { href: "/profile", label: "Profil", icon: "👤" },
-        ].map(l => (
-          <a key={l.href} href={l.href} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-            gap: 4, padding: "10px 4px", borderRadius: 12,
-            background: "var(--surface)", border: "0.5px solid var(--border)",
-            textDecoration: "none", position: "relative",
-          }}>
-            <span style={{ fontSize: 18 }}>{l.icon}</span>
-            {l.href === "/homework" && homeworkPending && (
-              <span style={{ position: "absolute", top: 6, right: 8, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
-            )}
-            <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{l.label}</span>
-          </a>
-        ))}
-      </div>
+        <Link
+          href="/exercises/warmup?next=%2Fcall"
+          style={{
+            width: "100%",
+            minHeight: 44,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            color: "var(--text-muted)",
+            textDecoration: "none",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          Kurzes Warmup →
+        </Link>
 
-      <button
-        onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
-        style={{ marginTop: 16, fontSize: 11, color: "var(--text-dim)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)" }}
-      >
-        Logout
-      </button>
-    </div>
+        <div style={{ width: "100%", display: "flex", gap: 10, marginBottom: 14 }}>
+          <Link href="/exercises/spelling" style={secondaryLinkStyle}>
+            Buchstabieren
+          </Link>
+          <Link href="/practice" style={secondaryLinkStyle}>
+            Rollenspiel
+          </Link>
+        </div>
+
+        <Link
+          href="/exercises/sentences"
+          style={{
+            width: "100%",
+            minHeight: 44,
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "0.5px solid var(--border)",
+            background: "transparent",
+            color: "var(--text-muted)",
+            fontSize: 13,
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <span>🧩 Satzbau</span>
+          <span>→</span>
+        </Link>
+
+        {homeworkPending && (
+          <Link
+            href="/homework"
+            style={{
+              marginTop: 20,
+              width: "100%",
+              minHeight: 44,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "0.5px solid var(--accent-dim)",
+              background: "var(--accent-glow)",
+              color: "var(--accent)",
+              fontSize: 13,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            📋 Hausaufgaben offen
+          </Link>
+        )}
+      </div>
+    </PageShell>
   );
 }

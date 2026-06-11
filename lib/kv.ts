@@ -1,5 +1,7 @@
 import { Redis } from "@upstash/redis";
+import type { CallCorrection } from "./corrections";
 import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssignment, HomeworkRep, HomeworkSentence } from "./types";
+import type { CareerVocabUserProgress } from "./career-vocab/types";
 import { v4 as uuidv4 } from "uuid";
 
 function isAssignmentComplete(assignment: HomeworkAssignment): boolean {
@@ -231,6 +233,11 @@ export async function getUsageStats(userId: string): Promise<{ used: number; lim
   return { used: Math.round(used), limit, remaining: Math.max(0, limit - Math.round(used)) };
 }
 
+export async function isUsageAllowed(userId: string): Promise<boolean> {
+  const usage = await getUsageStats(userId);
+  return usage.remaining > 0;
+}
+
 export async function saveWordExamples(word: string, sentences: string[]): Promise<void> {
   await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
 }
@@ -243,6 +250,208 @@ export async function getWordExamples(word: string): Promise<string[] | null> {
   } catch {
     return null;
   }
+}
+
+// ── Exercise results ───────────────────────────────────────
+
+export interface StoredExerciseResult {
+  itemId: string;
+  german: string;
+  correct: boolean;
+  type: "warmup" | "placement" | "spelling" | "sentence";
+  ts: number;
+}
+
+export async function saveExerciseResults(
+  userId: string,
+  results: StoredExerciseResult[]
+): Promise<void> {
+  if (!results.length) return;
+  const key = `exercise_results:${userId}`;
+  try {
+    const existing = await redis.get<string>(key);
+    const prev: StoredExerciseResult[] = existing
+      ? (typeof existing === "string" ? JSON.parse(existing) : existing)
+      : [];
+    const merged = [...prev, ...results].slice(-200);
+    await redis.set(key, JSON.stringify(merged));
+  } catch {}
+}
+
+export const EXERCISE_MASTERED_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function getExerciseMasteredKeys(
+  userId: string,
+  type: StoredExerciseResult["type"],
+  withinMs = EXERCISE_MASTERED_MS
+): Promise<Set<string>> {
+  const cutoff = Date.now() - withinMs;
+  const mastered = new Set<string>();
+  try {
+    const data = await redis.get<string>(`exercise_results:${userId}`);
+    if (!data) return mastered;
+    const results: StoredExerciseResult[] =
+      typeof data === "string" ? JSON.parse(data) : data;
+    for (const r of results) {
+      if (r.type !== type || !r.correct || r.ts < cutoff) continue;
+      if (r.itemId) mastered.add(r.itemId);
+      if (type === "warmup" && r.german) mastered.add(r.german.toLowerCase().trim());
+    }
+  } catch {}
+  return mastered;
+}
+
+export async function getWarmupMasteredKeys(
+  userId: string,
+  withinMs = EXERCISE_MASTERED_MS
+): Promise<Set<string>> {
+  return getExerciseMasteredKeys(userId, "warmup", withinMs);
+}
+
+export async function isPlacementDone(userId: string): Promise<boolean> {
+  const profile = await getUserProfile(userId);
+  return !!profile?.facts.placementDone;
+}
+
+export async function completePlacement(
+  userId: string,
+  level: string,
+  score: number
+): Promise<void> {
+  const profile = await getUserProfile(userId);
+  if (!profile) return;
+  profile.germanLevel = level;
+  profile.facts = {
+    ...profile.facts,
+    placementDone: true,
+    placementScore: score,
+    germanLevel: level,
+    lastUpdated: Date.now(),
+  };
+  profile.lastActiveAt = Date.now();
+  await saveUserProfile(profile);
+}
+
+// ── Career vocabulary progress ─────────────────────────────
+
+function emptyCareerVocabProgress(userId: string): CareerVocabUserProgress {
+  return { userId, updatedAt: Date.now(), entries: {} };
+}
+
+export async function getCareerVocabProgress(userId: string): Promise<CareerVocabUserProgress> {
+  try {
+    const data = await redis.get<string>(`career_vocab:${userId}`);
+    if (!data) return emptyCareerVocabProgress(userId);
+    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    return {
+      userId,
+      updatedAt: parsed.updatedAt ?? Date.now(),
+      entries: parsed.entries ?? {},
+    };
+  } catch {
+    return emptyCareerVocabProgress(userId);
+  }
+}
+
+export async function updateCareerVocabProgress(
+  userId: string,
+  userMatchedIds: string[],
+  mayaMatchedIds: string[]
+): Promise<void> {
+  if (!userMatchedIds.length && !mayaMatchedIds.length) return;
+
+  const now = Date.now();
+  const progress = await getCareerVocabProgress(userId);
+
+  for (let i = 0; i < userMatchedIds.length; i++) {
+    const id = userMatchedIds[i];
+    const existing = progress.entries[id];
+    if (existing) {
+      existing.usedByUser = true;
+      existing.timesUsed = (existing.timesUsed ?? 0) + 1;
+      existing.lastUsedAt = now;
+      if (!existing.firstUsedAt) existing.firstUsedAt = now;
+    } else {
+      progress.entries[id] = {
+        entryId: id,
+        usedByUser: true,
+        timesUsed: 1,
+        firstUsedAt: now,
+        lastUsedAt: now,
+      };
+    }
+  }
+
+  for (let j = 0; j < mayaMatchedIds.length; j++) {
+    const id = mayaMatchedIds[j];
+    const existing = progress.entries[id];
+    if (existing) {
+      existing.exposedByMaya = true;
+    } else {
+      progress.entries[id] = {
+        entryId: id,
+        usedByUser: false,
+        timesUsed: 0,
+        exposedByMaya: true,
+      };
+    }
+  }
+
+  progress.updatedAt = now;
+  await redis.set(`career_vocab:${userId}`, JSON.stringify(progress));
+}
+
+// ── Call corrections ───────────────────────────────────────
+
+const CORRECTIONS_CAP = 100;
+
+async function getAllCallCorrections(userId: string): Promise<CallCorrection[]> {
+  try {
+    const data = await redis.get<string>(`call_corrections:${userId}`);
+    if (!data) return [];
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSessionCorrections(
+  userId: string,
+  sessionId: string,
+  corrections: CallCorrection[],
+): Promise<void> {
+  if (!corrections.length) return;
+  const all = await getAllCallCorrections(userId);
+  const withoutSession = all.filter(c => c.sessionId !== sessionId);
+  const merged = [...withoutSession, ...corrections].slice(-CORRECTIONS_CAP);
+  await redis.set(`call_corrections:${userId}`, JSON.stringify(merged));
+}
+
+export async function getSessionCorrections(
+  userId: string,
+  sessionId: string,
+): Promise<CallCorrection[]> {
+  const all = await getAllCallCorrections(userId);
+  return all.filter(c => c.sessionId === sessionId);
+}
+
+export async function getUnpracticedCorrections(
+  userId: string,
+  limit = 5,
+): Promise<CallCorrection[]> {
+  const all = await getAllCallCorrections(userId);
+  return all.filter(c => !c.practiced).slice(-limit);
+}
+
+export async function markCorrectionsPracticed(
+  userId: string,
+  ids: string[],
+): Promise<void> {
+  if (!ids.length) return;
+  const idSet = new Set(ids);
+  const all = await getAllCallCorrections(userId);
+  const updated = all.map(c => (idSet.has(c.id) ? { ...c, practiced: true } : c));
+  await redis.set(`call_corrections:${userId}`, JSON.stringify(updated));
 }
 
 // ── User features ─────────────────────────────────────────

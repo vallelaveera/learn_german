@@ -2,6 +2,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   translation?: string;
+  correction?: string;
   timestamp: number;
 }
 
@@ -22,6 +23,8 @@ export interface UserFacts {
   germanLevel?: string;
   interests?: string[];
   occupation?: string; // "student" | "working" | "both"
+  placementDone?: boolean;
+  placementScore?: number;
 }
 
 export interface Session {
