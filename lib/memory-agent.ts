@@ -1,5 +1,10 @@
 import { Message, UserFacts, UserProfile, HomeworkSentence } from "./types";
 import { v4 as uuidv4 } from "uuid";
+import {
+  buildBeginnerSpeechBlock,
+  buildHintLanguageBlock,
+  resolveNativeLanguage,
+} from "./native-languages";
 
 const ASKED_QUESTIONS_CAP = 100;
 const ASKED_QUESTIONS_PROMPT_LIMIT = 35;
@@ -336,14 +341,26 @@ export async function generateTopicSuggestions(
 }
 
 // Build the full system prompt with user context
-export function buildOnboardingPrompt(userName: string, missingFields: string[] = []): string {
+export function buildOnboardingPrompt(
+  userName: string,
+  missingFields: string[] = [],
+  options: { nativeLanguage?: string; germanLevel?: string } = {},
+): string {
+  const { nativeLanguage, germanLevel } = options;
+  const hintBlock = buildHintLanguageBlock(germanLevel, nativeLanguage);
+  const speechBlock = buildBeginnerSpeechBlock(germanLevel);
+  const nativeKnown = nativeLanguage
+    ? `Learner's native language: ${nativeLanguage} (already known — do NOT ask again).`
+    : "";
+
   return `You are Maya — ${userName}'s new personal German tutor and friend.
 This is your FIRST conversation with ${userName}.
+${nativeKnown}
 
 Your goal in this conversation:
 1. Warmly introduce yourself in simple German (A1/A2 level)
 2. Ask questions to get to know them — ONE at a time
-3. Learn: their job/studies, why they want to learn German, their hobbies, their German level
+3. Learn: their job/studies, why they want to learn German, their hobbies${nativeLanguage ? "" : ", their native language"}
 4. Keep the conversation going with follow-up questions — never wrap up or imply the call is ending
 
 Question bank — pick naturally based on conversation flow:
@@ -359,6 +376,7 @@ Question bank — pick naturally based on conversation flow:
 - Hast du Familie hier in Deutschland?
 - Was ist dein Ziel — fließend sprechen oder nur Grundlagen?
 - Hast du deutsche Kollegen oder Freunde?
+${nativeLanguage ? "" : "- Welche Sprache sprichst du zu Hause?\n"}
 
 RULES:
 - Speak simple German — A1/A2 level
@@ -366,27 +384,31 @@ RULES:
 - Be warm and friendly like a new friend
 - NEVER say goodbye or suggest ending the call (no "Bis dann", "Ich rufe dich morgen an", "bis später", etc.) — always end with a follow-up question
 - Speak ONLY German. Never switch to English mid-sentence.
-- After your German response, add ONE 💡 hint line in English if needed
-- Keep responses SHORT — max 2 short sentences, ~20 words total for German
+${speechBlock}
+${hintBlock}
 - No emojis in spoken German
 - ONE short question only — never stack affirmation + explanation + question`;
 }
 
-export function isProfileComplete(facts: import("./types").UserFacts): boolean {
+type ProfileLike = Pick<UserProfile, "facts" | "nativeLanguage">;
+
+export function isProfileComplete(profile: ProfileLike): boolean {
+  const facts = profile.facts;
   return !!(
     facts.occupation &&
     facts.germanWhy &&
     facts.interests?.length &&
-    facts.nativeLanguage
+    resolveNativeLanguage(profile)
   );
 }
 
-export function getMissingFields(facts: import("./types").UserFacts): string[] {
+export function getMissingFields(profile: ProfileLike): string[] {
+  const facts = profile.facts;
   const missing = [];
   if (!facts.occupation) missing.push("job_or_study");
   if (!facts.germanWhy) missing.push("why_learning_german");
   if (!facts.interests?.length) missing.push("hobbies_interests");
-  if (!facts.nativeLanguage) missing.push("native_language");
+  if (!resolveNativeLanguage(profile)) missing.push("native_language");
   return missing;
 }
 
@@ -510,13 +532,17 @@ export function buildSystemPrompt(
   homeworkNagActive = false
 ): string {
   const facts = profile.facts;
+  const level = profile.germanLevel ?? facts.germanLevel;
+  const nativeLanguage = resolveNativeLanguage(profile);
+  const hintBlock = buildHintLanguageBlock(level, nativeLanguage);
+  const speechBlock = buildBeginnerSpeechBlock(level);
   // GDPR: Personal details commented out — only keep language learning context
   // GDPR: Only learning-related facts, no personal life details
   const factLines = [
     facts.occupation && `Occupation: ${facts.occupation}`,
     facts.germanWhy && `Learning German for: ${facts.germanWhy}`,
     facts.interests?.length && `Interests: ${facts.interests.join(", ")}`,
-    facts.nativeLanguage && `Native language: ${facts.nativeLanguage}`,
+    nativeLanguage && `Native language: ${nativeLanguage}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -528,6 +554,15 @@ export function buildSystemPrompt(
     : "";
   const askedQuestionsBlock = formatAskedQuestionsBlock(askedQuestions);
 
+  const spokenOutput = speechBlock
+    ? `SPOKEN OUTPUT (this is read aloud — brevity is critical):${speechBlock}`
+    : `SPOKEN OUTPUT (this is read aloud — brevity is critical):
+- Max 2 SHORT sentences. Max ~20 German words per reply.
+- Structure: [brief reaction, 3-8 words] + [ONE short question, max 10 words].
+- NEVER combine long affirmation + explanation + question in one reply.
+- No emojis in the German spoken text.
+- Simple vocabulary unless the learner's level is B1+.`;
+
   return `You are Maya — ${profile.name}'s close German friend, like a university roommate.
 You've known each other for a long time. You speak German together because that's your thing.
 
@@ -535,18 +570,13 @@ What you know about ${profile.name}:
 ${factLines || "Still getting to know them"}
 
 Days since last call: ${daysSinceLastCall === 999 ? "first time" : daysSinceLastCall}
-Their German level: ${profile.germanLevel ?? "B1/B2"}
+Their German level: ${level ?? "B1/B2"}
 Sessions together: ${profile.totalSessions}
 ${unpracticedWords.length > 0 ? `Words to practice naturally: ${unpracticedWords.join(", ")}` : ""}
 ${askedTopicsBlock}
 ${askedQuestionsBlock}
 
-SPOKEN OUTPUT (this is read aloud — brevity is critical):
-- Max 2 SHORT sentences. Max ~20 German words per reply.
-- Structure: [brief reaction, 3-8 words] + [ONE short question, max 10 words].
-- NEVER combine long affirmation + explanation + question in one reply.
-- No emojis in the German spoken text.
-- Simple vocabulary unless the learner's level is B1+.
+${spokenOutput}
 
 RULES:
 1. Always respond in German. Conversational and brief — like a phone call, not an essay.
@@ -554,8 +584,7 @@ RULES:
 3. If they haven't called in 3+ days, one short "schön dich zu hören" — then one question.
 4. Weave unpracticed words in naturally — one word per reply max.
 5. After your German reply, add separate 💡 lines (not spoken):
-   - If they made a grammar/vocab/word-order mistake: "💡 Korrektur: «correct phrase» — one short English note"
-   - If you used advanced vocab and they were correct: "💡 brief English gloss" (optional, one line max)
+${hintBlock.split("\n").slice(1).map(line => `   ${line}`).join("\n")}
    - Never skip Korrektur when their sentence was clearly wrong.
 6. Ask ONE follow-up question per reply — each must be a NEW angle, short and direct.
 7. NEVER repeat a question from the lists above or one you already asked in this call.

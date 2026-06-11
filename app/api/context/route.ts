@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, getActiveHomework } from "@/lib/kv";
 import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions, generateHomeworkNagOpening } from "@/lib/memory-agent";
+import { resolveNativeLanguage } from "@/lib/native-languages";
 import { getUsageStats } from "@/lib/kv";
 import { isHomeworkEnabledForUser, getHomeworkProgress } from "@/lib/homework";
 
@@ -45,15 +46,18 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if profile is complete — if not, still in onboarding phase
-    const profileComplete = isProfileComplete(user.facts);
-    const missingFields = getMissingFields(user.facts);
+    const profileComplete = isProfileComplete(user);
+    const missingFields = getMissingFields(user);
 
     if (!profileComplete) {
       const isFirstEver = user.totalSessions === 0;
       const opening = isFirstEver
         ? buildOnboardingOpening(user.name)
         : `Hallo ${user.name}! Schön, dass du wieder da bist. ${missingFields.length > 0 ? "Ich würde dich noch etwas besser kennenlernen — " + getNextQuestion(missingFields) : ""}`;
-      const systemPrompt = buildOnboardingPrompt(user.name, missingFields);
+      const systemPrompt = buildOnboardingPrompt(user.name, missingFields, {
+        nativeLanguage: resolveNativeLanguage(user),
+        germanLevel: user.germanLevel ?? user.facts.germanLevel,
+      });
       return NextResponse.json({
         opening,
         systemPrompt,

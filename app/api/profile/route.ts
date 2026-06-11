@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { name, germanLevel } = await req.json();
+    const { name, germanLevel, nativeLanguage } = await req.json();
     const profile = await getUserProfile(user.userId);
     if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (name) profile.name = name;
@@ -28,6 +28,15 @@ export async function POST(req: NextRequest) {
         ...profile.facts,
         germanLevel,
         levelOnboarded: true,
+        lastUpdated: Date.now(),
+      };
+    }
+    if (typeof nativeLanguage === "string" && nativeLanguage.trim()) {
+      const lang = nativeLanguage.trim();
+      profile.nativeLanguage = lang;
+      profile.facts = {
+        ...profile.facts,
+        nativeLanguage: lang,
         lastUpdated: Date.now(),
       };
     }
