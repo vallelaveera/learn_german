@@ -28,7 +28,7 @@ interface SentenceExercise {
 
 type Phase = "preview" | "build" | "complete" | "done";
 
-const PREVIEW_MS = 3000;
+const PREVIEW_MS = 5000;
 
 function SentencesInner() {
   const router = useRouter();
