@@ -41,7 +41,7 @@ export async function findOrCreateUser(email: string, name: string): Promise<Use
     userId: generateId(),
     email,
     name,
-    germanLevel: "B1/B2",
+    germanLevel: "A1",
     createdAt: Date.now(),
     lastActiveAt: Date.now(),
     streak: 0,

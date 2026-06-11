@@ -1,0 +1,14 @@
+[
+  { "id": "c-01", "german": "Hallo", "english": "Hello", "distractors": ["Goodbye", "Thanks"], "level": "A1" },
+  { "id": "c-02", "german": "Tschüss", "english": "Bye", "distractors": ["Hello", "Please"], "level": "A1" },
+  { "id": "c-03", "german": "Entschuldigung", "english": "Excuse me", "distractors": ["Congratulations", "Welcome"], "level": "A2" },
+  { "id": "c-04", "german": "Sprechen Sie Englisch?", "english": "Do you speak English?", "distractors": ["Do you speak German?", "Do you understand?"], "level": "A1" },
+  { "id": "c-05", "german": "Ich lerne Deutsch", "english": "I am learning German", "distractors": ["I teach German", "I speak German"], "level": "A1" },
+  { "id": "c-06", "german": "Wie viel kostet das?", "english": "How much does it cost?", "distractors": ["How many do you want?", "What time is it?"], "level": "A2" },
+  { "id": "c-07", "german": "Ich brauche Hilfe", "english": "I need help", "distractors": ["I need time", "I need money"], "level": "A2" },
+  { "id": "c-08", "german": "Können Sie mir helfen?", "english": "Can you help me?", "distractors": ["Can you hear me?", "Can you wait?"], "level": "A2" },
+  { "id": "c-09", "german": "Ich habe eine Frage", "english": "I have a question", "distractors": ["I have a problem", "I have an idea"], "level": "A2" },
+  { "id": "c-10", "german": "Das verstehe ich", "english": "I understand that", "distractors": ["I forgot that", "I doubt that"], "level": "B1" },
+  { "id": "c-11", "german": "Meiner Meinung nach", "english": "In my opinion", "distractors": ["On the other hand", "For example"], "level": "B1" },
+  { "id": "c-12", "german": "Zum Beispiel", "english": "For example", "distractors": ["In conclusion", "At first"], "level": "B1" }
+]

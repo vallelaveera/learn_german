@@ -319,6 +319,37 @@ grep -q 'e.includes("429")' app/callmode/page.tsx \
 check_absent "ES5-safe (no \\p{} in callmode)" "app/callmode/page.tsx" '\\p\{'
 
 echo ""
+echo "── exercises (flashcards / spelling) ─"
+
+test -f data/flashcards/placement.json \
+  && check "placement deck JSON exists" "ok" \
+  || check "placement deck JSON exists" "fail"
+
+test -f components/BinaryFlashcard.tsx \
+  && check "BinaryFlashcard component" "ok" \
+  || check "BinaryFlashcard component" "fail"
+
+grep -q 'exercises/warmup' app/mode/page.tsx \
+  && check "mode: call routes via warmup" "ok" \
+  || check "mode: call routes via warmup" "fail"
+
+grep -q 'api/exercises/placement' app/exercises/placement/page.tsx \
+  && check "placement page calls API" "ok" \
+  || check "placement page calls API" "fail"
+
+grep -q 'exercises/spelling' app/practice/page.tsx \
+  && check "practice: spelling exercise link" "ok" \
+  || check "practice: spelling exercise link" "fail"
+
+grep -q 'isUsageAllowed' app/api/chat/route.ts \
+  && check "chat API usage limit check" "ok" \
+  || check "chat API usage limit check" "fail"
+
+grep -q 'completePlacement' lib/kv.ts \
+  && check "KV: completePlacement helper" "ok" \
+  || check "KV: completePlacement helper" "fail"
+
+echo ""
 echo "── middleware.ts ───────────────────────"
 
 grep -q '"/login"' middleware.ts \

@@ -1,0 +1,34 @@
+{
+  "A1": [
+    { "id": "a1-01", "german": "Guten Morgen", "english": "Good morning", "distractors": ["Good evening", "Good night"] },
+    { "id": "a1-02", "german": "Guten Abend", "english": "Good evening", "distractors": ["Good morning", "Good afternoon"] },
+    { "id": "a1-03", "german": "Danke", "english": "Thank you", "distractors": ["Please", "Sorry"] },
+    { "id": "a1-04", "german": "Bitte", "english": "Please", "distractors": ["Thanks", "Hello"] },
+    { "id": "a1-05", "german": "Ja", "english": "Yes", "distractors": ["No", "Maybe"] },
+    { "id": "a1-06", "german": "Nein", "english": "No", "distractors": ["Yes", "Always"] },
+    { "id": "a1-07", "german": "Wasser", "english": "Water", "distractors": ["Bread", "Milk"] },
+    { "id": "a1-08", "german": "Brot", "english": "Bread", "distractors": ["Water", "Cheese"] },
+    { "id": "a1-09", "german": "Kaffee", "english": "Coffee", "distractors": ["Tea", "Juice"] },
+    { "id": "a1-10", "german": "Ich heiße", "english": "My name is", "distractors": ["I am from", "I live in"] },
+    { "id": "a1-11", "german": "Wie geht es dir?", "english": "How are you?", "distractors": ["What is your name?", "Where are you from?"] },
+    { "id": "a1-12", "german": "Auf Wiedersehen", "english": "Goodbye", "distractors": ["Good morning", "See you later"] }
+  ],
+  "A2": [
+    { "id": "a2-01", "german": "Entschuldigung", "english": "Excuse me", "distractors": ["Congratulations", "Good luck"] },
+    { "id": "a2-02", "german": "Ich verstehe nicht", "english": "I don't understand", "distractors": ["I don't know", "I don't like it"] },
+    { "id": "a2-03", "german": "Könnten Sie das wiederholen?", "english": "Could you repeat that?", "distractors": ["Could you speak slower?", "Could you help me?"] },
+    { "id": "a2-04", "german": "Wo ist der Bahnhof?", "english": "Where is the train station?", "distractors": ["Where is the airport?", "Where is the hotel?"] },
+    { "id": "a2-05", "german": "Ich hätte gern", "english": "I would like", "distractors": ["I have to", "I used to"] },
+    { "id": "a2-06", "german": "Die Rechnung, bitte", "english": "The bill, please", "distractors": ["The menu, please", "The table, please"] },
+    { "id": "a2-07", "german": "Ich bin krank", "english": "I am sick", "distractors": ["I am tired", "I am late"] },
+    { "id": "a2-08", "german": "Nächste Woche", "english": "Next week", "distractors": ["Last week", "Every week"] }
+  ],
+  "B1": [
+    { "id": "b1-01", "german": "im Gegensatz zu", "english": "in contrast to", "distractors": ["in addition to", "in agreement with"] },
+    { "id": "b1-02", "german": "sich bewerben", "english": "to apply (for a job)", "distractors": ["to resign", "to retire"] },
+    { "id": "b1-03", "german": "die Verantwortung", "english": "the responsibility", "distractors": ["the opportunity", "the permission"] },
+    { "id": "b1-04", "german": "eine Entscheidung treffen", "english": "to make a decision", "distractors": ["to make a mistake", "to make an appointment"] },
+    { "id": "b1-05", "german": "im Laufe der Zeit", "english": "over time", "distractors": ["at the same time", "for the first time"] },
+    { "id": "b1-06", "german": "zuständig für", "english": "responsible for", "distractors": ["famous for", "ready for"] }
+  ]
+}

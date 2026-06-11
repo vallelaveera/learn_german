@@ -5,12 +5,18 @@ import { useState, useEffect } from "react";
 export default function ModePage() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; totalSessions: number } | null>(null);
-
   useEffect(() => {
     fetch("/api/auth/me")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(d => { if (d?.user) setUser(d.user); });
-  }, []);
+    fetch("/api/exercises/status")
+      .then(r => { if (r.status === 401) return null; return r.json(); })
+      .then(d => { if (d && !d.placementDone) router.push("/exercises/placement"); });
+  }, [router]);
+
+  const goWarmup = (next: string) => {
+    router.push(`/exercises/warmup?next=${encodeURIComponent(next)}`);
+  };
 
   return (
     <div style={{
@@ -43,7 +49,7 @@ export default function ModePage() {
 
         {/* Call mode — Soniox only (Fish voice hidden in UI for now) */}
         <button
-          onClick={() => { localStorage.setItem("maya_voice", "soniox"); router.push("/callmode"); }}
+          onClick={() => { localStorage.setItem("maya_voice", "soniox"); goWarmup("/callmode"); }}
           style={{
             width: "100%", padding: "20px", borderRadius: 14,
             background: "var(--surface)", border: "1px solid var(--border)",
@@ -59,6 +65,27 @@ export default function ModePage() {
             <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Call Mode</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Freihändig sprechen — Maya hört automatisch zu.</div>
           </div>
+        </button>
+
+        {/* Spelling exercise */}
+        <button
+          onClick={() => router.push("/exercises/spelling")}
+          style={{
+            width: "100%", padding: "16px 20px", borderRadius: 14,
+            background: "var(--surface)", border: "1px solid var(--border)",
+            cursor: "pointer", textAlign: "left",
+            display: "flex", alignItems: "center", gap: 14,
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(8,145,178,0.1)", border: "1px solid rgba(8,145,178,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>
+            ✍️
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Buchstabieren</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Wörter buchstabieren — wie in Kundengesprächen am Telefon.</div>
+          </div>
+          <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
         </button>
 
         {/* Practice mode */}
@@ -89,7 +116,7 @@ export default function ModePage() {
 
         {/* Manual mode */}
         <button
-          onClick={() => router.push("/call")}
+          onClick={() => goWarmup("/call")}
           style={{
             width: "100%", padding: "20px", borderRadius: 14,
             background: "var(--surface)", border: "1px solid var(--border)",

@@ -231,6 +231,56 @@ export async function saveWordExamples(word: string, sentences: string[]): Promi
   await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
 }
 
+// ── Exercise results ───────────────────────────────────────
+
+export interface StoredExerciseResult {
+  itemId: string;
+  german: string;
+  correct: boolean;
+  type: "warmup" | "placement" | "spelling";
+  ts: number;
+}
+
+export async function saveExerciseResults(
+  userId: string,
+  results: StoredExerciseResult[]
+): Promise<void> {
+  if (!results.length) return;
+  const key = `exercise_results:${userId}`;
+  try {
+    const existing = await redis.get<string>(key);
+    const prev: StoredExerciseResult[] = existing
+      ? (typeof existing === "string" ? JSON.parse(existing) : existing)
+      : [];
+    const merged = [...prev, ...results].slice(-200);
+    await redis.set(key, JSON.stringify(merged));
+  } catch {}
+}
+
+export async function isPlacementDone(userId: string): Promise<boolean> {
+  const profile = await getUserProfile(userId);
+  return !!profile?.facts.placementDone;
+}
+
+export async function completePlacement(
+  userId: string,
+  level: string,
+  score: number
+): Promise<void> {
+  const profile = await getUserProfile(userId);
+  if (!profile) return;
+  profile.germanLevel = level;
+  profile.facts = {
+    ...profile.facts,
+    placementDone: true,
+    placementScore: score,
+    germanLevel: level,
+    lastUpdated: Date.now(),
+  };
+  profile.lastActiveAt = Date.now();
+  await saveUserProfile(profile);
+}
+
 // ── Career vocabulary progress ─────────────────────────────
 
 function emptyCareerVocabProgress(userId: string): CareerVocabUserProgress {

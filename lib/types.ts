@@ -23,6 +23,8 @@ export interface UserFacts {
   germanLevel?: string;
   interests?: string[];
   occupation?: string; // "student" | "working" | "both"
+  placementDone?: boolean;
+  placementScore?: number;
 }
 
 export interface Session {
