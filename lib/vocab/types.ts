@@ -1,15 +1,7 @@
 export type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
-export type VocabCategory =
-  | "career"
-  | "travel"
-  | "food"
-  | "health"
-  | "housing"
-  | "daily_life"
-  | "finance"
-  | "transport"
-  | "social";
+/** Dynamic slug — validated against Redis taxonomy at generation time. */
+export type VocabCategory = string;
 
 export type SentenceType = "statement" | "question" | "response";
 

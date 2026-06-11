@@ -1,6 +1,6 @@
-import { VOCAB_CATEGORIES } from "@/lib/content/topics";
+import { loadTaxonomy, getCategoryIdsForCoverage, getCategoryLabel } from "@/lib/content/taxonomy";
 import { loadCorpusSentences, loadCorpusWords } from "@/lib/vocab/load";
-import type { CEFRLevel, VocabCategory } from "@/lib/vocab/types";
+import type { CEFRLevel } from "@/lib/vocab/types";
 
 const LEVELS: CEFRLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
@@ -16,7 +16,8 @@ export interface LevelCounts {
 }
 
 export interface CategoryCoverage {
-  category: VocabCategory;
+  category: string;
+  labelDe: string;
   words: number;
   sentences: number;
   total: number;
@@ -24,7 +25,8 @@ export interface CategoryCoverage {
 }
 
 export interface CoverageGap {
-  category: VocabCategory;
+  category: string;
+  labelDe: string;
   words: number;
   sentences: number;
   total: number;
@@ -48,13 +50,20 @@ function emptyByLevel(): Record<CEFRLevel, LevelCounts> {
 }
 
 export async function getCorpusCoverageReport(): Promise<CoverageReport> {
-  const [words, sentences] = await Promise.all([
+  const [words, sentences, taxonomy] = await Promise.all([
     loadCorpusWords(),
     loadCorpusSentences(),
+    loadTaxonomy(),
   ]);
 
-  const categories: CategoryCoverage[] = VOCAB_CATEGORIES.map(category => ({
-    category,
+  const corpusCategoryIds = Array.from(
+    new Set([...words.map(w => w.category), ...sentences.map(s => s.category)]),
+  );
+  const categoryMeta = await getCategoryIdsForCoverage(corpusCategoryIds);
+
+  const categories: CategoryCoverage[] = categoryMeta.map(({ id, labelDe }) => ({
+    category: id,
+    labelDe,
     words: 0,
     sentences: 0,
     total: 0,
@@ -64,15 +73,37 @@ export async function getCorpusCoverageReport(): Promise<CoverageReport> {
   const index = new Map(categories.map(c => [c.category, c]));
 
   for (const w of words) {
-    const row = index.get(w.category);
-    if (!row) continue;
+    let row = index.get(w.category);
+    if (!row) {
+      row = {
+        category: w.category,
+        labelDe: getCategoryLabel(taxonomy, w.category),
+        words: 0,
+        sentences: 0,
+        total: 0,
+        byLevel: emptyByLevel(),
+      };
+      index.set(w.category, row);
+      categories.push(row);
+    }
     row.words += 1;
     if (row.byLevel[w.level]) row.byLevel[w.level].words += 1;
   }
 
   for (const s of sentences) {
-    const row = index.get(s.category);
-    if (!row) continue;
+    let row = index.get(s.category);
+    if (!row) {
+      row = {
+        category: s.category,
+        labelDe: getCategoryLabel(taxonomy, s.category),
+        words: 0,
+        sentences: 0,
+        total: 0,
+        byLevel: emptyByLevel(),
+      };
+      index.set(s.category, row);
+      categories.push(row);
+    }
     row.sentences += 1;
     if (row.byLevel[s.level]) row.byLevel[s.level].sentences += 1;
   }
@@ -81,11 +112,12 @@ export async function getCorpusCoverageReport(): Promise<CoverageReport> {
     row.total = row.words + row.sentences;
   }
 
-  categories.sort((a, b) => a.total - b.total);
+  categories.sort((a, b) => a.labelDe.localeCompare(b.labelDe));
 
   const gaps: CoverageGap[] = categories
     .map(row => ({
       category: row.category,
+      labelDe: row.labelDe,
       words: row.words,
       sentences: row.sentences,
       total: row.total,
@@ -93,10 +125,13 @@ export async function getCorpusCoverageReport(): Promise<CoverageReport> {
       needsSentences: Math.max(0, COVERAGE_TARGETS.sentences - row.sentences),
     }))
     .filter(g => g.needsWords > 0 || g.needsSentences > 0)
-    .sort((a, b) => (b.needsWords + b.needsSentences) - (a.needsWords + a.needsSentences));
+    .sort((a, b) => a.total - b.total);
 
   return {
-    totals: { words: words.length, sentences: sentences.length },
+    totals: {
+      words: words.length,
+      sentences: sentences.length,
+    },
     targets: COVERAGE_TARGETS,
     categories,
     gaps,

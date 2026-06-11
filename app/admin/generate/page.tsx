@@ -3,10 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CUSTOM_TOPIC_VALUE } from "@/lib/content/taxonomy-types";
+
+interface TopicOption {
+  id: string;
+  label: string;
+}
 
 interface CategoryOption {
   id: string;
-  topics: string[];
+  labelDe: string;
+  labelEn?: string;
+  topics: TopicOption[];
+}
+
+interface TaxonomyCategoryFull {
+  id: string;
+  labelDe: string;
+  labelEn?: string;
+  active: boolean;
+  topics: { id: string; label: string; active: boolean }[];
 }
 
 interface PipelineSummary {
@@ -22,6 +38,7 @@ interface PipelineSummary {
 
 interface CoverageGap {
   category: string;
+  labelDe?: string;
   words: number;
   sentences: number;
   total: number;
@@ -31,6 +48,7 @@ interface CoverageGap {
 
 interface CategoryCoverage {
   category: string;
+  labelDe?: string;
   words: number;
   sentences: number;
   total: number;
@@ -47,44 +65,58 @@ type GenerateType = "words" | "sentences";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  career: "Karriere",
-  travel: "Reisen",
-  food: "Essen",
-  health: "Gesundheit",
-  housing: "Wohnen",
-  daily_life: "Alltag",
-  finance: "Finanzen",
-  transport: "Transport",
-  social: "Soziales",
-};
+function categoryLabel(c: { id?: string; category?: string; labelDe?: string }) {
+  return c.labelDe ?? c.id ?? c.category ?? "?";
+}
 
 export default function AdminGeneratePage() {
   const router = useRouter();
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [taxonomyFull, setTaxonomyFull] = useState<TaxonomyCategoryFull[]>([]);
+  const [showTaxonomy, setShowTaxonomy] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(true);
   const [genType, setGenType] = useState<GenerateType>("sentences");
   const [level, setLevel] = useState<string>("B1");
   const [category, setCategory] = useState<string>("career");
-  const [topic, setTopic] = useState<string>("");
+  const [topicMode, setTopicMode] = useState("");
+  const [customTopic, setCustomTopic] = useState("");
   const [count, setCount] = useState(20);
   const [running, setRunning] = useState(false);
+  const [taxonomyBusy, setTaxonomyBusy] = useState(false);
   const [error, setError] = useState("");
+  const [taxonomyError, setTaxonomyError] = useState("");
   const [result, setResult] = useState<PipelineSummary | null>(null);
   const [coverage, setCoverage] = useState<CoverageReport | null>(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
+  const [newCatId, setNewCatId] = useState("");
+  const [newCatLabelDe, setNewCatLabelDe] = useState("");
+  const [newTopicLabel, setNewTopicLabel] = useState("");
+
+  function loadTaxonomyFull() {
+    return fetch("/api/admin/taxonomy")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.categories) setTaxonomyFull(d.categories); });
+  }
 
   function loadMeta() {
-    return fetch("/api/admin/generate")
-      .then(r => {
-        if (r.status === 401) { router.push("/mode"); return null; }
-        return r.json();
-      })
-      .then(d => {
-        if (!d) return;
-        if (d.categories) setCategories(d.categories);
-        if (d.coverage) setCoverage(d.coverage);
-      });
+    return Promise.all([
+      fetch("/api/admin/generate")
+        .then(r => {
+          if (r.status === 401) { router.push("/mode"); return null; }
+          return r.json();
+        })
+        .then(d => {
+          if (!d) return;
+          if (d.categories?.length) {
+            setCategories(d.categories);
+            setCategory(prev =>
+              d.categories.some((c: CategoryOption) => c.id === prev) ? prev : d.categories[0].id,
+            );
+          }
+          if (d.coverage) setCoverage(d.coverage);
+        }),
+      loadTaxonomyFull(),
+    ]);
   }
 
   useEffect(() => {
@@ -106,9 +138,96 @@ export default function AdminGeneratePage() {
   );
 
   useEffect(() => {
-    setTopic("");
+    setTopicMode("");
+    setCustomTopic("");
     setResult(null);
   }, [category, genType]);
+
+  const resolvedTopic = useMemo(() => {
+    if (!topicMode) return undefined;
+    if (topicMode === CUSTOM_TOPIC_VALUE) return customTopic.trim() || undefined;
+    return topics.find(t => t.id === topicMode)?.label;
+  }, [topicMode, customTopic, topics]);
+
+  async function handleAddCategory(e: React.FormEvent) {
+    e.preventDefault();
+    setTaxonomyBusy(true);
+    setTaxonomyError("");
+    try {
+      const res = await fetch("/api/admin/taxonomy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: newCatId.trim() || undefined,
+          labelDe: newCatLabelDe.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setNewCatId("");
+      setNewCatLabelDe("");
+      await loadMeta();
+    } catch (e) {
+      setTaxonomyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTaxonomyBusy(false);
+    }
+  }
+
+  async function handleAddTopic(e: React.FormEvent) {
+    e.preventDefault();
+    if (!category || !newTopicLabel.trim()) return;
+    setTaxonomyBusy(true);
+    setTaxonomyError("");
+    try {
+      const res = await fetch(`/api/admin/taxonomy/categories/${category}/topics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: newTopicLabel.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setNewTopicLabel("");
+      await loadMeta();
+    } catch (e) {
+      setTaxonomyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTaxonomyBusy(false);
+    }
+  }
+
+  async function handleDeleteTopic(topicId: string) {
+    if (!category) return;
+    setTaxonomyBusy(true);
+    setTaxonomyError("");
+    try {
+      const res = await fetch(`/api/admin/taxonomy/categories/${category}/topics/${topicId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      await loadMeta();
+    } catch (e) {
+      setTaxonomyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTaxonomyBusy(false);
+    }
+  }
+
+  async function handleDeleteCategory(categoryId: string) {
+    setTaxonomyBusy(true);
+    setTaxonomyError("");
+    try {
+      const res = await fetch(`/api/admin/taxonomy/categories/${categoryId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      await loadMeta();
+    } catch (e) {
+      setTaxonomyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTaxonomyBusy(false);
+    }
+  }
 
   async function handleGenerate() {
     setRunning(true);
@@ -123,7 +242,7 @@ export default function AdminGeneratePage() {
           type: genType,
           level,
           category,
-          topic: topic || undefined,
+          topic: resolvedTopic,
           count,
         }),
       });
@@ -192,7 +311,7 @@ export default function AdminGeneratePage() {
                     }}
                   >
                     <div style={{ fontSize: 13, fontWeight: 500, color: "#92400E", marginBottom: 2 }}>
-                      {CATEGORY_LABELS[gap.category] ?? gap.category}
+                      {categoryLabel(gap)}
                     </div>
                     <div style={{ fontSize: 11, color: "#B45309", fontFamily: "var(--font-mono)" }}>
                       {gap.words}/{coverage.targets.words} Wörter · {gap.sentences}/{coverage.targets.sentences} Sätze
@@ -219,7 +338,7 @@ export default function AdminGeneratePage() {
                 <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>Alle Kategorien</div>
                 {coverage.categories.map(row => (
                   <div key={row.category} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-dim)", padding: "3px 0" }}>
-                    <span>{CATEGORY_LABELS[row.category] ?? row.category}</span>
+                    <span>{categoryLabel(row)}</span>
                     <span>{row.words} W · {row.sentences} S</span>
                   </div>
                 ))}
@@ -227,6 +346,113 @@ export default function AdminGeneratePage() {
             )}
           </div>
         )}
+
+        <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: 14 }}>
+          <button
+            type="button"
+            onClick={() => setShowTaxonomy(v => !v)}
+            style={{
+              width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer",
+              fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em",
+              fontFamily: "var(--font-mono)", padding: 0,
+            }}
+          >
+            {showTaxonomy ? "▼" : "▶"} Kategorien & Themen verwalten
+          </button>
+
+          {showTaxonomy && (
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              <form onSubmit={handleAddCategory} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--text-dim)" }}>Neue Kategorie</div>
+                <input
+                  value={newCatId}
+                  onChange={e => setNewCatId(e.target.value)}
+                  placeholder="id (optional, z.B. education)"
+                  disabled={taxonomyBusy}
+                  style={{ padding: "8px 10px", borderRadius: 6, border: "0.5px solid var(--border)", background: "var(--bg)", fontSize: 13, fontFamily: "var(--font-mono)" }}
+                />
+                <input
+                  value={newCatLabelDe}
+                  onChange={e => setNewCatLabelDe(e.target.value)}
+                  placeholder="Label DE (z.B. Bildung)"
+                  disabled={taxonomyBusy}
+                  style={{ padding: "8px 10px", borderRadius: 6, border: "0.5px solid var(--border)", background: "var(--bg)", fontSize: 13 }}
+                />
+                <button
+                  type="submit"
+                  disabled={taxonomyBusy || !newCatLabelDe.trim()}
+                  style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: "#7F77DD", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "var(--font-mono)" }}
+                >
+                  Kategorie hinzufügen
+                </button>
+              </form>
+
+              <form onSubmit={handleAddTopic} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                  Neues Thema in «{categoryLabel(categories.find(c => c.id === category) ?? { id: category })}»
+                </div>
+                <input
+                  value={newTopicLabel}
+                  onChange={e => setNewTopicLabel(e.target.value)}
+                  placeholder="Thema EN (z.B. homework help)"
+                  disabled={taxonomyBusy}
+                  style={{ padding: "8px 10px", borderRadius: 6, border: "0.5px solid var(--border)", background: "var(--bg)", fontSize: 13, fontFamily: "var(--font-mono)" }}
+                />
+                <button
+                  type="submit"
+                  disabled={taxonomyBusy || !newTopicLabel.trim()}
+                  style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: "#7F77DD", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "var(--font-mono)" }}
+                >
+                  Thema hinzufügen
+                </button>
+              </form>
+
+              {taxonomyError && (
+                <p style={{ fontSize: 12, color: "#DC2626", margin: 0 }}>{taxonomyError}</p>
+              )}
+
+              <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 10 }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 8 }}>Alle Kategorien</div>
+                {taxonomyFull.map(cat => (
+                  <div key={cat.id} style={{ marginBottom: 10, opacity: cat.active ? 1 : 0.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", textDecoration: cat.active ? "none" : "line-through" }}>
+                        {cat.labelDe} <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>({cat.id})</span>
+                      </span>
+                      {cat.active && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          disabled={taxonomyBusy}
+                          style={{ fontSize: 10, color: "#DC2626", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)" }}
+                        >
+                          deaktivieren
+                        </button>
+                      )}
+                    </div>
+                    <ul style={{ margin: "4px 0 0", paddingLeft: 16, fontSize: 11, color: "var(--text-dim)", lineHeight: 1.6 }}>
+                      {cat.topics.filter(t => t.active).map(t => (
+                        <li key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <span>{t.label}</span>
+                          {cat.id === category && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTopic(t.id)}
+                              disabled={taxonomyBusy}
+                              style={{ fontSize: 10, color: "#DC2626", background: "none", border: "none", cursor: "pointer" }}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div style={{ display: "flex", gap: 8 }}>
           {(["sentences", "words"] as const).map(t => (
@@ -279,7 +505,7 @@ export default function AdminGeneratePage() {
                 style={{ padding: "10px 12px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)" }}
               >
                 {categories.map(c => (
-                  <option key={c.id} value={c.id}>{CATEGORY_LABELS[c.id] ?? c.id}</option>
+                  <option key={c.id} value={c.id}>{categoryLabel(c)}</option>
                 ))}
               </select>
             </label>
@@ -287,14 +513,24 @@ export default function AdminGeneratePage() {
             <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Thema (optional)</span>
               <select
-                value={topic}
-                onChange={e => setTopic(e.target.value)}
+                value={topicMode}
+                onChange={e => setTopicMode(e.target.value)}
                 disabled={running}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)" }}
               >
                 <option value="">— kein Thema —</option>
-                {topics.map(t => <option key={t} value={t}>{t}</option>)}
+                {topics.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                <option value={CUSTOM_TOPIC_VALUE}>— Freitext —</option>
               </select>
+              {topicMode === CUSTOM_TOPIC_VALUE && (
+                <input
+                  value={customTopic}
+                  onChange={e => setCustomTopic(e.target.value)}
+                  placeholder="Eigenes Thema (EN, z.B. visa application)"
+                  disabled={running}
+                  style={{ padding: "10px 12px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)" }}
+                />
+              )}
             </label>
 
             <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
