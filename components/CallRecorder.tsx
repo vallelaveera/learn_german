@@ -31,8 +31,12 @@ export function useCallRecorder({
   const silentNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const finalBufferRef = useRef("");
   const mutedRef = useRef(false);
+  const intentionalStopRef = useRef(false);
+  const sessionGenRef = useRef(0);
 
   const start = useCallback(async () => {
+    const sessionGen = ++sessionGenRef.current;
+    intentionalStopRef.current = false;
     finishedFiredRef.current = false;
     finalBufferRef.current = "";
     try {
@@ -160,8 +164,13 @@ export function useCallRecorder({
         }
       };
 
-      ws.onerror = () => onError("Verbindungsfehler");
-      ws.onclose = () => {};
+      ws.onerror = () => {
+        if (intentionalStopRef.current || sessionGen !== sessionGenRef.current) return;
+        onError("Verbindungsfehler");
+      };
+      ws.onclose = () => {
+        if (intentionalStopRef.current || sessionGen !== sessionGenRef.current) return;
+      };
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
     }
@@ -179,6 +188,8 @@ export function useCallRecorder({
   }, [onVolume]);
 
   const stop = useCallback(() => {
+    intentionalStopRef.current = true;
+    sessionGenRef.current += 1;
     finishedFiredRef.current = true;
     mutedRef.current = false;
     cancelAnimationFrame(animFrameRef.current);
@@ -187,13 +198,19 @@ export function useCallRecorder({
     silentNodeRef.current = null;
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send("");
+    const ws = wsRef.current;
+    if (ws) {
+      ws.onerror = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(""); } catch {}
+      }
+      setTimeout(() => {
+        try { ws.close(); } catch {}
+      }, 300);
     }
-    setTimeout(() => {
-      wsRef.current?.close();
-      wsRef.current = null;
-    }, 500);
+    wsRef.current = null;
     mediaRecorderRef.current = null;
     streamRef.current = null;
   }, [onVolume]);

@@ -349,6 +349,18 @@ grep -q 'completePlacement' lib/kv.ts \
   && check "KV: completePlacement helper" "ok" \
   || check "KV: completePlacement helper" "fail"
 
+grep -q 'getWarmupMasteredKeys' lib/kv.ts \
+  && check "warmup: 7-day mastery skip" "ok" \
+  || check "warmup: 7-day mastery skip" "fail"
+
+test -f app/exercises/sentences/page.tsx \
+  && check "standalone sentence ordering page" "ok" \
+  || check "standalone sentence ordering page" "fail"
+
+grep -q 'intentionalStopRef' components/CallRecorder.tsx \
+  && check "CallRecorder: ignore WS error on stop" "ok" \
+  || check "CallRecorder: ignore WS error on stop" "fail"
+
 echo ""
 echo "── middleware.ts ───────────────────────"
 

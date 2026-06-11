@@ -28,7 +28,7 @@ export interface ExerciseResult {
   itemId: string;
   german: string;
   correct: boolean;
-  type: "warmup" | "placement" | "spelling";
+  type: "warmup" | "placement" | "spelling" | "sentence";
   ts: number;
 }
 

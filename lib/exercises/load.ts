@@ -1,6 +1,7 @@
 import placementData from "@/data/flashcards/placement.json";
 import commonData from "@/data/flashcards/common.json";
 import { getCareerVocabEntries } from "@/lib/career-vocab/load";
+import { isLevelAppropriate, isTooBasic, levelRank, normalizeLevel } from "./levels";
 import type { FlashCardEntry } from "./types";
 
 type PlacementDeck = Record<string, FlashCardEntry[]>;
@@ -61,10 +62,53 @@ export function getPlacementEntries(level: "A1" | "A2" | "B1"): FlashCardEntry[]
 }
 
 export function getCommonEntries(level?: string, limit = 12): FlashCardEntry[] {
-  const filtered = level
-    ? commonDeck.filter(e => !e.level || e.level === level || e.level === "A1")
-    : commonDeck;
+  const userLevel = normalizeLevel(level);
+  const filtered = commonDeck.filter(
+    e => isLevelAppropriate(e.level, userLevel) && !isTooBasic(e.german, userLevel)
+  );
   return shuffle(filtered).slice(0, limit);
+}
+
+/** Level-matched pool for pre-call warm-up — no A1 greetings for A2+ users. */
+export function getWarmupPool(userLevel: string | undefined, limit: number): FlashCardEntry[] {
+  const normalized = normalizeLevel(userLevel);
+  const rank = levelRank(normalized);
+  const deckLevels: Array<"A1" | "A2" | "B1"> =
+    rank >= 3 ? ["B1", "A2"] : rank >= 2 ? ["A2", "B1"] : ["A1", "A2"];
+
+  const pool: FlashCardEntry[] = [];
+  const seen = new Set<string>();
+
+  const add = (entry: FlashCardEntry) => {
+    if (seen.has(entry.id) || isTooBasic(entry.german, normalized)) return;
+    if (!isLevelAppropriate(entry.level, normalized)) return;
+    seen.add(entry.id);
+    pool.push(entry);
+  };
+
+  for (const lv of deckLevels) {
+    for (const entry of getPlacementEntries(lv)) add(entry);
+  }
+  for (const entry of commonDeck) add(entry);
+
+  const career = shuffle(
+    getCareerVocabEntries().filter(e => {
+      const r = levelRank(e.level);
+      return r >= rank && r <= rank + 1 && e.text.length <= 35 && !e.text.includes("/");
+    })
+  ).slice(0, 24);
+
+  for (const entry of career) {
+    add({
+      id: entry.id,
+      german: entry.text,
+      english: entry.english,
+      distractors: pickCareerDistractors(entry.english, entry.level),
+      level: entry.level,
+    });
+  }
+
+  return shuffle(pool).slice(0, limit);
 }
 
 export function resolveWordEntry(word: string): FlashCardEntry | null {

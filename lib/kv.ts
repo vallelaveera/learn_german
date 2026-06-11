@@ -237,7 +237,7 @@ export interface StoredExerciseResult {
   itemId: string;
   german: string;
   correct: boolean;
-  type: "warmup" | "placement" | "spelling";
+  type: "warmup" | "placement" | "spelling" | "sentence";
   ts: number;
 }
 
@@ -255,6 +255,37 @@ export async function saveExerciseResults(
     const merged = [...prev, ...results].slice(-200);
     await redis.set(key, JSON.stringify(merged));
   } catch {}
+}
+
+export const EXERCISE_MASTERED_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** itemIds (+ german lowercase for warmup) answered correctly within the last week */
+export async function getExerciseMasteredKeys(
+  userId: string,
+  type: StoredExerciseResult["type"],
+  withinMs = EXERCISE_MASTERED_MS
+): Promise<Set<string>> {
+  const cutoff = Date.now() - withinMs;
+  const mastered = new Set<string>();
+  try {
+    const data = await redis.get<string>(`exercise_results:${userId}`);
+    if (!data) return mastered;
+    const results: StoredExerciseResult[] =
+      typeof data === "string" ? JSON.parse(data) : data;
+    for (const r of results) {
+      if (r.type !== type || !r.correct || r.ts < cutoff) continue;
+      if (r.itemId) mastered.add(r.itemId);
+      if (type === "warmup" && r.german) mastered.add(r.german.toLowerCase().trim());
+    }
+  } catch {}
+  return mastered;
+}
+
+export async function getWarmupMasteredKeys(
+  userId: string,
+  withinMs = EXERCISE_MASTERED_MS
+): Promise<Set<string>> {
+  return getExerciseMasteredKeys(userId, "warmup", withinMs);
 }
 
 export async function isPlacementDone(userId: string): Promise<boolean> {

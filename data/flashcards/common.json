@@ -10,5 +10,13 @@
   { "id": "c-09", "german": "Ich habe eine Frage", "english": "I have a question", "distractors": ["I have a problem", "I have an idea"], "level": "A2" },
   { "id": "c-10", "german": "Das verstehe ich", "english": "I understand that", "distractors": ["I forgot that", "I doubt that"], "level": "B1" },
   { "id": "c-11", "german": "Meiner Meinung nach", "english": "In my opinion", "distractors": ["On the other hand", "For example"], "level": "B1" },
-  { "id": "c-12", "german": "Zum Beispiel", "english": "For example", "distractors": ["In conclusion", "At first"], "level": "B1" }
+  { "id": "c-12", "german": "Zum Beispiel", "english": "For example", "distractors": ["In conclusion", "At first"], "level": "B1" },
+  { "id": "c-13", "german": "Könnten Sie langsamer sprechen?", "english": "Could you speak more slowly?", "distractors": ["Could you speak louder?", "Could you repeat that?"], "level": "A2" },
+  { "id": "c-14", "german": "Ich suche eine Stelle", "english": "I am looking for a job", "distractors": ["I am changing jobs", "I am on vacation"], "level": "A2" },
+  { "id": "c-15", "german": "Meine Erfahrung", "english": "My experience", "distractors": ["My education", "My salary"], "level": "B1" },
+  { "id": "c-16", "german": "sich vorbereiten", "english": "to prepare oneself", "distractors": ["to apply", "to resign"], "level": "B1" },
+  { "id": "c-17", "german": "das Vorstellungsgespräch", "english": "the job interview", "distractors": ["the application", "the contract"], "level": "B1" },
+  { "id": "c-18", "german": "die Herangehensweise", "english": "the approach / method", "distractors": ["the attitude", "the deadline"], "level": "B1" },
+  { "id": "c-19", "german": "im Laufe des Tages", "english": "over the course of the day", "distractors": ["at the end of the day", "every other day"], "level": "B1" },
+  { "id": "c-20", "german": "effizienter", "english": "more efficient", "distractors": ["more expensive", "more difficult"], "level": "B1" }
 ]

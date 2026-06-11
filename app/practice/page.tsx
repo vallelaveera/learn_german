@@ -161,6 +161,19 @@ export default function PracticePage() {
           Übe echte Alltagssituationen auf Deutsch. Sprich oder tippe deine Antworten.
         </p>
 
+        <Link href="/exercises/sentences" style={{
+          display: "flex", alignItems: "center", gap: 14, marginBottom: 12,
+          background: "rgba(124,77,170,0.06)", border: "0.5px solid rgba(124,77,170,0.25)",
+          borderRadius: 14, padding: "16px", textDecoration: "none",
+        }}>
+          <span style={{ fontSize: 32 }}>🧩</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", fontFamily: "var(--font-serif)", marginBottom: 4 }}>Satzbau</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Wörter in der richtigen Reihenfolge anordnen.</div>
+          </div>
+          <span style={{ color: "var(--text-dim)" }}>→</span>
+        </Link>
+
         <Link href="/exercises/spelling" style={{
           display: "flex", alignItems: "center", gap: 14, marginBottom: 16,
           background: "rgba(8,145,178,0.06)", border: "0.5px solid rgba(8,145,178,0.25)",

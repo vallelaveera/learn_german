@@ -13,7 +13,6 @@ function WarmupInner() {
   const [cards, setCards] = useState<BinaryCard[]>([]);
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
-  const [results, setResults] = useState<{ itemId: string; german: string; correct: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(false);
 
@@ -24,14 +23,15 @@ function WarmupInner() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const finish = async (skipped = false) => {
-    if (!skipped && results.length) {
-      await fetch("/api/exercises/warmup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ results }),
-      });
-    }
+  const saveResult = (result: { itemId: string; german: string; correct: boolean }) => {
+    fetch("/api/exercises/warmup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ results: [result] }),
+    });
+  };
+
+  const finish = async () => {
     setDone(true);
     router.push(next);
   };
@@ -41,7 +41,7 @@ function WarmupInner() {
     if (!card || feedback) return;
     const correct = card.correctOption === option;
     setFeedback(correct ? "correct" : "wrong");
-    setResults(prev => [...prev, { itemId: card.id, german: card.german, correct }]);
+    saveResult({ itemId: card.id, german: card.german, correct });
     setTimeout(() => {
       if (index + 1 >= cards.length) finish();
       else { setIndex(i => i + 1); setFeedback(null); }
@@ -86,7 +86,7 @@ function WarmupInner() {
       />
 
       <button
-        onClick={() => finish(true)}
+        onClick={() => finish()}
         style={{
           marginTop: 22, fontSize: 11, color: "var(--text-dim)",
           background: "none", border: "0.5px solid var(--border)",

@@ -558,10 +558,20 @@ export default function CallModePage() {
     return lastMaya?.content ?? "";
   }, []);
 
+  const sttRetryCountRef = useRef(0);
+
   const handleRecorderError = useCallback((e: string) => {
     if (e.includes("429")) {
       setError("Zu viele Verbindungen. Bitte warte einen Moment und versuche es erneut.");
       endCallRef.current();
+      return;
+    }
+    if (e === "Verbindungsfehler" && _cm_active && !_cm_sending && sttRetryCountRef.current < 4) {
+      sttRetryCountRef.current += 1;
+      setError(null);
+      setTimeout(() => {
+        if (_cm_active && !_cm_sending) restartMicRef.current();
+      }, 500);
       return;
     }
     setError(e);
@@ -590,6 +600,7 @@ export default function CallModePage() {
   }, [clearSilenceTimer]);
 
   const handleRecorderReady = useCallback(() => {
+    sttRetryCountRef.current = 0;
     _cm_mic_start = Date.now();
     setCallState("listening");
   }, []);

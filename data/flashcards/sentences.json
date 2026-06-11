@@ -1,0 +1,16 @@
+[
+  { "id": "s-a2-01", "german": "Ich will mein Deutsch verbessern.", "english": "I want to improve my German.", "level": "A2" },
+  { "id": "s-a2-02", "german": "Ich habe wenig Zeit am Morgen.", "english": "I have little time in the morning.", "level": "A2" },
+  { "id": "s-a2-03", "german": "Könnten Sie das bitte wiederholen?", "english": "Could you please repeat that?", "level": "A2" },
+  { "id": "s-a2-04", "german": "Ich lerne morgens und abends.", "english": "I study in the morning and evening.", "level": "A2" },
+  { "id": "s-a2-05", "german": "Ich suche eine neue Stelle.", "english": "I am looking for a new job.", "level": "A2" },
+  { "id": "s-a2-06", "german": "Das verstehe ich nicht ganz.", "english": "I don't quite understand that.", "level": "A2" },
+  { "id": "s-b1-01", "german": "Ich möchte mich auf das Gespräch vorbereiten.", "english": "I want to prepare for the interview.", "level": "B1" },
+  { "id": "s-b1-02", "german": "Meiner Meinung nach ist das eine gute Idee.", "english": "In my opinion that's a good idea.", "level": "B1" },
+  { "id": "s-b1-03", "german": "Ich arbeite vierzig Stunden pro Woche.", "english": "I work forty hours per week.", "level": "B1" },
+  { "id": "s-b1-04", "german": "Können Sie mir mehr über das Unternehmen sagen?", "english": "Can you tell me more about the company?", "level": "B1" },
+  { "id": "s-b1-05", "german": "Ich habe Erfahrung in der Softwareentwicklung.", "english": "I have experience in software development.", "level": "B1" },
+  { "id": "s-b1-06", "german": "In drei Monaten möchte ich mich bewerben.", "english": "In three months I want to apply.", "level": "B1" },
+  { "id": "s-b1-07", "german": "Das ist meine Herangehensweise beim Lernen.", "english": "That is my approach to learning.", "level": "B1" },
+  { "id": "s-b1-08", "german": "Ich konzentriere mich auf Vokabeln und Gespräche.", "english": "I focus on vocabulary and conversations.", "level": "B1" }
+]

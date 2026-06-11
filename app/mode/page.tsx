@@ -67,6 +67,27 @@ export default function ModePage() {
           </div>
         </button>
 
+        {/* Sentence ordering */}
+        <button
+          onClick={() => router.push("/exercises/sentences")}
+          style={{
+            width: "100%", padding: "16px 20px", borderRadius: 14,
+            background: "var(--surface)", border: "1px solid var(--border)",
+            cursor: "pointer", textAlign: "left",
+            display: "flex", alignItems: "center", gap: 14,
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(124,77,170,0.1)", border: "1px solid rgba(124,77,170,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>
+            🧩
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Satzbau</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Satz einmal sehen — dann Wörter in der richtigen Reihenfolge tippen.</div>
+          </div>
+          <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
+        </button>
+
         {/* Spelling exercise */}
         <button
           onClick={() => router.push("/exercises/spelling")}
