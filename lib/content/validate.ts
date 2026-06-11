@@ -30,7 +30,9 @@ For each sentence check:
 4. Level accuracy — does vocabulary and grammar 
    actually match the stated CEFR level?
 5. Translation accuracy — does English match German?
-6. Length — German sentence must be at most ${MAX_GERMAN_WORDS} words; reject if longer
+6. Length — reject ONLY if German has MORE than ${MAX_GERMAN_WORDS} words. Sentences with 9–${MAX_GERMAN_WORDS} words are fine. Do not miscount articles or prepositions as extra words.
+
+Do NOT reject solely for length when the sentence has ${MAX_GERMAN_WORDS} words or fewer.
 
 Output ONLY valid JSON array, no markdown, no commentary:
 [
@@ -46,7 +48,15 @@ Output ONLY valid JSON array, no markdown, no commentary:
   }
 ]
 
-Be strict. If you are even slightly unsure, mark passed: false.`;
+Be strict on grammar, spelling, and natural language. If you are even slightly unsure about grammar, mark passed: false. Length alone is not a reason to reject at ${MAX_GERMAN_WORDS} words or below.`;
+
+function isLengthOnlyIssue(issue: string): boolean {
+  return /word count|words|length|exceeds|limit|too long|8-word|9-word|10-word/i.test(issue);
+}
+
+function isLengthOnlyRejection(issues: string[]): boolean {
+  return issues.length > 0 && issues.every(isLengthOnlyIssue);
+}
 
 export async function validateSentences(sentences: SentenceInput[]): Promise<ValidateOutput> {
   if (sentences.length === 0) {
@@ -87,6 +97,23 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
         if (!result.levelAccurate && !allIssues.some(i => /level/i.test(i))) {
           allIssues.push("Level accuracy check failed");
         }
+
+        const correctedDe = result.corrections?.de ?? sentence.de;
+        const correctedEn = result.corrections?.en ?? sentence.en;
+        if (
+          isLengthOnlyRejection(allIssues) &&
+          result.levelAccurate !== false &&
+          isWithinWordLimit(correctedDe)
+        ) {
+          passed.push({
+            ...sentence,
+            de: correctedDe,
+            en: correctedEn,
+          });
+          console.log("[validate] length-only override accepted:", correctedDe);
+          continue;
+        }
+
         rejected.push({ sentence, issues: allIssues });
         console.warn("[validate] REJECTED", JSON.stringify({ de: sentence.de, en: sentence.en, issues: allIssues }));
         continue;
