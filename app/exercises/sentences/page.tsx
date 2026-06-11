@@ -3,7 +3,13 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { speakExercisePrompt, stopExerciseSpeech } from "@/lib/exercise-speech";
+import {
+  prefetchExerciseGerman,
+  revokeExerciseSpeechPrefetch,
+  speakExercisePrompt,
+  stopExerciseSpeech,
+  unlockExerciseAudio,
+} from "@/lib/exercise-speech";
 
 interface Chip {
   id: string;
@@ -43,8 +49,15 @@ function SentencesInner() {
 
   const playGerman = useCallback(() => {
     if (!current) return;
+    unlockExerciseAudio();
     speakExercisePrompt(current.german, "de").catch(() => {});
   }, [current]);
+
+  useEffect(() => {
+    if (!current) return;
+    void prefetchExerciseGerman(current.german);
+    return () => revokeExerciseSpeechPrefetch(current.german);
+  }, [current?.id, current?.german]);
 
   useEffect(() => {
     const url = fromCall
@@ -58,13 +71,19 @@ function SentencesInner() {
 
   useEffect(() => {
     if (phase !== "preview" || !current) return;
-    playGerman();
+    let cancelled = false;
+    const run = async () => {
+      await prefetchExerciseGerman(current.german);
+      if (!cancelled) await speakExercisePrompt(current.german, "de");
+    };
+    void run();
     const t = setTimeout(() => setPhase("build"), PREVIEW_MS);
     return () => {
+      cancelled = true;
       clearTimeout(t);
       stopExerciseSpeech();
     };
-  }, [phase, current, index, playGerman]);
+  }, [phase, current?.id, index]);
 
   useEffect(() => {
     setShowEnHint(false);
