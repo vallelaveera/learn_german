@@ -242,23 +242,13 @@ export async function saveWordExamples(word: string, sentences: string[]): Promi
   await redis.set(`examples:${word.toLowerCase()}`, JSON.stringify(sentences));
 }
 
-export async function getWordExamples(word: string): Promise<string[] | null> {
-  try {
-    const data = await redis.get<string>(`examples:${word.toLowerCase()}`);
-    if (!data) return null;
-    return typeof data === "string" ? JSON.parse(data) : data;
-  } catch {
-    return null;
-  }
-}
-
 // ── Exercise results ───────────────────────────────────────
 
 export interface StoredExerciseResult {
   itemId: string;
   german: string;
   correct: boolean;
-  type: "warmup" | "placement" | "spelling" | "sentence";
+  type: "warmup" | "placement" | "sentence";
   ts: number;
 }
 
@@ -280,6 +270,7 @@ export async function saveExerciseResults(
 
 export const EXERCISE_MASTERED_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** itemIds (+ german lowercase for warmup) answered correctly within the last week */
 export async function getExerciseMasteredKeys(
   userId: string,
   type: StoredExerciseResult["type"],
@@ -399,6 +390,16 @@ export async function updateCareerVocabProgress(
 
   progress.updatedAt = now;
   await redis.set(`career_vocab:${userId}`, JSON.stringify(progress));
+}
+
+export async function getWordExamples(word: string): Promise<string[] | null> {
+  try {
+    const data = await redis.get<string>(`examples:${word.toLowerCase()}`);
+    if (!data) return null;
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return null;
+  }
 }
 
 // ── Call corrections ───────────────────────────────────────

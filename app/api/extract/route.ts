@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, saveHomework } from "@/lib/kv";
-import { extractFacts, extractProfileFacts, extractAskedTopics, generateHomework, isProfileComplete } from "@/lib/memory-agent";
+import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress, getUsageStats, saveHomework } from "@/lib/kv";
+import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
+import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions, generateHomework, isProfileComplete } from "@/lib/memory-agent";
 import { isHomeworkEnabledForUser } from "@/lib/homework";
 import { Message } from "@/lib/types";
 
@@ -29,6 +30,12 @@ export async function POST(req: NextRequest) {
     } = await req.json();
     if (!messages?.length) return NextResponse.json({ ok: true });
 
+    const usage = await getUsageStats(user.userId);
+    const isSessionEnd = !!(sessionStart && sessionEnd && sessionEnd > sessionStart);
+    if (usage.remaining <= 0 && !isSessionEnd) {
+      return NextResponse.json({ error: "limit_reached", used: usage.used, limit: usage.limit }, { status: 403 });
+    }
+
     const mayaWords = getWords(
       messages.filter((m: Message) => m.role === "assistant").map((m: Message) => m.content).join(" ")
     );
@@ -36,24 +43,30 @@ export async function POST(req: NextRequest) {
       messages.filter((m: Message) => m.role === "user").map((m: Message) => m.content).join(" ")
     );
 
+    const newQuestions = extractAskedQuestionsFromMessages(messages);
+    const careerMatches = matchCareerVocabFromMessages(messages);
+
     const [newFacts, profileFacts, newTopics] = await Promise.all([
       extractFacts(messages, user.facts),
       extractProfileFacts(messages, user.facts),
       extractAskedTopics(messages),
     ]);
 
-    // Merge all facts + append new asked topics
+    // Merge all facts + append new asked topics/questions
     const existingTopics = user.facts.askedTopics ?? [];
+    const existingQuestions = user.facts.askedQuestions ?? [];
     const mergedFacts = {
       ...newFacts,
       ...profileFacts,
       askedTopics: Array.from(new Set([...existingTopics, ...newTopics])).slice(0, 50),
+      askedQuestions: mergeAskedQuestions(existingQuestions, newQuestions),
     };
 
     const promises: Promise<unknown>[] = [
       saveVocabWords(user.userId, mayaWords),
       markWordsUsedByUser(user.userId, userWords),
       updateUserFacts(user.userId, mergedFacts),
+      updateCareerVocabProgress(user.userId, careerMatches.userMatched, careerMatches.mayaMatched),
     ];
 
     // Track minutes — only called once at session end

@@ -9,7 +9,8 @@ interface CallRecorderOptions {
   onFinished: () => void;
   onError: (e: string) => void;
   onVolume: (level: number) => void;
-  getContext?: () => string; // last Maya message for better accuracy
+  onReady?: () => void;
+  getContext?: () => string;
 }
 
 export function useCallRecorder({
@@ -18,6 +19,7 @@ export function useCallRecorder({
   onFinished,
   onError,
   onVolume,
+  onReady,
   getContext,
 }: CallRecorderOptions) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -29,8 +31,12 @@ export function useCallRecorder({
   const silentNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const finalBufferRef = useRef("");
   const mutedRef = useRef(false);
+  const intentionalStopRef = useRef(false);
+  const sessionGenRef = useRef(0);
 
   const start = useCallback(async () => {
+    const sessionGen = ++sessionGenRef.current;
+    intentionalStopRef.current = false;
     finishedFiredRef.current = false;
     finalBufferRef.current = "";
     try {
@@ -40,7 +46,7 @@ export function useCallRecorder({
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
+          autoGainControl: false,
         },
       });
       streamRef.current = stream;
@@ -85,14 +91,13 @@ export function useCallRecorder({
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Get last Maya message as context for better accuracy
         const context = getContext?.() ?? "";
 
         ws.send(JSON.stringify({
           api_key: apiKey,
           model: "stt-rt-v4",
           audio_format: "auto",
-          language_hints: ["de"], // German only — much better accuracy
+          language_hints: ["de"],
           enable_endpoint_detection: true,
           ...(context ? { context } : {}),
         }));
@@ -117,6 +122,7 @@ export function useCallRecorder({
         };
 
         mr.start(250);
+        onReady?.();
         if (mutedRef.current) {
           stream.getAudioTracks().forEach(t => { t.enabled = false; });
           if (mr.state === "recording") mr.pause();
@@ -151,7 +157,6 @@ export function useCallRecorder({
 
         if (res.finished && !finishedFiredRef.current) {
           finishedFiredRef.current = true;
-          // Min 3 words filter — avoid garbage like "vie" or "navigator"
           const words = finalBufferRef.current.trim().split(/\s+/).filter(Boolean);
           if (words.length >= 1) {
             onFinished();
@@ -159,12 +164,17 @@ export function useCallRecorder({
         }
       };
 
-      ws.onerror = () => onError("Verbindungsfehler");
-      ws.onclose = () => {};
+      ws.onerror = () => {
+        if (intentionalStopRef.current || sessionGen !== sessionGenRef.current) return;
+        onError("Verbindungsfehler");
+      };
+      ws.onclose = () => {
+        if (intentionalStopRef.current || sessionGen !== sessionGenRef.current) return;
+      };
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
     }
-  }, [apiKey, onTranscript, onFinished, onError, onVolume, getContext]);
+  }, [apiKey, onTranscript, onFinished, onError, onVolume, onReady, getContext]);
 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
@@ -178,6 +188,8 @@ export function useCallRecorder({
   }, [onVolume]);
 
   const stop = useCallback(() => {
+    intentionalStopRef.current = true;
+    sessionGenRef.current += 1;
     finishedFiredRef.current = true;
     mutedRef.current = false;
     cancelAnimationFrame(animFrameRef.current);
@@ -186,13 +198,19 @@ export function useCallRecorder({
     silentNodeRef.current = null;
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send("");
+    const ws = wsRef.current;
+    if (ws) {
+      ws.onerror = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(""); } catch {}
+      }
+      setTimeout(() => {
+        try { ws.close(); } catch {}
+      }, 300);
     }
-    setTimeout(() => {
-      wsRef.current?.close();
-      wsRef.current = null;
-    }, 500);
+    wsRef.current = null;
     mediaRecorderRef.current = null;
     streamRef.current = null;
   }, [onVolume]);

@@ -17,6 +17,7 @@ export interface UserFacts {
   personalDetails?: string[];
   lastUpdated?: number;
   askedTopics?: string[];
+  askedQuestions?: string[];
   // Onboarding profile fields
   nativeLanguage?: string;
   germanWhy?: string;

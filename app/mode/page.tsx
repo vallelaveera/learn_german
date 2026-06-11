@@ -4,23 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { PageShell } from "@/components/layout/PageShell";
 
-const secondaryLinkStyle = {
-  flex: 1,
-  minHeight: 48,
-  padding: "14px 12px",
-  borderRadius: 12,
-  border: "0.5px solid var(--border)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  fontSize: 13,
-  fontFamily: "var(--font-serif)" as const,
-  textDecoration: "none" as const,
-  display: "flex" as const,
-  alignItems: "center" as const,
-  justifyContent: "center" as const,
-  textAlign: "center" as const,
-};
-
 export default function ModePage() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string } | null>(null);
@@ -30,6 +13,9 @@ export default function ModePage() {
     fetch("/api/auth/me")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(d => { if (d?.user) setUser(d.user); });
+    fetch("/api/exercises/status")
+      .then(r => (r.status === 401 ? null : r.ok ? r.json() : null))
+      .then(d => { if (d && !d.placementDone) router.push("/exercises/placement"); });
     fetch("/api/homework")
       .then(r => (r.ok ? r.json() : null))
       .then(d => {
@@ -78,7 +64,10 @@ export default function ModePage() {
 
         <button
           type="button"
-          onClick={() => router.push("/call")}
+          onClick={() => {
+            localStorage.setItem("maya_voice", "soniox");
+            router.push("/call");
+          }}
           style={{
             width: "100%",
             minHeight: 52,
@@ -116,31 +105,23 @@ export default function ModePage() {
           Kurzes Warmup →
         </Link>
 
-        <div style={{ width: "100%", display: "flex", gap: 10, marginBottom: 14 }}>
-          <Link href="/exercises/spelling" style={secondaryLinkStyle}>
-            Buchstabieren
-          </Link>
-          <Link href="/practice" style={secondaryLinkStyle}>
-            Rollenspiel
-          </Link>
-        </div>
-
         <Link
           href="/exercises/sentences"
           style={{
             width: "100%",
-            minHeight: 44,
-            padding: "12px 16px",
+            minHeight: 48,
+            padding: "14px 16px",
             borderRadius: 12,
             border: "0.5px solid var(--border)",
-            background: "transparent",
-            color: "var(--text-muted)",
+            background: "var(--surface)",
+            color: "var(--text)",
             fontSize: 13,
             textDecoration: "none",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             fontFamily: "var(--font-mono)",
+            marginBottom: 12,
           }}
         >
           <span>🧩 Satzbau</span>
@@ -151,7 +132,6 @@ export default function ModePage() {
           <Link
             href="/homework"
             style={{
-              marginTop: 20,
               width: "100%",
               minHeight: 44,
               padding: "12px 16px",

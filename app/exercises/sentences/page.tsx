@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -147,7 +147,7 @@ function SentencesInner() {
         )}
         {fromCall && current.said && !compact && (
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic" }}>
-            Du sagtest: „{current.said}"
+            Du sagtest: ÔÇ×{current.said}"
           </p>
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: compact ? 0 : 4 }}>
@@ -174,9 +174,9 @@ function SentencesInner() {
               color: "var(--accent)",
               cursor: "pointer",
             }}
-            aria-label="Nochmal anhören"
+            aria-label="Nochmal anh├Âren"
           >
-            🔊
+            ­ƒöè
           </button>
         </div>
       </div>
@@ -186,7 +186,7 @@ function SentencesInner() {
   if (loading) {
     return (
       <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>S├ñtze werden geladen...</p>
       </div>
     );
   }
@@ -196,10 +196,10 @@ function SentencesInner() {
       <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: 24, textAlign: "center" }}>
         <p style={{ marginTop: 80, color: "var(--text-muted)" }}>
           {fromCall
-            ? "Keine übbaren Korrekturen aus diesem Anruf (Sätze zu kurz oder schon geübt)."
-            : "Keine Sätze verfügbar."}
+            ? "Keine ├╝bbaren Korrekturen aus diesem Anruf (S├ñtze zu kurz oder schon ge├╝bt)."
+            : "Keine S├ñtze verf├╝gbar."}
         </p>
-        <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>← Zurück</Link>
+        <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>ÔåÉ Zur├╝ck</Link>
       </div>
     );
   }
@@ -210,15 +210,15 @@ function SentencesInner() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <p style={{ fontSize: 40, marginBottom: 12 }}>🧩</p>
+        <p style={{ fontSize: 40, marginBottom: 12 }}>­ƒº®</p>
         <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
           {score} / {exercises.length} richtig
         </h1>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>
-          {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
+          {fromCall ? "Satzbau ÔÇö aus deinem Anruf" : "Satzbau ÔÇö W├Ârter in der richtigen Reihenfolge"}
         </p>
         <Link href="/mode" style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none" }}>
-          Zurück
+          Zur├╝ck
         </Link>
       </div>
     );
@@ -234,11 +234,11 @@ function SentencesInner() {
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, maxWidth: 400, margin: "0 auto 16px" }}>
         <div>
           <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>
-            {fromCall ? "Satzbau · Anruf" : "Satzbau"}
+            {fromCall ? "Satzbau ┬À Anruf" : "Satzbau"}
           </p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} · {current?.level}</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} ┬À {current?.level}</p>
         </div>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
+        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>ÔåÉ Zur├╝ck</Link>
       </header>
 
       <div style={{ maxWidth: 400, margin: "0 auto 16px" }}>
@@ -265,7 +265,7 @@ function SentencesInner() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
               <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, flex: 1 }}>
-                Tippe die Wörter in der richtigen Reihenfolge
+                Tippe die W├Ârter in der richtigen Reihenfolge
               </p>
               {direction === "de-en" && (
                 <button
@@ -285,7 +285,7 @@ function SentencesInner() {
                     cursor: showEnHint ? "default" : "pointer",
                   }}
                 >
-                  {showEnHint ? "EN ✓" : "EN"}
+                  {showEnHint ? "EN Ô£ô" : "EN"}
                 </button>
               )}
             </div>
@@ -352,7 +352,7 @@ export default function SentencesPage() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>S├ñtze werden geladen...</p>
       </div>
     }>
       <SentencesInner />

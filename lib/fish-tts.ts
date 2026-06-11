@@ -1,11 +1,7 @@
 /** Rules appended to system prompt when Maya B (Fish) is active in call mode. */
 export const FISH_SPOKEN_RULES = `
 
-SPOKEN OUTPUT (voice — follow strictly):
-- No emojis in the German speech (💡 hint line only, on its own line)
-- Max 2 short sentences per reply
-- Each sentence must end with . ! or ?
-- One idea per sentence — do not pack multiple thoughts into one long sentence
+SPOKEN OUTPUT: Max 2 short sentences, ~20 words total. One short question only. No emojis.
 `;
 
 /** Strip emojis — ES5-safe (no \p{} property escapes). */
