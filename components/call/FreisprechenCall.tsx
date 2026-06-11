@@ -6,6 +6,7 @@ import { useCallRecorder } from "@/components/CallRecorder";
 import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
 import { computeCallReportStats } from "@/lib/call-report-stats";
 import { Message } from "@/lib/types";
+import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 
 // ── Module-level flags ─────────────────────────────────────
 let _cm_sending = false;
@@ -78,7 +79,8 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
   const [contextReady, setContextReady] = useState(false);
   const [cachedOpening, setCachedOpening] = useState<string | null>(null);
   const [pendingHomework, setPendingHomework] = useState<{ id: string; progress?: { completedReps: number; totalReps: number } } | null>(null);
-  const [newHomeworkId, setNewHomeworkId] = useState<string | null>(null);
+  const pendingHomeworkRepsRef = useRef(0);
+  const userWantsEndRef = useRef(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
@@ -154,6 +156,9 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
         if (data.pendingHomework) {
           setPendingHomework(data.pendingHomework);
         }
+        if (data.homeworkSummary?.remainingReps != null) {
+          pendingHomeworkRepsRef.current = data.homeworkSummary.remainingReps;
+        }
       })
       .catch(console.error)
       .finally(() => {
@@ -206,6 +211,11 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
     if (_cm_tts_done_fired || !_cm_active) return;
     _cm_tts_done_fired = true;
     _cm_sending = false;
+    if (userWantsEndRef.current) {
+      userWantsEndRef.current = false;
+      setTimeout(() => endCallRef.current(), 400);
+      return;
+    }
     setTimeout(() => {
       if (_cm_active) restartMicRef.current();
     }, 400);
@@ -321,14 +331,20 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
     });
 
     try {
-      const systemPrompt = ttsProviderRef.current === "fish"
-        ? (systemPromptRef.current ?? "") + FISH_SPOKEN_RULES
-        : systemPromptRef.current;
+      let prompt = systemPromptRef.current ?? "";
+      if (ttsProviderRef.current === "fish") {
+        prompt += FISH_SPOKEN_RULES;
+      }
+      const lastUser = [...history].reverse().find(m => m.role === "user");
+      if (lastUser && isFarewellUtterance(lastUser.content)) {
+        userWantsEndRef.current = true;
+        prompt += buildGoodbyePromptSuffix(pendingHomeworkRepsRef.current);
+      }
 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, systemPrompt }),
+        body: JSON.stringify({ messages: history, systemPrompt: prompt }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
@@ -427,7 +443,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
       return;
     }
 
-    if (wordCount(text) < 2) {
+    if (wordCount(text) < 2 && !isFarewellUtterance(text)) {
       await askShortConfirm(text);
       return;
     }
@@ -468,7 +484,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
       return;
     }
 
-    if (wordCount(text) < 2) {
+    if (wordCount(text) < 2 && !isFarewellUtterance(text)) {
       void askShortConfirm(text);
       return;
     }
@@ -634,6 +650,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
+    userWantsEndRef.current = false;
     isMutedRef.current = false;
     setIsMuted(false);
     setError(null);
@@ -684,6 +701,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
+    userWantsEndRef.current = false;
     isMutedRef.current = false;
     setIsMuted(false);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -704,7 +722,9 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
         }),
       })
         .then(r => r.json())
-        .then(data => { if (data?.homeworkId) setNewHomeworkId(data.homeworkId); })
+        .then(data => {
+          if (data?.homeworkId) pendingHomeworkRepsRef.current += 15;
+        })
         .catch(() => {});
     }
     const finalDuration = duration;
@@ -715,7 +735,6 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
     setPhase("idle");
     setMessages([]);
     setDuration(0);
-    setNewHomeworkId(null);
   }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
@@ -776,7 +795,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
           <p style={{ fontSize: 13, color: "var(--accent)", marginBottom: 8 }}>
             📋 Hausaufgaben offen ({pendingHomework.progress.totalReps - pendingHomework.progress.completedReps} Aufnahmen)
           </p>
-          <a href="/homework" style={{ display: "inline-block", fontSize: 12, color: "var(--text)", marginBottom: 8, textDecoration: "underline" }}>
+          <a href="/words?view=homework" style={{ display: "inline-block", fontSize: 12, color: "var(--text)", marginBottom: 8, textDecoration: "underline" }}>
             Hausaufgaben machen →
           </a>
         </div>

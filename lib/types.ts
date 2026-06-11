@@ -88,6 +88,7 @@ export interface HomeworkAssignment {
   id: string;
   userId: string;
   sessionId?: string;
+  topic?: string;
   createdAt: number;
   status: "pending" | "completed" | "skipped";
   sentences: HomeworkSentence[];

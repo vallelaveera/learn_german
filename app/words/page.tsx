@@ -1,7 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
+import { HomeworkPractice } from "@/components/homework/HomeworkPractice";
 
 interface VocabWord {
   word: string;
@@ -19,9 +21,21 @@ interface CareerEntry {
   status: "used" | "exposed" | "unused";
 }
 
-type WordView = "vocab" | "karriere";
+type WordView = "vocab" | "homework" | "karriere";
 
 export default function WordsPage() {
+  return (
+    <PageShell title="Üben">
+      <Suspense fallback={<p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
+        <WordsPageInner />
+      </Suspense>
+    </PageShell>
+  );
+}
+
+function WordsPageInner() {
+  const searchParams = useSearchParams();
+  const initialView = searchParams.get("view");
   const [vocab, setVocab] = useState<VocabWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "new" | "practiced">("all");
@@ -33,7 +47,9 @@ export default function WordsPage() {
   const [loadingSentences, setLoadingSentences] = useState<string | null>(null);
   const [loadingTranslations, setLoadingTranslations] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState<Record<string, boolean>>({});
-  const [view, setView] = useState<WordView>("vocab");
+  const [view, setView] = useState<WordView>(
+    initialView === "homework" ? "homework" : initialView === "karriere" ? "karriere" : "vocab"
+  );
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerAvailable, setCareerAvailable] = useState(true);
@@ -119,12 +135,12 @@ export default function WordsPage() {
   };
 
   return (
-    <PageShell title="Wörter">
       <div style={{ padding: "16px 18px" }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           {(
             [
-              ["vocab", "Allgemein"],
+              ["vocab", "Vokabeln"],
+              ["homework", "Hausaufgaben"],
               ["karriere", "Karriere"],
             ] as const
           ).map(([key, label]) => (
@@ -148,6 +164,8 @@ export default function WordsPage() {
             </button>
           ))}
         </div>
+
+        {view === "homework" && <HomeworkPractice />}
 
         {view === "vocab" && (
           <>
@@ -321,6 +339,5 @@ export default function WordsPage() {
           </>
         )}
       </div>
-    </PageShell>
   );
 }
