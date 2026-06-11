@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FreisprechenCall } from "@/components/call/FreisprechenCall";
 import { TippenCall } from "@/components/call/TippenCall";
@@ -15,10 +15,29 @@ function CallPageInner() {
   const paramMode = searchParams.get("mode");
   const [mode, setMode] = useState<CallMode>(paramMode === "tippen" ? "tippen" : "freisprechen");
   const [report, setReport] = useState<{ messages: Message[]; durationSec: number } | null>(null);
+  const [reportMeta, setReportMeta] = useState<{ currentLevel: string; completedCalls: number; userName?: string } | null>(null);
 
   const handleCallEnded = useCallback((messages: Message[], durationSec: number) => {
     setReport({ messages, durationSec });
   }, []);
+
+  useEffect(() => {
+    if (!report) {
+      setReportMeta(null);
+      return;
+    }
+    Promise.all([
+      fetch("/api/auth/me").then(r => (r.ok ? r.json() : null)),
+      fetch("/api/sessions").then(r => (r.ok ? r.json() : null)),
+    ]).then(([me, sessions]) => {
+      const completedCalls = sessions?.sessions?.length ?? me?.user?.totalSessions ?? 0;
+      setReportMeta({
+        currentLevel: me?.user?.germanLevel ?? "A1",
+        completedCalls,
+        userName: me?.user?.name,
+      });
+    });
+  }, [report]);
 
   const switchMode = (next: CallMode) => {
     if (report) return;
@@ -89,6 +108,9 @@ function CallPageInner() {
         <CallReport
           messages={report.messages}
           stats={computeCallReportStats(report.messages, report.durationSec)}
+          userName={reportMeta?.userName}
+          currentLevel={reportMeta?.currentLevel}
+          completedCalls={reportMeta?.completedCalls}
           onCallAgain={() => setReport(null)}
           onClose={() => setReport(null)}
         />
