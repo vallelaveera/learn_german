@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { completePlacement, isPlacementDone, saveExerciseResults } from "@/lib/kv";
-import { getPlacementRound, levelFromPlacement, shouldAdvance } from "@/lib/exercises/placement";
+import { getPlacementRound, levelFromPlacement, shouldAdvance, isPlacementBetaShort, levelFromBetaScore } from "@/lib/exercises/placement";
 import { normalizeGermanLevel } from "@/lib/levels";
 import type { PlacementLevel } from "@/lib/exercises/types";
 
@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
       done,
       currentLevel: user.germanLevel,
       round,
+      betaShort: isPlacementBetaShort(),
+      questionCount: round.cards.length,
     });
   } catch (e) {
     console.error(e);
@@ -55,6 +57,19 @@ export async function POST(req: NextRequest) {
     const correct = body.results?.filter(r => r.correct).length ?? 0;
     const total = body.results?.length ?? 0;
     const accuracy = total ? correct / total : 0;
+
+    if (isPlacementBetaShort()) {
+      const finalLevel = normalizeGermanLevel(levelFromBetaScore(correct));
+      const score = Math.round(accuracy * 100);
+      await completePlacement(user.userId, finalLevel, score);
+      return NextResponse.json({
+        done: true,
+        level: finalLevel,
+        score,
+        accuracy,
+        betaShort: true,
+      });
+    }
 
     const completed = [...(body.completedLevels ?? []), body.level];
     const accuracies = { ...(body.accuracies ?? {}), [body.level]: accuracy };
