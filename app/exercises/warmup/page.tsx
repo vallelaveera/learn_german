@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
+import type { ExerciseDirection } from "@/components/DirectionToggle";
 import type { BinaryCard } from "@/lib/exercises/types";
 
 function WarmupInner() {
@@ -15,6 +16,7 @@ function WarmupInner() {
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(false);
+  const [direction, setDirection] = useState<ExerciseDirection>("en-de");
 
   useEffect(() => {
     fetch("/api/exercises/warmup")
@@ -39,7 +41,9 @@ function WarmupInner() {
   const handleChoose = (option: "A" | "B") => {
     const card = cards[index];
     if (!card || feedback) return;
-    const correct = card.correctOption === option;
+    const correct = direction === "en-de"
+      ? card.deCorrectOption === option
+      : card.correctOption === option;
     setFeedback(correct ? "correct" : "wrong");
     saveResult({ itemId: card.id, german: card.german, correct });
     const delay = correct ? 900 : 2000;
@@ -84,6 +88,8 @@ function WarmupInner() {
         total={cards.length}
         feedback={feedback}
         onChoose={handleChoose}
+        direction={direction}
+        onDirectionChange={setDirection}
       />
 
       <button

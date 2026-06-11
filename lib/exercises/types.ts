@@ -9,9 +9,15 @@ export interface FlashCardEntry {
 export interface BinaryCard {
   id: string;
   german: string;
+  english: string;
+  /** DE → EN: English options */
   optionA: string;
   optionB: string;
   correctOption: "A" | "B";
+  /** EN → DE: German options */
+  deOptionA: string;
+  deOptionB: string;
+  deCorrectOption: "A" | "B";
   level?: string;
   source?: string;
 }

@@ -131,6 +131,8 @@ export default function PlacementPage() {
           total={cards.length}
           feedback={feedback}
           onChoose={handleChoose}
+          direction="de-en"
+          showDirectionToggle={false}
         />
       )}
 
