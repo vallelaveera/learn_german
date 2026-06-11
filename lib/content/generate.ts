@@ -33,14 +33,27 @@ export async function callClaude(
 }
 
 export function parseJsonArray<T>(text: string): T[] | null {
-  try {
-    const clean = text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
-    if (!Array.isArray(parsed)) return null;
-    return parsed as T[];
-  } catch {
+  const tryParse = (raw: string): T[] | null => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      return null;
+    }
     return null;
+  };
+
+  const stripped = text.replace(/```json|```/g, "").trim();
+  const direct = tryParse(stripped);
+  if (direct) return direct;
+
+  const start = stripped.indexOf("[");
+  const end = stripped.lastIndexOf("]");
+  if (start >= 0 && end > start) {
+    return tryParse(stripped.slice(start, end + 1));
   }
+
+  return null;
 }
 
 export interface GenerateParams {
