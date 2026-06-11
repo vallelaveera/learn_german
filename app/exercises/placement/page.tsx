@@ -17,6 +17,7 @@ export default function PlacementPage() {
   const [accuracies, setAccuracies] = useState<Partial<Record<PlacementLevel, number>>>({});
   const [loading, setLoading] = useState(true);
   const [finished, setFinished] = useState<{ level: string; score: number } | null>(null);
+  const [betaShort, setBetaShort] = useState(false);
 
   const loadRound = (lvl: PlacementLevel) => {
     setLoading(true);
@@ -29,6 +30,7 @@ export default function PlacementPage() {
           return;
         }
         if (data?.round) {
+          setBetaShort(data.betaShort === true);
           setLevel(data.round.level);
           setCards(data.round.cards);
           setIndex(0);
@@ -96,6 +98,7 @@ export default function PlacementPage() {
         <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>Level: {finished.level}</h1>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28, lineHeight: 1.6 }}>
           Maya passt ihre Sprache an dein Niveau an.
+          {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
         </p>
         <button
           onClick={() => router.push(`/mode?level=${finished.level}`)}
@@ -124,9 +127,13 @@ export default function PlacementPage() {
       display: "flex", flexDirection: "column", alignItems: "center",
     }}>
       <header style={{ width: "100%", maxWidth: 360, marginBottom: 28 }}>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 6 }}>Dein Deutsch-Level</p>
+        <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 6 }}>
+          {betaShort ? "Kurzer Level-Check" : "Dein Deutsch-Level"}
+        </p>
         <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-          Kurzer Check — wähle die richtige englische Bedeutung. Stufe {level}.
+          {betaShort
+            ? `${cards.length} kurze Fragen — wähle die richtige englische Bedeutung.`
+            : `Kurzer Check — wähle die richtige englische Bedeutung. Stufe ${level}.`}
         </p>
       </header>
 
@@ -151,7 +158,7 @@ export default function PlacementPage() {
           fontFamily: "var(--font-mono)",
         }}
       >
-        Überspringen (A1 annehmen)
+        {betaShort ? "Später — ich starte mit A1" : "Überspringen (A1 annehmen)"}
       </button>
     </div>
   );
