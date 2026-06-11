@@ -30,7 +30,11 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function tokenizeSentence(german: string): string[] {
-  return german.trim().split(/\s+/).filter(Boolean);
+  return german
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(word => word.replace(/^[„"«']|[»"'"]$/g, "").replace(/[.,!?;:]+$/, ""));
 }
 
 export async function selectSentenceExercises(
