@@ -49,9 +49,9 @@ function SentencesInner() {
 
   useEffect(() => {
     if (phase !== "preview" || !current) return;
-    const t = setTimeout(() => setPhase("build"), fromCall ? 3200 : 2800);
+    const t = setTimeout(() => setPhase("build"), 3000);
     return () => clearTimeout(t);
-  }, [phase, current, index, fromCall]);
+  }, [phase, current, index]);
 
   const saveResult = (correct: boolean) => {
     if (!current) return;
