@@ -9,6 +9,7 @@ interface CallRecorderOptions {
   onFinished: () => void;
   onError: (e: string) => void;
   onVolume: (level: number) => void;
+  onReady?: () => void;
   getContext?: () => string;
 }
 
@@ -18,6 +19,7 @@ export function useCallRecorder({
   onFinished,
   onError,
   onVolume,
+  onReady,
   getContext,
 }: CallRecorderOptions) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -116,6 +118,7 @@ export function useCallRecorder({
         };
 
         mr.start(250);
+        onReady?.();
         if (mutedRef.current) {
           stream.getAudioTracks().forEach(t => { t.enabled = false; });
           if (mr.state === "recording") mr.pause();
@@ -162,7 +165,7 @@ export function useCallRecorder({
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
     }
-  }, [apiKey, onTranscript, onFinished, onError, onVolume, getContext]);
+  }, [apiKey, onTranscript, onFinished, onError, onVolume, onReady, getContext]);
 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;

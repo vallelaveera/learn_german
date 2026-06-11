@@ -19,7 +19,7 @@ const SPEECH_FRAMES_MIN = 12; // ~200ms sustained speech before accepting STT
 const SILENCE_DURATION_ENDPOINT = 1200; // ms after Soniox endpoint
 const SILENCE_DURATION_FALLBACK = 3000; // ms without endpoint
 const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
-const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
+const MIC_WARMUP_MS = 450; // wait before silence-end detection (not transcript capture)
 const TTS_CHUNK = 16384;
 
 const AFFIRMATIVE_RE = /^(ja|genau|stimmt|richtig|fertig|doch)([\s,].*)?$/i;
@@ -173,14 +173,12 @@ export default function CallModePage() {
     _cm_mic_running = true;
     try {
       stopRef.current();
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 280));
       if (!_cm_active) return;
       speechBufferRef.current = "";
       isSpeakingRef.current = false;
       speechFramesRef.current = 0;
       setLiveText("");
-      _cm_mic_start = Date.now();
-      setCallState("listening");
       await startRef.current();
       if (isMutedRef.current) setMutedRef.current(true);
     } finally {
@@ -192,9 +190,10 @@ export default function CallModePage() {
     if (_cm_tts_done_fired || !_cm_active) return;
     _cm_tts_done_fired = true;
     _cm_sending = false;
+    setCallState("listening");
     setTimeout(() => {
       if (_cm_active) restartMicRef.current();
-    }, 400);
+    }, 180);
   }, []);
 
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
@@ -483,7 +482,7 @@ export default function CallModePage() {
     }
     setVolume(vol);
     if (!_cm_active || _cm_sending) return;
-    if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return;
+    const inWarmup = Date.now() - _cm_mic_start < MIC_WARMUP_MS;
 
     if (vol >= SPEECH_THRESHOLD) {
       speechFramesRef.current++;
@@ -494,6 +493,8 @@ export default function CallModePage() {
     } else if (vol < SILENCE_THRESHOLD) {
       speechFramesRef.current = 0;
     }
+
+    if (inWarmup) return;
 
     const speaking = isSpeakingRef.current;
 
@@ -524,7 +525,11 @@ export default function CallModePage() {
   const nonFinalRef = useRef("");
 
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
-    if (isMutedRef.current || !isSpeakingRef.current) return;
+    if (isMutedRef.current || !_cm_active || _cm_sending) return;
+    if (!text.trim()) return;
+    // Accept STT immediately — don't wait for VAD (first words were getting cut)
+    isSpeakingRef.current = true;
+    speechFramesRef.current = SPEECH_FRAMES_MIN;
     if (isFinal) {
       speechBufferRef.current += text;
       nonFinalRef.current = "";
@@ -584,12 +589,18 @@ export default function CallModePage() {
     if (navigator.vibrate) navigator.vibrate(20);
   }, [clearSilenceTimer]);
 
+  const handleRecorderReady = useCallback(() => {
+    _cm_mic_start = Date.now();
+    setCallState("listening");
+  }, []);
+
   const { start, stop, setMuted, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onFinished: handleFinished,
     onError: handleRecorderError,
     onVolume: handleVolume,
+    onReady: handleRecorderReady,
     getContext,
   });
 
