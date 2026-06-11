@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CUSTOM_TOPIC_VALUE } from "@/lib/content/taxonomy-types";
 import { AdminSubTabs, AdminCard } from "@/components/admin/AdminShell";
-import { CorpusMatrixDashboard, type MatrixCategoryRow } from "@/components/admin/CorpusMatrixDashboard";
+import { CorpusMatrixDashboard, type MatrixCategoryRow, type MatrixCellSelection } from "@/components/admin/CorpusMatrixDashboard";
 
 interface TopicOption {
   id: string;
@@ -79,8 +79,41 @@ function categoryLabel(c: { id?: string; category?: string; labelDe?: string }) 
   return c.labelDe ?? c.id ?? c.category ?? "?";
 }
 
-export default function AdminGeneratePage() {
+function applyPrefillFromParams(
+  params: URLSearchParams,
+  categories: CategoryOption[],
+): Partial<{ category: string; level: string; genType: GenerateType; pageTab: PageTab }> | null {
+  const category = params.get("category");
+  const level = params.get("level");
+  const type = params.get("type");
+  const tab = params.get("tab");
+  const out: Partial<{ category: string; level: string; genType: GenerateType; pageTab: PageTab }> = {};
+  let changed = false;
+
+  if (category && (categories.length === 0 || categories.some(c => c.id === category))) {
+    out.category = category;
+    changed = true;
+  }
+  if (level && (LEVELS as readonly string[]).includes(level)) {
+    out.level = level;
+    changed = true;
+  }
+  if (type === "words" || type === "sentences") {
+    out.genType = type;
+    changed = true;
+  }
+  if (tab === "generate" || tab === "coverage" || tab === "taxonomy") {
+    out.pageTab = tab;
+  } else if (changed) {
+    out.pageTab = "generate";
+  }
+
+  return changed ? out : null;
+}
+
+function AdminGeneratePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [taxonomyFull, setTaxonomyFull] = useState<TaxonomyCategoryFull[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("generate");
@@ -101,6 +134,7 @@ export default function AdminGeneratePage() {
   const [newCatId, setNewCatId] = useState("");
   const [newCatLabelDe, setNewCatLabelDe] = useState("");
   const [newTopicLabel, setNewTopicLabel] = useState("");
+  const [prefillHint, setPrefillHint] = useState<string | null>(null);
 
   function loadTaxonomyFull() {
     return fetch("/api/admin/taxonomy")
@@ -135,10 +169,36 @@ export default function AdminGeneratePage() {
       .finally(() => setLoadingTopics(false));
   }, [router]);
 
+  useEffect(() => {
+    const prefill = applyPrefillFromParams(searchParams, categories);
+    if (!prefill) return;
+    if (prefill.category) setCategory(prefill.category);
+    if (prefill.level) setLevel(prefill.level);
+    if (prefill.genType) setGenType(prefill.genType);
+    if (prefill.pageTab) setPageTab(prefill.pageTab);
+    setResult(null);
+    const catLabel = categories.find(c => c.id === prefill.category)?.labelDe ?? prefill.category;
+    if (prefill.category && prefill.level && prefill.genType) {
+      setPrefillHint(`${catLabel} · ${prefill.level} · ${prefill.genType === "words" ? "Wörter" : "Sätze"}`);
+    }
+    router.replace("/admin/generate", { scroll: false });
+  }, [searchParams, categories, router]);
+
   function applyGap(gap: CoverageGap) {
     setCategory(gap.category);
     setGenType(gap.needsWords >= gap.needsSentences ? "words" : "sentences");
     setResult(null);
+    setPrefillHint(`${categoryLabel(gap)} · ${gap.needsWords >= gap.needsSentences ? "Wörter" : "Sätze"} (Kategorie)`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function applyMatrixCell(cell: MatrixCellSelection) {
+    setCategory(cell.category);
+    setLevel(cell.level);
+    setGenType(cell.type);
+    setPageTab("generate");
+    setResult(null);
+    setPrefillHint(`${cell.labelDe} · ${cell.level} · ${cell.type === "words" ? "Wörter" : "Sätze"}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -293,6 +353,7 @@ export default function AdminGeneratePage() {
               <CorpusMatrixDashboard
                 categories={(coverage.categories as MatrixCategoryRow[]).filter(c => c.byLevel)}
                 targets={coverage.targets}
+                onCellClick={applyMatrixCell}
               />
             </AdminCard>
 
@@ -435,6 +496,15 @@ export default function AdminGeneratePage() {
 
         {pageTab === "generate" && (
           <>
+            {prefillHint && (
+              <AdminCard style={{ background: "#EEEDFE", borderColor: "#C4B5FD", padding: "12px 14px" }}>
+                <div style={{ fontSize: 11, color: "#5B21B6", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                  Vorausgefüllt aus Matrix
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#7F77DD", fontFamily: "var(--font-mono)" }}>{prefillHint}</div>
+              </AdminCard>
+            )}
+
             <div style={{ display: "flex", gap: 8 }}>
               {(["sentences", "words"] as const).map(t => (
                 <button
@@ -623,5 +693,13 @@ export default function AdminGeneratePage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function AdminGeneratePage() {
+  return (
+    <Suspense fallback={<p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
+      <AdminGeneratePageInner />
+    </Suspense>
   );
 }
