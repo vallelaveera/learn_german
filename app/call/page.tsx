@@ -3,6 +3,9 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message } from "@/lib/types";
+import { parseTutorResponse, attachCorrectionToLastUser } from "@/lib/tutor-response";
+import { extractCorrectionsFromMessages, type CallCorrection } from "@/lib/corrections";
+import { CallCorrectionsPanel } from "@/components/CallCorrectionsPanel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./call.module.css";
@@ -35,6 +38,7 @@ export default function CallPage() {
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
   const [showReport, setShowReport] = useState(false);
+  const [callCorrections, setCallCorrections] = useState<CallCorrection[]>([]);
   const [newWords, setNewWords] = useState<string[]>([]);
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
@@ -238,17 +242,17 @@ export default function CallPage() {
         }
       }
       if (!fullText) throw new Error();
-      const allLines = fullText.split("\n").filter(Boolean);
-      const hint = allLines.find(l => l.startsWith("\u{1F4A1}"));
-      const german = allLines.filter(l => !l.startsWith("\u{1F4A1}")).join(" ").trim();
+      const { german, hint, correction } = parseTutorResponse(fullText);
       const assistantMsg: Message = {
         role: "assistant",
         content: german,
-        translation: hint?.replace("\u{1F4A1} ", ""),
+        translation: hint,
         timestamp: Date.now(),
       };
       setMessages(prev => {
-        const updated = [...prev, assistantMsg];
+        let updated = prev;
+        if (correction) updated = attachCorrectionToLastUser(updated, correction) as Message[];
+        updated = [...updated, assistantMsg];
         autoSave(updated);
         return updated;
       });
@@ -434,14 +438,34 @@ export default function CallPage() {
     setCallState("idle");
     releaseWakeLock();
     setNewWords([]);
+    const corrections = extractCorrectionsFromMessages(messages, sessionId);
+    setCallCorrections(corrections);
     setShowReport(true);
+    const endedAt = Date.now();
+    fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: sessionId, userId: "",
+        startedAt: sessionStartRef.current ?? endedAt,
+        endedAt,
+        messages,
+        title: messages.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
+        totalMessages: messages.length,
+      }),
+    });
+    fetch("/api/corrections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, messages }),
+    });
     fetch("/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages,
-        sessionStart: sessionStartRef.current ?? Date.now(),
-        sessionEnd: Date.now(),
+        sessionStart: sessionStartRef.current ?? endedAt,
+        sessionEnd: endedAt,
       }),
     })
       .then(r => r.json())
@@ -528,7 +552,10 @@ export default function CallPage() {
           <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
             <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p className={styles.bubbleText}>{msg.content.replace(/<end>/g, "").trim()}</p>
-            {msg.translation && <p className={styles.bubbleHint}>💡 {msg.translation}</p>}
+            {msg.correction && msg.role === "user" && (
+              <p className={styles.bubbleHint} style={{ color: "rgba(255,255,255,0.9)" }}>💡 {msg.correction}</p>
+            )}
+            {msg.translation && msg.role === "assistant" && <p className={styles.bubbleHint}>💡 {msg.translation}</p>}
             {msg.role === "assistant" && (
               <div>
                 <button
@@ -708,6 +735,8 @@ export default function CallPage() {
                 </div>
               ))}
             </div>
+            <CallCorrectionsPanel corrections={callCorrections} sessionId={sessionId} />
+
             {newWords.length > 0 && (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>Neue Woerter</div>
@@ -725,13 +754,18 @@ export default function CallPage() {
                 <div key={i} style={{ padding: "10px 14px", marginBottom: 8, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", marginLeft: msg.role === "user" ? "auto" : 0, background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`, borderLeft: msg.role === "assistant" ? "2px solid #7c4daa" : undefined, borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px" }}>
                   <div style={{ fontSize: 10, color: msg.role === "assistant" ? "#7c4daa" : "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
                   <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
-                  {msg.translation && <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>}
+                  {msg.correction && msg.role === "user" && (
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.correction}</p>
+                  )}
+                  {msg.translation && msg.role === "assistant" && (
+                    <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
+                  )}
                 </div>
               ))}
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setShowReport(false); setMessages([]); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+              <button onClick={() => { setShowReport(false); setMessages([]); setCallCorrections([]); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
                 Neues Gespraech
               </button>
               <Link href="/history" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>

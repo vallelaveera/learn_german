@@ -42,10 +42,11 @@ function WarmupInner() {
     const correct = card.correctOption === option;
     setFeedback(correct ? "correct" : "wrong");
     saveResult({ itemId: card.id, german: card.german, correct });
+    const delay = correct ? 900 : 2000;
     setTimeout(() => {
       if (index + 1 >= cards.length) finish();
       else { setIndex(i => i + 1); setFeedback(null); }
-    }, 900);
+    }, delay);
   };
 
   if (loading) {

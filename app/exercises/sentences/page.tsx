@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Chip {
   id: string;
@@ -16,12 +16,17 @@ interface SentenceExercise {
   level: string;
   words: string[];
   chips: Chip[];
+  said?: string;
 }
 
-type Phase = "preview" | "build" | "done";
+type Phase = "preview" | "build" | "complete" | "done";
 
-export default function SentencesPage() {
+function SentencesInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const fromCall = params.get("source") === "call";
+  const sessionId = params.get("session");
+
   const [exercises, setExercises] = useState<SentenceExercise[]>([]);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("preview");
@@ -33,26 +38,36 @@ export default function SentencesPage() {
   const current = exercises[index];
 
   useEffect(() => {
-    fetch("/api/exercises/sentences")
+    const url = fromCall
+      ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
+      : "/api/exercises/sentences";
+    fetch(url)
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => { if (data?.exercises?.length) setExercises(data.exercises); })
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, fromCall, sessionId]);
 
   useEffect(() => {
     if (phase !== "preview" || !current) return;
-    const t = setTimeout(() => setPhase("build"), 2800);
+    const t = setTimeout(() => setPhase("build"), fromCall ? 3200 : 2800);
     return () => clearTimeout(t);
-  }, [phase, current, index]);
+  }, [phase, current, index, fromCall]);
 
   const saveResult = (correct: boolean) => {
     if (!current) return;
+    const body: {
+      results: { itemId: string; german: string; correct: boolean }[];
+      practicedCorrectionIds?: string[];
+    } = {
+      results: [{ itemId: current.id, german: current.german, correct }],
+    };
+    if (fromCall && correct) {
+      body.practicedCorrectionIds = [current.id];
+    }
     fetch("/api/exercises/sentences", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        results: [{ itemId: current.id, german: current.german, correct }],
-      }),
+      body: JSON.stringify(body),
     });
   };
 
@@ -80,7 +95,8 @@ export default function SentencesPage() {
     if (next.length === current.words.length) {
       setScore(s => s + 1);
       saveResult(true);
-      setTimeout(() => nextSentence(), 700);
+      setPhase("complete");
+      setTimeout(() => nextSentence(), 2000);
     }
   };
 
@@ -95,7 +111,11 @@ export default function SentencesPage() {
   if (!exercises.length) {
     return (
       <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: 24, textAlign: "center" }}>
-        <p style={{ marginTop: 80, color: "var(--text-muted)" }}>Keine Sätze verfügbar.</p>
+        <p style={{ marginTop: 80, color: "var(--text-muted)" }}>
+          {fromCall
+            ? "Keine übbaren Korrekturen aus diesem Anruf (Sätze zu kurz oder schon geübt)."
+            : "Keine Sätze verfügbar."}
+        </p>
         <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>← Zurück</Link>
       </div>
     );
@@ -111,16 +131,15 @@ export default function SentencesPage() {
         <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
           {score} / {exercises.length} richtig
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Satzbau — Wörter in der richtigen Reihenfolge</p>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>
+          {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
+        </p>
         <Link href="/mode" style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none" }}>
           Zurück
         </Link>
       </div>
     );
   }
-
-  const usedCounts: Record<string, number> = {};
-  built.forEach(w => { usedCounts[w] = (usedCounts[w] ?? 0) + 1; });
 
   return (
     <div style={{
@@ -131,7 +150,9 @@ export default function SentencesPage() {
     }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, maxWidth: 400, margin: "0 auto 20px" }}>
         <div>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>Satzbau</p>
+          <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>
+            {fromCall ? "Satzbau · Anruf" : "Satzbau"}
+          </p>
           <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} · {current?.level}</p>
         </div>
         <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
@@ -143,7 +164,25 @@ export default function SentencesPage() {
             textAlign: "center", padding: "28px 20px", marginBottom: 24,
             background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", borderRadius: 12,
           }}>
-            <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>MERKE DIR DEN SATZ</p>
+            <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
+              {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : "MERKE DIR DEN SATZ"}
+            </p>
+            {fromCall && current.said && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic" }}>
+                Du sagtest: „{current.said}"
+              </p>
+            )}
+            <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.45, marginBottom: 10 }}>{current.german}</p>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>{current.english}</p>
+          </div>
+        )}
+
+        {phase === "complete" && current && (
+          <div style={{
+            textAlign: "center", padding: "28px 20px", marginBottom: 24,
+            background: "rgba(39,174,96,0.08)", border: "0.5px solid rgba(39,174,96,0.35)", borderRadius: 12,
+          }}>
+            <p style={{ fontSize: 10, color: "var(--green)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>RICHTIG!</p>
             <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.45, marginBottom: 10 }}>{current.german}</p>
             <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>{current.english}</p>
           </div>
@@ -200,5 +239,17 @@ export default function SentencesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SentencesPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
+      </div>
+    }>
+      <SentencesInner />
+    </Suspense>
   );
 }

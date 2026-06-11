@@ -2,6 +2,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   translation?: string;
+  correction?: string;
   timestamp: number;
 }
 

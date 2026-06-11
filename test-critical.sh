@@ -362,6 +362,37 @@ grep -q 'intentionalStopRef' components/CallRecorder.tsx \
   || check "CallRecorder: ignore WS error on stop" "fail"
 
 echo ""
+echo "── call corrections / satzbau report ─"
+
+test -f lib/corrections.ts \
+  && check "corrections: extract helper" "ok" \
+  || check "corrections: extract helper" "fail"
+
+grep -q 'saveSessionCorrections' lib/kv.ts \
+  && check "KV: save session corrections" "ok" \
+  || check "KV: save session corrections" "fail"
+
+test -f app/api/corrections/route.ts \
+  && check "API: corrections route" "ok" \
+  || check "API: corrections route" "fail"
+
+grep -q 'CallCorrectionsPanel' components/CallCorrectionsPanel.tsx \
+  && check "UI: call corrections panel" "ok" \
+  || check "UI: call corrections panel" "fail"
+
+grep -q 'source=call' app/api/exercises/sentences/route.ts \
+  && check "sentences API: call source" "ok" \
+  || check "sentences API: call source" "fail"
+
+grep -q 'CallCorrectionsPanel' app/callmode/page.tsx \
+  && check "callmode: corrections report" "ok" \
+  || check "callmode: corrections report" "fail"
+
+grep -q 'CallCorrectionsPanel' app/call/page.tsx \
+  && check "call: corrections report" "ok" \
+  || check "call: corrections report" "fail"
+
+echo ""
 echo "── middleware.ts ───────────────────────"
 
 grep -q '"/login"' middleware.ts \

@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
 import { FISH_SPOKEN_RULES } from "@/lib/fish-tts";
 import { Message } from "@/lib/types";
+import { parseTutorResponse, attachCorrectionToLastUser } from "@/lib/tutor-response";
+import { extractCorrectionsFromMessages, type CallCorrection } from "@/lib/corrections";
+import { CallCorrectionsPanel } from "@/components/CallCorrectionsPanel";
 
 // ── Module-level flags ─────────────────────────────────────
 let _cm_sending = false;
@@ -79,6 +82,7 @@ export default function CallModePage() {
   const isMutedRef = useRef(false);
   const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
+  const [callCorrections, setCallCorrections] = useState<CallCorrection[]>([]);
   const sessionStartRef = useRef<number | null>(null);
 
   // Refs
@@ -341,23 +345,16 @@ export default function CallModePage() {
         }
       }
       if (!fullText) throw new Error();
-      const allLines = fullText.split("\n").filter(Boolean);
-      const speechLines = allLines.filter(l => !l.startsWith("💡"));
-      const german = speechLines.join(" ").trim();
-      const hintLines = allLines
-        .filter(l => l.startsWith("💡"))
-        .map(l => l.replace(/^💡\s*/, "").trim())
-        .filter(Boolean);
-      const hint = hintLines.length
-        ? hintLines.filter((h, i) => hintLines.indexOf(h) === i).join(" · ")
-        : undefined;
+      const { german, hint, correction } = parseTutorResponse(fullText);
       const assistantMsg: Message = {
         role: "assistant",
         content: german,
         translation: hint,
         timestamp: Date.now(),
       };
-      const withAssistant = [...messagesRef.current, assistantMsg];
+      let withAssistant = [...messagesRef.current];
+      if (correction) withAssistant = attachCorrectionToLastUser(withAssistant, correction) as Message[];
+      withAssistant = [...withAssistant, assistantMsg];
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
       await streamTTS(german);
@@ -649,6 +646,7 @@ export default function CallModePage() {
     setError(null);
     setLiveText("");
     setDuration(0);
+    setCallCorrections([]);
 
     try {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
@@ -699,19 +697,42 @@ export default function CallModePage() {
     stopAudio();
     if (durationRef.current) clearInterval(durationRef.current);
 
-    if (messagesRef.current.length > 1) {
+    const history = messagesRef.current;
+    if (history.length > 1) {
+      const corrections = extractCorrectionsFromMessages(history, sessionId);
+      setCallCorrections(corrections);
+      const endedAt = Date.now();
+      fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: sessionId, userId: "",
+          startedAt: sessionStartRef.current ?? endedAt,
+          endedAt,
+          messages: history,
+          title: history.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
+          totalMessages: history.length,
+        }),
+      });
+      fetch("/api/corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, messages: history }),
+      });
       fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: messagesRef.current,
-          sessionStart: sessionStartRef.current ?? Date.now(),
-          sessionEnd: Date.now(),
+          messages: history,
+          sessionStart: sessionStartRef.current ?? endedAt,
+          sessionEnd: endedAt,
         }),
       });
+    } else {
+      setCallCorrections([]);
     }
     setPhase("ended");
-  }, [stop, stopAudio]);
+  }, [stop, stopAudio, sessionId]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
@@ -844,11 +865,16 @@ export default function CallModePage() {
         <p style={{ fontSize: 12, color: "#8a7060" }}>{fmt(duration)} · {messages.length} Nachrichten</p>
       </div>
 
+      <CallCorrectionsPanel corrections={callCorrections} sessionId={sessionId} />
+
       <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {messages.map((msg, i) => (
           <div key={i} style={{ padding: "10px 14px", borderRadius: 16, maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`, borderLeft: msg.role === "assistant" ? "2px solid #7c4daa" : undefined }}>
             <div style={{ fontSize: 10, color: msg.role === "assistant" ? "#7c4daa" : "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content}</p>
+            {msg.correction && msg.role === "user" && (
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.correction}</p>
+            )}
             {msg.translation && msg.role === "assistant" && (
               <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
             )}
@@ -857,7 +883,7 @@ export default function CallModePage() {
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid #e0d8f0", background: "#ffffff", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
+        <button onClick={() => { setPhase("idle"); setMessages([]); setDuration(0); setCallCorrections([]); }} style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid #e0d8f0", background: "#ffffff", color: "#2d1f1a", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)", minHeight: 48 }}>
           Nochmal
         </button>
         <a href="/mode" style={{ flex: 1, padding: "14px", borderRadius: 10, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 14, fontFamily: "var(--font-mono)", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48 }}>
@@ -900,6 +926,9 @@ export default function CallModePage() {
                 {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
               </div>
               <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content.replace(/<end>/g, "").trim()}</p>
+              {msg.correction && msg.role === "user" && (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.correction}</p>
+              )}
               {msg.translation && msg.role === "assistant" && (
                 <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
               )}

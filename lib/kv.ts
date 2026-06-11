@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import type { CallCorrection } from "./corrections";
 import { Session, VocabWord, UserProfile, UserFacts } from "./types";
 import type { CareerVocabUserProgress } from "./career-vocab/types";
 
@@ -389,4 +390,57 @@ export async function getWordExamples(word: string): Promise<string[] | null> {
   } catch {
     return null;
   }
+}
+
+// ── Call corrections ───────────────────────────────────────
+
+const CORRECTIONS_CAP = 100;
+
+async function getAllCallCorrections(userId: string): Promise<CallCorrection[]> {
+  try {
+    const data = await redis.get<string>(`call_corrections:${userId}`);
+    if (!data) return [];
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSessionCorrections(
+  userId: string,
+  sessionId: string,
+  corrections: CallCorrection[],
+): Promise<void> {
+  if (!corrections.length) return;
+  const all = await getAllCallCorrections(userId);
+  const withoutSession = all.filter(c => c.sessionId !== sessionId);
+  const merged = [...withoutSession, ...corrections].slice(-CORRECTIONS_CAP);
+  await redis.set(`call_corrections:${userId}`, JSON.stringify(merged));
+}
+
+export async function getSessionCorrections(
+  userId: string,
+  sessionId: string,
+): Promise<CallCorrection[]> {
+  const all = await getAllCallCorrections(userId);
+  return all.filter(c => c.sessionId === sessionId);
+}
+
+export async function getUnpracticedCorrections(
+  userId: string,
+  limit = 5,
+): Promise<CallCorrection[]> {
+  const all = await getAllCallCorrections(userId);
+  return all.filter(c => !c.practiced).slice(-limit);
+}
+
+export async function markCorrectionsPracticed(
+  userId: string,
+  ids: string[],
+): Promise<void> {
+  if (!ids.length) return;
+  const idSet = new Set(ids);
+  const all = await getAllCallCorrections(userId);
+  const updated = all.map(c => (idSet.has(c.id) ? { ...c, practiced: true } : c));
+  await redis.set(`call_corrections:${userId}`, JSON.stringify(updated));
 }
