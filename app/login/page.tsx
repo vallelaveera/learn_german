@@ -2,17 +2,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
-import { shouldSkipLevelOnLogin, type GermanLevel } from "@/lib/levels";
+import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
+import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
 const PURPLE = "#7F77DD";
 
-type Step = "email" | "name" | "level";
+type Step = "email" | "name" | "level" | "native";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [step, setStep] = useState<Step>("email");
   const [selectedLevel, setSelectedLevel] = useState<GermanLevel | null>(null);
+  const [nativeLanguage, setNativeLanguage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -24,12 +26,16 @@ export default function LoginPage() {
     setStep("name");
   };
 
-  const completeLogin = async (level?: GermanLevel) => {
-    if (level) {
+  const completeLogin = async (level?: GermanLevel, nativeLang?: string) => {
+    const payload: { germanLevel?: GermanLevel; nativeLanguage?: string } = {};
+    if (level) payload.germanLevel = level;
+    if (nativeLang?.trim()) payload.nativeLanguage = nativeLang.trim();
+
+    if (Object.keys(payload).length > 0) {
       await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ germanLevel: level }),
+        body: JSON.stringify(payload),
       });
     }
     router.push("/mode");
@@ -63,10 +69,33 @@ export default function LoginPage() {
   const handleLevel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLevel) return;
+    if (isBeginnerLevel(selectedLevel)) {
+      setError("");
+      setStep("native");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       await completeLogin(selectedLevel);
+    } catch {
+      setError("Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNative = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLevel) return;
+    if (!nativeLanguage.trim()) {
+      setError("Bitte wähle deine Muttersprache.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await completeLogin(selectedLevel, nativeLanguage);
     } catch {
       setError("Something went wrong. Try again.");
     } finally {
@@ -79,7 +108,9 @@ export default function LoginPage() {
       ? "Your German tutor is waiting."
       : step === "name"
         ? "What should Maya call you?"
-        : "Du kannst es später ändern.";
+        : step === "level"
+          ? "Du kannst es später ändern."
+          : "Maya erklärt Hinweise in deiner Sprache.";
 
   return (
     <div style={{
@@ -205,7 +236,7 @@ export default function LoginPage() {
                 {loading ? "Wird geladen..." : "Weiter →"}
               </button>
             </form>
-          ) : (
+          ) : step === "level" ? (
             <form onSubmit={handleLevel}>
               <h2 style={{
                 fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 400,
@@ -233,6 +264,46 @@ export default function LoginPage() {
                 }}
               >
                 {loading ? "Wird geladen..." : "Weiter"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleNative}>
+              <button
+                type="button"
+                onClick={() => setStep("level")}
+                style={{
+                  fontSize: 11, color: "var(--accent)", marginBottom: 12,
+                  cursor: "pointer", background: "none", border: "none", padding: 0,
+                }}
+              >
+                ← Level ändern
+              </button>
+              <h2 style={{
+                fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 400,
+                color: "var(--text)", margin: "0 0 4px", textAlign: "center",
+              }}>
+                Was ist deine Muttersprache?
+              </h2>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", margin: "0 0 20px" }}>
+                💡 Hinweise während des Gesprächs erscheinen in dieser Sprache.
+              </p>
+
+              <NativeLanguageSelect value={nativeLanguage} onChange={setNativeLanguage} />
+
+              {error && <p style={{ fontSize: 12, color: "var(--red)", marginTop: 12 }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={!nativeLanguage.trim() || loading}
+                style={{
+                  width: "100%", minHeight: 44, marginTop: 20, padding: "12px",
+                  background: PURPLE, border: "none",
+                  borderRadius: 8, color: "#fff", fontSize: 15,
+                  fontWeight: 500, cursor: nativeLanguage.trim() && !loading ? "pointer" : "not-allowed",
+                  fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+                  opacity: nativeLanguage.trim() && !loading ? 1 : 0.5,
+                }}
+              >
+                {loading ? "Wird geladen..." : "Los geht's"}
               </button>
             </form>
           )}

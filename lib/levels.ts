@@ -17,6 +17,10 @@ export function nextGermanLevel(level: string): GermanLevel | null {
   return GERMAN_LEVELS[idx + 1];
 }
 
+export function isBeginnerLevel(level?: string): boolean {
+  return level === "A1" || level === "A2";
+}
+
 export function shouldSkipLevelOnLogin(user: {
   totalSessions?: number;
   createdAt?: number;

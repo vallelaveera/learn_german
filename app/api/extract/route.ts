@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     let homeworkId: string | undefined;
     if (
       messages.length > 1 &&
-      isProfileComplete(user.facts) &&
+      isProfileComplete(user) &&
       (await isHomeworkEnabledForUser(user.userId))
     ) {
       try {
