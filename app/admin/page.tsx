@@ -190,7 +190,19 @@ export default function AdminPage() {
                 {coverage.totals.words} W · {coverage.totals.sentences} S
               </div>
             </div>
-            <CorpusMatrixDashboard categories={coverage.categories} targets={coverage.targets} />
+            <CorpusMatrixDashboard
+              categories={coverage.categories}
+              targets={coverage.targets}
+              onCellClick={cell => {
+                const q = new URLSearchParams({
+                  category: cell.category,
+                  level: cell.level,
+                  type: cell.type,
+                  tab: "generate",
+                });
+                router.push(`/admin/generate?${q.toString()}`);
+              }}
+            />
           </AdminCard>
 
           {coverage.gaps.length > 0 && (

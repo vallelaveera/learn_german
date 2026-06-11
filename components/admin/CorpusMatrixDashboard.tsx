@@ -13,24 +13,46 @@ export interface MatrixCategoryRow {
   byLevel: Record<string, { words: number; sentences: number }>;
 }
 
+export interface MatrixCellSelection {
+  category: string;
+  labelDe: string;
+  level: string;
+  type: "words" | "sentences";
+  count: number;
+}
+
 interface Props {
   categories: MatrixCategoryRow[];
   targets?: { words: number; sentences: number };
+  onCellClick?: (cell: MatrixCellSelection) => void;
+  /** When false, only empty (red) cells are clickable. Default: true (red + yellow). */
+  clickableLowCells?: boolean;
 }
 
 type ViewMode = "words" | "sentences";
 
 function cellColors(count: number, target: number) {
   if (count === 0) {
-    return { background: "#FEE2E2", color: "#991B1B", border: "0.5px solid #FECACA" };
+    return { background: "#FEE2E2", color: "#991B1B", border: "0.5px solid #FECACA", tier: "empty" as const };
   }
   if (count < Math.max(3, Math.floor(target / 3))) {
-    return { background: "#FEF3C7", color: "#92400E", border: "0.5px solid #FDE68A" };
+    return { background: "#FEF3C7", color: "#92400E", border: "0.5px solid #FDE68A", tier: "low" as const };
   }
-  return { background: "#D1FAE5", color: "#065F46", border: "0.5px solid #A7F3D0" };
+  return { background: "#D1FAE5", color: "#065F46", border: "0.5px solid #A7F3D0", tier: "good" as const };
 }
 
-export function CorpusMatrixDashboard({ categories, targets }: Props) {
+function isCellClickable(tier: "empty" | "low" | "good", clickableLowCells: boolean) {
+  if (tier === "empty") return true;
+  if (tier === "low" && clickableLowCells) return true;
+  return false;
+}
+
+export function CorpusMatrixDashboard({
+  categories,
+  targets,
+  onCellClick,
+  clickableLowCells = true,
+}: Props) {
   const [mode, setMode] = useState<ViewMode>("words");
   const target = mode === "words" ? (targets?.words ?? 15) : (targets?.sentences ?? 15);
 
@@ -118,25 +140,63 @@ export function CorpusMatrixDashboard({ categories, targets }: Props) {
                   </td>
                   {LEVELS.map(lv => {
                     const count = row.byLevel[lv]?.[mode] ?? 0;
-                    const colors = cellColors(count, target);
+                    const { tier, ...colors } = cellColors(count, target);
+                    const clickable = onCellClick && isCellClickable(tier, clickableLowCells);
+                    const label = mode === "words" ? "Wörter" : "Sätze";
+                    const title = clickable
+                      ? `${row.labelDe} · ${lv} · ${count} ${label} — Klicken zum Generieren`
+                      : `${row.labelDe} · ${lv} · ${count} ${label}`;
+
+                    const cellStyle = {
+                      ...colors,
+                      borderRadius: 8,
+                      minWidth: 40,
+                      minHeight: 36,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: count > 99 ? 10 : 12,
+                      width: "100%",
+                      cursor: clickable ? "pointer" : "default",
+                      transition: "transform 0.1s ease, box-shadow 0.1s ease",
+                      boxShadow: clickable ? "0 0 0 0 transparent" : undefined,
+                    } as const;
+
                     return (
                       <td key={lv} style={{ padding: 2 }}>
-                        <div
-                          title={`${row.labelDe} · ${lv} · ${count} ${mode === "words" ? "Wörter" : "Sätze"}`}
-                          style={{
-                            ...colors,
-                            borderRadius: 8,
-                            minWidth: 40,
-                            minHeight: 36,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 600,
-                            fontSize: count > 99 ? 10 : 12,
-                          }}
-                        >
-                          {count}
-                        </div>
+                        {clickable ? (
+                          <button
+                            type="button"
+                            title={title}
+                            onClick={() => onCellClick({
+                              category: row.category,
+                              labelDe: row.labelDe,
+                              level: lv,
+                              type: mode,
+                              count,
+                            })}
+                            style={{
+                              ...cellStyle,
+                              border: colors.border,
+                              fontFamily: "var(--font-mono)",
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.transform = "scale(1.06)";
+                              e.currentTarget.style.boxShadow = "0 2px 8px rgba(127, 119, 221, 0.35)";
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.transform = "scale(1)";
+                              e.currentTarget.style.boxShadow = "0 0 0 transparent";
+                            }}
+                          >
+                            {count}
+                          </button>
+                        ) : (
+                          <div title={title} style={cellStyle}>
+                            {count}
+                          </div>
+                        )}
                       </td>
                     );
                   })}
@@ -174,13 +234,16 @@ export function CorpusMatrixDashboard({ categories, targets }: Props) {
           <span style={{ width: 10, height: 10, borderRadius: 3, background: "#D1FAE5", border: "0.5px solid #A7F3D0" }} /> gut
         </span>
         <span style={{ marginLeft: "auto" }}>
+          {onCellClick ? "Rot/gelb antippen → Generieren · " : ""}
           Ziel pro Kategorie: {target}+ {mode === "words" ? "W" : "S"} gesamt
         </span>
       </div>
 
+      {!onCellClick && (
       <Link href="/admin/generate" style={{ display: "inline-block", marginTop: 10, fontSize: 12, color: "#7F77DD", fontWeight: 500, textDecoration: "none" }}>
         Lücken füllen → Inhalt generieren
       </Link>
+      )}
     </div>
   );
 }
