@@ -25,8 +25,6 @@ interface Props {
   categories: MatrixCategoryRow[];
   targets?: { words: number; sentences: number };
   onCellClick?: (cell: MatrixCellSelection) => void;
-  /** When false, only empty (red) cells are clickable. Default: true (red + yellow). */
-  clickableLowCells?: boolean;
 }
 
 type ViewMode = "words" | "sentences";
@@ -41,17 +39,10 @@ function cellColors(count: number, target: number) {
   return { background: "#D1FAE5", color: "#065F46", border: "0.5px solid #A7F3D0", tier: "good" as const };
 }
 
-function isCellClickable(tier: "empty" | "low" | "good", clickableLowCells: boolean) {
-  if (tier === "empty") return true;
-  if (tier === "low" && clickableLowCells) return true;
-  return false;
-}
-
 export function CorpusMatrixDashboard({
   categories,
   targets,
   onCellClick,
-  clickableLowCells = true,
 }: Props) {
   const [mode, setMode] = useState<ViewMode>("words");
   const target = mode === "words" ? (targets?.words ?? 15) : (targets?.sentences ?? 15);
@@ -140,8 +131,8 @@ export function CorpusMatrixDashboard({
                   </td>
                   {LEVELS.map(lv => {
                     const count = row.byLevel[lv]?.[mode] ?? 0;
-                    const { tier, ...colors } = cellColors(count, target);
-                    const clickable = onCellClick && isCellClickable(tier, clickableLowCells);
+                    const { ...colors } = cellColors(count, target);
+                    const clickable = !!onCellClick;
                     const label = mode === "words" ? "Wörter" : "Sätze";
                     const title = clickable
                       ? `${row.labelDe} · ${lv} · ${count} ${label} — Klicken zum Generieren`
@@ -234,7 +225,7 @@ export function CorpusMatrixDashboard({
           <span style={{ width: 10, height: 10, borderRadius: 3, background: "#D1FAE5", border: "0.5px solid #A7F3D0" }} /> gut
         </span>
         <span style={{ marginLeft: "auto" }}>
-          {onCellClick ? "Rot/gelb antippen → Generieren · " : ""}
+          {onCellClick ? "Zelle antippen → Generieren · " : ""}
           Ziel pro Kategorie: {target}+ {mode === "words" ? "W" : "S"} gesamt
         </span>
       </div>

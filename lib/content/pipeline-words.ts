@@ -1,13 +1,19 @@
 import { generateWords } from "./generate-words";
 import { validateWords } from "./validate-words";
 import { saveWords } from "@/lib/vocab/save";
+import { listCorpusGermanByCategoryLevel } from "@/lib/vocab/load";
 import type { GenerateParams } from "./generate";
 import type { PipelineSummary } from "./pipeline";
 
 export async function runWordGenerationPipeline(params: GenerateParams): Promise<PipelineSummary> {
   const requested = Math.min(Math.max(params.count, 1), 50);
 
-  const generated = await generateWords({ ...params, count: requested });
+  const excludeDe = await listCorpusGermanByCategoryLevel(params.category, params.level, "words");
+  if (excludeDe.length) {
+    console.log(`[pipeline-words] excluding ${excludeDe.length} existing entries`);
+  }
+
+  const generated = await generateWords({ ...params, count: requested, excludeDe });
   const { passed, rejected } = await validateWords(generated);
 
   const rejectionRate =

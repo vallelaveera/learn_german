@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import type { SavedSentence, SavedWord } from "./types";
+import type { CEFRLevel, SavedSentence, SavedWord } from "./types";
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -44,6 +44,24 @@ export async function loadCorpusSentences(): Promise<SavedSentence[]> {
     console.error("[vocab/load] failed to load corpus sentences:", e);
     return [];
   }
+}
+
+export async function listCorpusGermanByCategoryLevel(
+  category: string,
+  level: CEFRLevel,
+  kind: "words" | "sentences"
+): Promise<string[]> {
+  const entries = kind === "words" ? await loadCorpusWords() : await loadCorpusSentences();
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const entry of entries) {
+    if (entry.category !== category || entry.level !== level) continue;
+    const de = entry.de.trim();
+    if (!de || seen.has(de)) continue;
+    seen.add(de);
+    result.push(de);
+  }
+  return result;
 }
 
 export async function loadCorpusWords(): Promise<SavedWord[]> {
