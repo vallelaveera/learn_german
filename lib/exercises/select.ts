@@ -1,6 +1,6 @@
 import { getVocab, getExerciseExcludedKeys } from "@/lib/kv";
 import type { UserProfile } from "@/lib/types";
-import { getWarmupPool, resolveWordEntry, resolveWordsToEntries } from "./load";
+import { getWarmupPoolAsync, preloadCorpusWords, resolveWordEntry, resolveWordsToEntries } from "./load";
 import { isLevelAppropriate, isTooBasic } from "./levels";
 import { toBinaryCards } from "./cards";
 import { isExerciseEntryExcluded } from "./exclusion";
@@ -13,6 +13,7 @@ function isExcluded(entry: FlashCardEntry, excluded: Set<string>): boolean {
 }
 
 export async function selectWarmupCards(userId: string, profile: UserProfile, limit = 5): Promise<BinaryCard[]> {
+  await preloadCorpusWords();
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
   const excluded = await getExerciseExcludedKeys(userId, "warmup");
   const vocab = await getVocab(userId);
@@ -49,7 +50,7 @@ export async function selectWarmupCards(userId: string, profile: UserProfile, li
   );
 
   if (entries.length < limit) {
-    const pool = getWarmupPool(userLevel, limit * 12);
+    const pool = await getWarmupPoolAsync(userLevel, limit * 12);
     for (const entry of pool) {
       if (entries.length >= limit) break;
       if (isExcluded(entry, excluded)) continue;

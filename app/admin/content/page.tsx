@@ -9,7 +9,9 @@ interface ContentWord {
   german: string;
   english: string;
   level: string;
-  source: "placement" | "common" | "career";
+  source: "placement" | "common" | "career" | "generated";
+  category?: string;
+  topic?: string;
 }
 
 interface ContentSentence {
@@ -26,7 +28,7 @@ interface Catalog {
   words: ContentWord[];
   sentences: ContentSentence[];
   counts: {
-    words: { total: number; placement: number; common: number; career: number; byLevel: Record<string, number> };
+    words: { total: number; placement: number; common: number; career: number; generated: number; byLevel: Record<string, number> };
     sentences: { total: number; byLevel: Record<string, number> };
   };
 }
@@ -95,7 +97,7 @@ export default function AdminContentPage() {
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Wörter</div>
               <div style={{ fontSize: 26, fontWeight: 500, color: "var(--accent)", marginBottom: 6 }}>{catalog.counts.words.total}</div>
               <div style={{ fontSize: 10, color: "var(--text-dim)", lineHeight: 1.5 }}>
-                Placement {catalog.counts.words.placement} · Common {catalog.counts.words.common} · Career {catalog.counts.words.career}
+                Placement {catalog.counts.words.placement} · Common {catalog.counts.words.common} · Career {catalog.counts.words.career} · Generated {catalog.counts.words.generated}
               </div>
             </div>
             <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: 14 }}>
@@ -163,6 +165,11 @@ export default function AdminContentPage() {
                 </div>
                 <p style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text)", margin: "0 0 4px", lineHeight: 1.35 }}>{w.german}</p>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, fontStyle: "italic" }}>{w.english}</p>
+                {w.source === "generated" && (w.category || w.topic) && (
+                  <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", fontFamily: "var(--font-mono)" }}>
+                    {[w.category, w.topic].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
             )) : filteredSentences.map(s => (
               <div key={s.id} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>

@@ -99,8 +99,8 @@ export default function AdminPage() {
             <Link href="/admin/generate" style={{ textDecoration: "none" }}>
               <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, marginBottom: 4 }}>Sätze generieren</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Neue Übungssätze mit Claude erstellen</div>
+                  <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, marginBottom: 4 }}>Inhalt generieren</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Wörter & Sätze mit Claude erstellen</div>
                 </div>
                 <span style={{ color: "var(--text-dim)", fontSize: 16 }}>→</span>
               </div>

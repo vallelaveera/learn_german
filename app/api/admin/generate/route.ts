@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { runGenerationPipeline } from "@/lib/content/pipeline";
+import { runWordGenerationPipeline } from "@/lib/content/pipeline-words";
 import type { CEFRLevel, VocabCategory } from "@/lib/vocab/types";
 import { CATEGORY_TOPICS, VOCAB_CATEGORIES } from "./topics";
 
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     const category = body.category as string;
     const topic = body.topic as string | undefined;
     const count = typeof body.count === "number" ? body.count : 20;
+    const type = body.type === "words" ? "words" : "sentences";
 
     if (!level || !isCEFRLevel(level)) {
       return NextResponse.json({ error: "Invalid level" }, { status: 400 });
@@ -56,14 +58,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "count must be between 1 and 50" }, { status: 400 });
     }
 
-    const summary = await runGenerationPipeline({
-      level,
-      category,
-      topic,
-      count,
-    });
+    const summary =
+      type === "words"
+        ? await runWordGenerationPipeline({ level, category, topic, count })
+        : await runGenerationPipeline({ level, category, topic, count });
 
-    return NextResponse.json(summary);
+    return NextResponse.json({ ...summary, type });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

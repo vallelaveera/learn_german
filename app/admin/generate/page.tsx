@@ -17,7 +17,10 @@ interface PipelineSummary {
   rejectionRate: string;
   savedIds: string[];
   rejectedLog: { de: string; issues: string[] }[];
+  type?: "words" | "sentences";
 }
+
+type GenerateType = "words" | "sentences";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 
@@ -37,6 +40,7 @@ export default function AdminGeneratePage() {
   const router = useRouter();
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [loadingTopics, setLoadingTopics] = useState(true);
+  const [genType, setGenType] = useState<GenerateType>("sentences");
   const [level, setLevel] = useState<string>("B1");
   const [category, setCategory] = useState<string>("career");
   const [topic, setTopic] = useState<string>("");
@@ -67,7 +71,8 @@ export default function AdminGeneratePage() {
 
   useEffect(() => {
     setTopic("");
-  }, [category]);
+    setResult(null);
+  }, [category, genType]);
 
   async function handleGenerate() {
     setRunning(true);
@@ -79,6 +84,7 @@ export default function AdminGeneratePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          type: genType,
           level,
           category,
           topic: topic || undefined,
@@ -102,19 +108,43 @@ export default function AdminGeneratePage() {
   const highRejection =
     result && result.generated > 0 && result.rejected / result.generated > 0.3;
 
+  const isWords = genType === "words";
+
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "var(--sat)", paddingBottom: "var(--sab)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--red)", color: "white", padding: "2px 6px", borderRadius: 3 }}>ADMIN</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Sätze generieren</span>
+          <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Inhalt generieren</span>
         </div>
         <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Nutzer</Link>
       </header>
 
       <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["sentences", "words"] as const).map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setGenType(t)}
+              disabled={running}
+              style={{
+                flex: 1, minHeight: 44, borderRadius: 8, fontSize: 13, fontFamily: "var(--font-mono)",
+                border: "0.5px solid var(--border)",
+                background: genType === t ? "#7F77DD" : "var(--surface)",
+                color: genType === t ? "#fff" : "var(--text-muted)",
+                cursor: running ? "not-allowed" : "pointer",
+              }}
+            >
+              {t === "sentences" ? "Sätze" : "Wörter"}
+            </button>
+          ))}
+        </div>
+
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
-          Claude generiert Sätze, prüft Grammatik und speichert nur bestandene Einträge. Max. 8 Wörter pro Satz.
+          {isWords
+            ? "Vokabelkarten mit 2 falschen englischen Optionen. Max. 3 deutsche Wörter pro Eintrag."
+            : "Übungssätze mit Übersetzung. Max. 8 Wörter pro Satz."}
         </p>
 
         {loadingTopics && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt Kategorien...</p>}
@@ -190,7 +220,9 @@ export default function AdminGeneratePage() {
                 fontFamily: "var(--font-mono)",
               }}
             >
-              {running ? "Generiert & prüft… (ca. 15–30 s)" : "Sätze generieren"}
+              {running
+                ? "Generiert & prüft… (ca. 15–30 s)"
+                : isWords ? "Wörter generieren" : "Sätze generieren"}
             </button>
           </>
         )}
@@ -231,7 +263,9 @@ export default function AdminGeneratePage() {
 
             {result.rejectedLog.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Abgelehnte Sätze</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                  Abgelehnt ({isWords ? "Wörter" : "Sätze"})
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {result.rejectedLog.map((r, i) => (
                     <div key={i} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
@@ -247,7 +281,7 @@ export default function AdminGeneratePage() {
 
             <Link href="/admin/content" style={{ textDecoration: "none" }}>
               <div style={{ background: "#EEEDFE", border: "0.5px solid #C4B5FD", borderRadius: 10, padding: "14px 16px", textAlign: "center", fontSize: 13, color: "#7F77DD", fontWeight: 500 }}>
-                Gespeicherte Sätze in Übungsinhalt ansehen →
+                Gespeicherte {isWords ? "Wörter" : "Sätze"} in Übungsinhalt ansehen →
               </div>
             </Link>
           </>
@@ -256,5 +290,4 @@ export default function AdminGeneratePage() {
       <div style={{ height: 32 }} />
     </div>
   );
-
 }

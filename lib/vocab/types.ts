@@ -27,3 +27,18 @@ export interface SavedSentence extends SentenceInput {
   source: "generated";
   createdAt: number;
 }
+
+export interface WordInput {
+  de: string;
+  en: string;
+  level: CEFRLevel;
+  category: VocabCategory;
+  topic?: string;
+  distractors: string[];
+}
+
+export interface SavedWord extends WordInput {
+  id: string;
+  source: "generated";
+  createdAt: number;
+}
