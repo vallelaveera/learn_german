@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { isPlacementDone } from "@/lib/kv";
+import { normalizeGermanLevel } from "@/lib/levels";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     const placementDone = (await isPlacementDone(user.userId)) || user.totalSessions > 0;
     return NextResponse.json({
       placementDone,
-      germanLevel: user.germanLevel,
+      germanLevel: normalizeGermanLevel(user.germanLevel),
       placementScore: user.facts.placementScore,
     });
   } catch (e) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { completePlacement, isPlacementDone, saveExerciseResults } from "@/lib/kv";
 import { getPlacementRound, levelFromPlacement, shouldAdvance } from "@/lib/exercises/placement";
+import { normalizeGermanLevel } from "@/lib/levels";
 import type { PlacementLevel } from "@/lib/exercises/types";
 
 export const runtime = "nodejs";
@@ -73,7 +74,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const finalLevel = levelFromPlacement(completed, accuracies as Record<PlacementLevel, number>);
+    const finalLevel = normalizeGermanLevel(
+      levelFromPlacement(completed, accuracies as Record<PlacementLevel, number>)
+    );
     const score = Math.round(
       Object.values(accuracies).reduce((a, b) => a + b, 0) / Object.keys(accuracies).length * 100
     );

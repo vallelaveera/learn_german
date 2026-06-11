@@ -30,6 +30,7 @@ export function NativeLanguageSelect({ value, onChange }: Props) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {[...COMMON_NATIVE_LANGUAGES, OTHER].map(label => {
           const active = selectedPreset === label;
+          const isOther = label === OTHER;
           return (
             <button
               key={label}
@@ -38,10 +39,17 @@ export function NativeLanguageSelect({ value, onChange }: Props) {
               style={{
                 padding: "8px 12px",
                 borderRadius: 8,
-                border: active ? "1px solid #7F77DD" : "1px solid var(--border)",
-                background: active ? "rgba(127, 119, 221, 0.12)" : "var(--bg)",
-                color: active ? "#7F77DD" : "var(--text)",
+                border: isOther
+                  ? active ? "1px dashed #9ca3af" : "1px dashed var(--border)"
+                  : active ? "1px solid #7F77DD" : "1px solid var(--border)",
+                background: isOther
+                  ? active ? "rgba(156, 163, 175, 0.14)" : "transparent"
+                  : active ? "rgba(127, 119, 221, 0.12)" : "var(--bg)",
+                color: isOther
+                  ? "var(--text-muted)"
+                  : active ? "#7F77DD" : "var(--text)",
                 fontSize: 13,
+                fontStyle: isOther ? "italic" : "normal",
                 cursor: "pointer",
                 fontFamily: "var(--font-mono)",
               }}
