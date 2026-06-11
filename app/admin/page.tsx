@@ -24,23 +24,12 @@ interface Stats {
 
 interface CoverageGap {
   category: string;
+  labelDe?: string;
   words: number;
   sentences: number;
   needsWords: number;
   needsSentences: number;
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  career: "Karriere",
-  travel: "Reisen",
-  food: "Essen",
-  health: "Gesundheit",
-  housing: "Wohnen",
-  daily_life: "Alltag",
-  finance: "Finanzen",
-  transport: "Transport",
-  social: "Soziales",
-};
 
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -121,7 +110,7 @@ export default function AdminPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                   {contentGaps.map(gap => (
                     <div key={gap.category} style={{ fontSize: 12, color: "#B45309", fontFamily: "var(--font-mono)" }}>
-                      {CATEGORY_LABELS[gap.category] ?? gap.category}: {gap.words} W · {gap.sentences} S
+                      {gap.labelDe ?? gap.category}: {gap.words} W · {gap.sentences} S
                       {(gap.needsWords > 0 || gap.needsSentences > 0) && (
                         <span style={{ color: "#92400E" }}> — fehlen ~{gap.needsWords} W, ~{gap.needsSentences} S</span>
                       )}
