@@ -88,53 +88,6 @@ export default function ModePage() {
           <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
         </button>
 
-        {/* Spelling exercise */}
-        <button
-          onClick={() => router.push("/exercises/spelling")}
-          style={{
-            width: "100%", padding: "16px 20px", borderRadius: 14,
-            background: "var(--surface)", border: "1px solid var(--border)",
-            cursor: "pointer", textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14,
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(8,145,178,0.1)", border: "1px solid rgba(8,145,178,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>
-            ✍️
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Buchstabieren</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Wörter buchstabieren — wie in Kundengesprächen am Telefon.</div>
-          </div>
-          <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
-        </button>
-
-        {/* Practice mode */}
-        <button
-          onClick={() => router.push("/practice")}
-          style={{
-            width: "100%", padding: "20px", borderRadius: 14,
-            background: "linear-gradient(135deg, rgba(232,100,58,0.06), rgba(124,77,170,0.06))",
-            border: "1px solid rgba(232,100,58,0.3)",
-            cursor: "pointer", textAlign: "left",
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(232,100,58,0.1)", border: "1px solid rgba(232,100,58,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>
-              🎭
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 15, fontWeight: 500, color: "#e8643a", fontFamily: "var(--font-serif)" }}>Üben</span>
-                <span style={{ fontSize: 10, background: "rgba(232,100,58,0.1)", color: "#e8643a", border: "0.5px solid rgba(232,100,58,0.3)", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.06em" }}>ROLLENSPIEL</span>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Bäckerei, Café, Bahnhof — übe echte Situationen Schritt für Schritt.</div>
-            </div>
-            <span style={{ color: "#e8643a", fontSize: 18 }}>→</span>
-          </div>
-        </button>
-
         {/* Manual mode */}
         <button
           onClick={() => goWarmup("/call")}

@@ -319,7 +319,7 @@ grep -q 'e.includes("429")' app/callmode/page.tsx \
 check_absent "ES5-safe (no \\p{} in callmode)" "app/callmode/page.tsx" '\\p\{'
 
 echo ""
-echo "── exercises (flashcards / spelling) ─"
+echo "── exercises (flashcards) ─"
 
 test -f data/flashcards/placement.json \
   && check "placement deck JSON exists" "ok" \
@@ -337,9 +337,8 @@ grep -q 'api/exercises/placement' app/exercises/placement/page.tsx \
   && check "placement page calls API" "ok" \
   || check "placement page calls API" "fail"
 
-grep -q 'exercises/spelling' app/practice/page.tsx \
-  && check "practice: spelling exercise link" "ok" \
-  || check "practice: spelling exercise link" "fail"
+check_absent "mode: no spelling exercise" "app/mode/page.tsx" 'exercises/spelling'
+check_absent "mode: no role-play practice" "app/mode/page.tsx" '"/practice"'
 
 grep -q 'isUsageAllowed' app/api/chat/route.ts \
   && check "chat API usage limit check" "ok" \

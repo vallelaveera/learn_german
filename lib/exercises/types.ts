@@ -22,19 +22,11 @@ export interface BinaryCard {
   source?: string;
 }
 
-export interface SpellingItem {
-  id: string;
-  label: string;
-  answer: string;
-  hint?: string;
-  context?: string;
-}
-
 export interface ExerciseResult {
   itemId: string;
   german: string;
   correct: boolean;
-  type: "warmup" | "placement" | "spelling" | "sentence";
+  type: "warmup" | "placement" | "sentence";
   ts: number;
 }
 

@@ -238,7 +238,7 @@ export interface StoredExerciseResult {
   itemId: string;
   german: string;
   correct: boolean;
-  type: "warmup" | "placement" | "spelling" | "sentence";
+  type: "warmup" | "placement" | "sentence";
   ts: number;
 }
 
