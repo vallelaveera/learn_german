@@ -5,6 +5,7 @@ import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message } from "@/lib/types";
 import { computeCallReportStats } from "@/lib/call-report-stats";
 import { useRouter } from "next/navigation";
+import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import styles from "@/app/call/call.module.css";
 
 type CallState = "idle" | "listening" | "thinking" | "speaking";
@@ -37,6 +38,8 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [ttsProvider, setTtsProvider] = useState<"soniox" | "fish">("soniox");
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
+  const systemPromptRef = useRef<string | undefined>();
+  const pendingHomeworkRepsRef = useRef(0);
   const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
@@ -60,6 +63,7 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
   const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock();
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
 
   // ── Auto scroll ──────────────────────────────────────────
   useEffect(() => {
@@ -73,6 +77,10 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
       .then(data => {
         if (!data) return;
         setSystemPrompt(data.systemPrompt);
+        systemPromptRef.current = data.systemPrompt;
+        if (data.homeworkSummary?.remainingReps != null) {
+          pendingHomeworkRepsRef.current = data.homeworkSummary.remainingReps;
+        }
         setUser({ name: data.user.name, streak: data.streak ?? 0 });
         if (data.topics) setTopics(data.topics);
         if (data.topicQuestion && data.topics?.length) {
@@ -185,10 +193,19 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
   const sendToTutor = useCallback(async (msgs: Message[]) => {
     setCallState("thinking");
     try {
+      const lastUser = [...msgs].reverse().find(m => m.role === "user");
+      const ending = lastUser ? isFarewellUtterance(lastUser.content) : false;
+      if (ending) pendingEndRef.current = true;
+
+      let prompt = systemPromptRef.current ?? systemPrompt ?? "";
+      if (ending) {
+        prompt += buildGoodbyePromptSuffix(pendingHomeworkRepsRef.current);
+      }
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: msgs, systemPrompt }),
+        body: JSON.stringify({ messages: msgs, systemPrompt: prompt }),
       });
       if (!res.ok || !res.body) throw new Error();
       const reader = res.body.getReader();
@@ -289,7 +306,12 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
       fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: finalMessages }),
+        body: JSON.stringify({
+          messages: finalMessages,
+          sessionStart,
+          sessionEnd: Date.now(),
+          sessionId,
+        }),
       }).catch(() => {});
       onCallEnded?.(finalMessages, dur);
     }

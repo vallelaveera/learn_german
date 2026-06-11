@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import {
   setUserFeature,
-  getActiveHomework,
+  getPendingHomeworkList,
   clearActiveHomework,
   getUserFeatures,
 } from "@/lib/kv";
-import { getHomeworkProgress } from "@/lib/homework";
+import { getHomeworkProgress, summarizeHomeworkList } from "@/lib/homework";
 
 export const runtime = "nodejs";
 
@@ -25,15 +25,19 @@ export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId");
   if (!userId) return NextResponse.json({ error: "No userId" }, { status: 400 });
 
-  const [features, assignment] = await Promise.all([
+  const [features, assignments] = await Promise.all([
     getUserFeatures(userId),
-    getActiveHomework(userId),
+    getPendingHomeworkList(userId),
   ]);
 
+  const assignment = assignments[0] ?? null;
+  const summary = summarizeHomeworkList(assignments);
   const progress = assignment ? getHomeworkProgress(assignment) : null;
   return NextResponse.json({
     homeworkEnabled: features.homeworkEnabled === true,
     assignment,
+    assignments,
+    summary,
     progress,
   });
 }
@@ -53,15 +57,18 @@ export async function POST(req: NextRequest) {
       await clearActiveHomework(userId);
     }
 
-    const [features, assignment] = await Promise.all([
+    const [features, assignments] = await Promise.all([
       getUserFeatures(userId),
-      getActiveHomework(userId),
+      getPendingHomeworkList(userId),
     ]);
+    const assignment = assignments[0] ?? null;
 
     return NextResponse.json({
       ok: true,
       homeworkEnabled: features.homeworkEnabled === true,
       assignment,
+      assignments,
+      summary: summarizeHomeworkList(assignments),
       progress: assignment ? getHomeworkProgress(assignment) : null,
     });
   } catch (e) {

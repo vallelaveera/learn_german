@@ -548,6 +548,19 @@ export async function setUserFeature(
 
 // ── Homework ──────────────────────────────────────────────
 
+async function migrateLegacyActiveHomework(userId: string): Promise<void> {
+  const legacyId = await redis.get<string>(`homework:active:${userId}`);
+  if (!legacyId) return;
+  const assignment = await getHomework(legacyId);
+  if (assignment && assignment.status === "pending") {
+    await redis.zadd(`homework:pending:${userId}`, {
+      score: assignment.createdAt,
+      member: assignment.id,
+    });
+  }
+  await redis.del(`homework:active:${userId}`);
+}
+
 export async function getHomework(id: string): Promise<HomeworkAssignment | null> {
   const data = await redis.get<string>(`homework:${id}`);
   if (!data) return null;
@@ -558,34 +571,42 @@ export async function saveHomeworkRecord(assignment: HomeworkAssignment): Promis
   await redis.set(`homework:${assignment.id}`, JSON.stringify(assignment));
 }
 
+export async function getPendingHomeworkList(userId: string): Promise<HomeworkAssignment[]> {
+  await migrateLegacyActiveHomework(userId);
+  const ids = await redis.zrange<string[]>(`homework:pending:${userId}`, 0, -1);
+  if (!ids?.length) return [];
+
+  const records = await Promise.all(ids.map(id => getHomework(id)));
+  return records.filter((a): a is HomeworkAssignment => a !== null && a.status === "pending");
+}
+
 export async function getActiveHomework(userId: string): Promise<HomeworkAssignment | null> {
-  const id = await redis.get<string>(`homework:active:${userId}`);
-  if (!id) return null;
-  const assignment = await getHomework(id);
-  if (!assignment || assignment.status !== "pending") return null;
-  return assignment;
+  const list = await getPendingHomeworkList(userId);
+  return list[0] ?? null;
 }
 
 export async function archiveActiveHomework(userId: string): Promise<void> {
-  const active = await getActiveHomework(userId);
-  if (!active) return;
-  await redis.zadd(`homework:history:${userId}`, {
-    score: active.createdAt,
-    member: active.id,
-  });
+  const pending = await getPendingHomeworkList(userId);
+  for (const active of pending) {
+    await redis.zadd(`homework:history:${userId}`, {
+      score: active.createdAt,
+      member: active.id,
+    });
+    await redis.zrem(`homework:pending:${userId}`, active.id);
+  }
 }
 
 export async function saveHomework(
   userId: string,
   sessionId: string | undefined,
-  sentences: HomeworkSentence[]
+  sentences: HomeworkSentence[],
+  topic?: string
 ): Promise<string> {
-  await archiveActiveHomework(userId);
-
   const assignment: HomeworkAssignment = {
     id: uuidv4(),
     userId,
     sessionId,
+    topic,
     createdAt: Date.now(),
     status: "pending",
     sentences,
@@ -593,7 +614,10 @@ export async function saveHomework(
   };
 
   await saveHomeworkRecord(assignment);
-  await redis.set(`homework:active:${userId}`, assignment.id);
+  await redis.zadd(`homework:pending:${userId}`, {
+    score: assignment.createdAt,
+    member: assignment.id,
+  });
   return assignment.id;
 }
 
@@ -611,7 +635,11 @@ export async function updateHomeworkProgress(
 
   if (isAssignmentComplete(assignment)) {
     assignment.status = "completed";
-    await redis.del(`homework:active:${assignment.userId}`);
+    await redis.zrem(`homework:pending:${assignment.userId}`, assignment.id);
+    await redis.zadd(`homework:history:${assignment.userId}`, {
+      score: Date.now(),
+      member: assignment.id,
+    });
   }
 
   await saveHomeworkRecord(assignment);
@@ -623,14 +651,20 @@ export async function skipHomework(homeworkId: string): Promise<HomeworkAssignme
   if (!assignment) return null;
   assignment.status = "skipped";
   await saveHomeworkRecord(assignment);
-  await redis.del(`homework:active:${assignment.userId}`);
+  await redis.zrem(`homework:pending:${assignment.userId}`, homeworkId);
+  await redis.zadd(`homework:history:${assignment.userId}`, {
+    score: Date.now(),
+    member: assignment.id,
+  });
   return assignment;
 }
 
 export async function clearActiveHomework(userId: string): Promise<void> {
-  const active = await getActiveHomework(userId);
-  if (!active) return;
-  active.status = "skipped";
-  await saveHomeworkRecord(active);
+  const pending = await getPendingHomeworkList(userId);
+  for (const active of pending) {
+    active.status = "skipped";
+    await saveHomeworkRecord(active);
+    await redis.zrem(`homework:pending:${userId}`, active.id);
+  }
   await redis.del(`homework:active:${userId}`);
 }

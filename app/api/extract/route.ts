@@ -4,6 +4,7 @@ import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updat
 import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
 import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions, generateHomework, isProfileComplete } from "@/lib/memory-agent";
 import { isHomeworkEnabledForUser } from "@/lib/homework";
+import { inferHomeworkTopic } from "@/lib/homework-topic";
 import { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -86,7 +87,8 @@ export async function POST(req: NextRequest) {
       try {
         const sentences = await generateHomework(messages, user.germanLevel ?? user.facts.germanLevel);
         if (sentences.length > 0) {
-          homeworkId = await saveHomework(user.userId, sessionId, sentences);
+          const topic = inferHomeworkTopic(messages, mergedFacts.askedTopics ?? []);
+          homeworkId = await saveHomework(user.userId, sessionId, sentences, topic);
         }
       } catch (e) {
         console.error("Homework generation failed (non-fatal):", e);

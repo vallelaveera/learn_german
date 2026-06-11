@@ -1,14 +1,11 @@
 import { HomeworkAssignment } from "./types";
-import { getUserFeatures } from "./kv";
 
 export function isHomeworkGloballyEnabled(): boolean {
   return process.env.HOMEWORK_ENABLED === "true";
 }
 
-export async function isHomeworkEnabledForUser(userId: string): Promise<boolean> {
-  if (!isHomeworkGloballyEnabled()) return false;
-  const features = await getUserFeatures(userId);
-  return features.homeworkEnabled === true;
+export async function isHomeworkEnabledForUser(_userId: string): Promise<boolean> {
+  return isHomeworkGloballyEnabled();
 }
 
 export function getHomeworkProgress(assignment: HomeworkAssignment): {
@@ -32,4 +29,27 @@ export function getHomeworkProgress(assignment: HomeworkAssignment): {
 export function isHomeworkComplete(assignment: HomeworkAssignment): boolean {
   const { completedReps, totalReps } = getHomeworkProgress(assignment);
   return completedReps >= totalReps && totalReps > 0;
+}
+
+export interface HomeworkSummary {
+  pendingCount: number;
+  remainingReps: number;
+  totalReps: number;
+  completedReps: number;
+}
+
+export function summarizeHomeworkList(assignments: HomeworkAssignment[]): HomeworkSummary {
+  let totalReps = 0;
+  let completedReps = 0;
+  for (const assignment of assignments) {
+    const p = getHomeworkProgress(assignment);
+    totalReps += p.totalReps;
+    completedReps += p.completedReps;
+  }
+  return {
+    pendingCount: assignments.length,
+    remainingReps: totalReps - completedReps,
+    totalReps,
+    completedReps,
+  };
 }
