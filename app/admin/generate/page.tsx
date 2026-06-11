@@ -251,7 +251,7 @@ export default function AdminGeneratePage() {
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
           {isWords
             ? "Vokabelkarten mit 2 falschen englischen Optionen. Max. 3 deutsche Wörter pro Eintrag."
-            : "Übungssätze mit Übersetzung. Max. 8 Wörter pro Satz."}
+            : "Übungssätze mit Übersetzung. Max. 10 Wörter pro Satz (5–8 ideal)."}
         </p>
 
         {loadingTopics && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt Kategorien...</p>}

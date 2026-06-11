@@ -64,7 +64,7 @@ practice sentences for learners.
 
 Rules:
 - Every sentence must be natural spoken German
-- Maximum ${MAX_GERMAN_WORDS} words per German sentence — count every word, never exceed this
+- Maximum ${MAX_GERMAN_WORDS} words per German sentence — never exceed this; aim for 5–8 when possible
 - Keep sentences short and simple, like spoken phrases in real conversation
 - No brand names, no proper nouns, no political topics
 - No incomplete sentences
@@ -88,7 +88,7 @@ Output ONLY valid JSON array, no markdown, no commentary:
 function buildUserPrompt(params: GenerateParams): string {
   const topicClause = params.topic ? `, topic ${params.topic}` : "";
   return `Generate ${params.count} German sentences for level ${params.level}, category ${params.category}${topicClause}.
-Each German sentence must be at most ${MAX_GERMAN_WORDS} words. Shorter is better.
+Each German sentence must be at most ${MAX_GERMAN_WORDS} words (5–8 preferred). Shorter is better.
 Return only the JSON array.`;
 }
 

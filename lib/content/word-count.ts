@@ -1,4 +1,5 @@
-export const MAX_GERMAN_WORDS = 8;
+/** Hard cap for generated exercise sentences (aim shorter; 10 allows C1/C2 phrasing). */
+export const MAX_GERMAN_WORDS = 10;
 
 export function countGermanWords(text: string): number {
   return text
