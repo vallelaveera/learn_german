@@ -40,11 +40,11 @@ export function TabBar() {
         display: "flex",
         gap: 2,
         padding: "10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px)",
-        background: "rgba(255,255,255,0.92)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderTop: "1px solid var(--border-light)",
-        boxShadow: "0 -4px 24px rgba(42,32,28,0.06)",
+        background: "rgba(255,255,255,0.65)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderTop: "1px solid rgba(255, 255, 255, 0.5)",
+        boxShadow: "0 -8px 32px rgba(61, 184, 158, 0.08)",
         zIndex: 100,
       }}
     >

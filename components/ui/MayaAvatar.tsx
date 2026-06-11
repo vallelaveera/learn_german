@@ -1,9 +1,10 @@
 interface MayaAvatarProps {
   size?: number;
   speaking?: boolean;
+  decorative?: boolean;
 }
 
-export function MayaAvatar({ size = 72, speaking = false }: MayaAvatarProps) {
+export function MayaAvatar({ size = 72, speaking = false, decorative = false }: MayaAvatarProps) {
   return (
     <div
       style={{
@@ -13,6 +14,28 @@ export function MayaAvatar({ size = 72, speaking = false }: MayaAvatarProps) {
         flexShrink: 0,
       }}
     >
+      {decorative && (
+        <>
+          <span
+            style={{
+              position: "absolute",
+              inset: -14,
+              borderRadius: "50%",
+              border: "1.5px solid rgba(110, 196, 232, 0.35)",
+              opacity: 0.7,
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              inset: -28,
+              borderRadius: "50%",
+              border: "1px dashed rgba(61, 184, 158, 0.25)",
+              opacity: 0.5,
+            }}
+          />
+        </>
+      )}
       {speaking && (
         <span
           style={{
@@ -33,7 +56,7 @@ export function MayaAvatar({ size = 72, speaking = false }: MayaAvatarProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: "var(--shadow-md)",
+          boxShadow: "0 8px 32px rgba(61, 184, 158, 0.35), inset 0 2px 0 rgba(255,255,255,0.35)",
           position: "relative",
           overflow: "hidden",
         }}
@@ -42,7 +65,7 @@ export function MayaAvatar({ size = 72, speaking = false }: MayaAvatarProps) {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), transparent 55%)",
+            background: "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.45), transparent 55%)",
           }}
         />
         <span
@@ -54,6 +77,7 @@ export function MayaAvatar({ size = 72, speaking = false }: MayaAvatarProps) {
             lineHeight: 1,
             position: "relative",
             zIndex: 1,
+            textShadow: "0 1px 8px rgba(30, 51, 48, 0.15)",
           }}
         >
           M
@@ -71,7 +95,7 @@ export function MayaAvatar({ size = 72, speaking = false }: MayaAvatarProps) {
           borderRadius: "50%",
           background: "var(--green)",
           border: "2.5px solid var(--bg)",
-          boxShadow: "0 0 0 1px rgba(34,160,107,0.3)",
+          boxShadow: "0 0 0 2px rgba(61, 184, 158, 0.25)",
         }}
         aria-hidden
       />

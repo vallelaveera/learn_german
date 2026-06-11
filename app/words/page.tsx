@@ -133,7 +133,7 @@ function WordsPageInner() {
 
   const careerStatusColor = (status: CareerEntry["status"]) => {
     if (status === "used") return "var(--green)";
-    if (status === "exposed") return "#7F77DD";
+    if (status === "exposed") return "var(--accent)";
     return "var(--text-dim)";
   };
 

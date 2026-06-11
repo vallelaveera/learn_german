@@ -63,8 +63,8 @@ function ModePageInner() {
     <PageShell showTabBar>
       <div className="ui-page">
         <div className="ui-hero animate-fade-in">
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 20 }}>
-            <MayaAvatar size={80} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginBottom: 22, position: "relative", zIndex: 1 }}>
+            <MayaAvatar size={88} decorative />
             <div style={{ textAlign: "center" }}>
               <h1 className="ui-title-serif" style={{ fontSize: 24, marginBottom: 6 }}>
                 {user ? `Hey ${user.name}!` : "Hey!"}
@@ -77,7 +77,7 @@ function ModePageInner() {
 
           <ActivityCard
             primary
-            tone="purple"
+            tone="teal"
             icon={<Phone size={22} color="#fff" strokeWidth={2} />}
             label="Mit Maya sprechen"
             subtext="Freisprechen — wie ein echtes Gespräch"
@@ -97,14 +97,14 @@ function ModePageInner() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <ActivityCard
-            tone="orange"
+            tone="sky"
             icon={<PenLine size={20} strokeWidth={2} />}
             label="Sätze üben"
             subtext="Flashcards mit Maya-Stimme"
             onClick={() => router.push("/exercises/sentences")}
           />
           <ActivityCard
-            tone="green"
+            tone="mint"
             icon={<BookOpen size={20} strokeWidth={2} />}
             label="Wörter üben"
             subtext="Vokabeln aus deinen Gesprächen"

@@ -1,5 +1,6 @@
 "use client";
 import { TabBar } from "./TabBar";
+import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
 
 interface PageShellProps {
   children: React.ReactNode;
@@ -12,8 +13,9 @@ export function PageShell({ children, title, showTabBar = true, headerRight }: P
   return (
     <div
       style={{
+        position: "relative",
         minHeight: "100dvh",
-        background: "var(--bg)",
+        background: "transparent",
         maxWidth: 390,
         margin: "0 auto",
         width: "100%",
@@ -21,17 +23,21 @@ export function PageShell({ children, title, showTabBar = true, headerRight }: P
         flexDirection: "column",
       }}
     >
+      <DecorativeBackground />
       {title && (
         <header
           style={{
+            position: "relative",
+            zIndex: 2,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             padding: "14px 18px",
             paddingTop: "calc(env(safe-area-inset-top, 0px) + 14px)",
-            borderBottom: "1px solid var(--border-light)",
-            background: "rgba(255,255,255,0.85)",
-            backdropFilter: "blur(8px)",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.4)",
+            background: "rgba(255, 255, 255, 0.55)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             flexShrink: 0,
           }}
         >
@@ -43,8 +49,8 @@ export function PageShell({ children, title, showTabBar = true, headerRight }: P
                 fontWeight: 600,
                 background: "var(--gradient)",
                 color: "#fff",
-                padding: "4px 8px",
-                borderRadius: 8,
+                padding: "4px 9px",
+                borderRadius: 10,
                 boxShadow: "var(--shadow-sm)",
               }}
             >
@@ -59,6 +65,8 @@ export function PageShell({ children, title, showTabBar = true, headerRight }: P
       )}
       <main
         style={{
+          position: "relative",
+          zIndex: 1,
           flex: 1,
           overflowY: "auto",
           overflowX: "hidden",

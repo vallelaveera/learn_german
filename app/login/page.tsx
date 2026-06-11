@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
 import { MayaAvatar } from "@/components/ui/MayaAvatar";
+import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
 type Step = "email" | "name" | "level" | "native";
@@ -113,10 +114,13 @@ export default function LoginPage() {
 
   return (
     <div style={{
+      position: "relative",
       minHeight: "100vh", display: "flex", alignItems: "center",
-      justifyContent: "center", background: "var(--bg)", padding: "24px",
+      justifyContent: "center", padding: "24px",
+      overflow: "hidden",
     }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
+      <DecorativeBackground />
+      <div style={{ width: "100%", maxWidth: 400, position: "relative", zIndex: 1 }}>
 
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -136,7 +140,7 @@ export default function LoginPage() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
-          <MayaAvatar size={88} />
+          <MayaAvatar size={88} decorative />
         </div>
 
         <div className="ui-card" style={{ padding: "28px 24px" }}>
