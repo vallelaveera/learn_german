@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { PageShell } from "@/components/layout/PageShell";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -34,14 +34,9 @@ export default function ProfilePage() {
   const facts = user?.facts ?? {};
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 16px", borderBottom: "0.5px solid var(--border)" }}>
-        <span style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 300 }}>Profil</span>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
-      </header>
-
+    <PageShell title="Profil">
       {loading ? <p style={{ padding: 24, color: "var(--text-muted)" }}>Lädt...</p> : (
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Avatar */}
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -108,6 +103,6 @@ export default function ProfilePage() {
           </button>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

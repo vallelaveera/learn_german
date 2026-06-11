@@ -1,149 +1,157 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { PageShell } from "@/components/layout/PageShell";
 
 export default function ModePage() {
   const router = useRouter();
-  const [user, setUser] = useState<{ name: string; totalSessions: number } | null>(null);
+  const [user, setUser] = useState<{ name: string } | null>(null);
+  const [homeworkPending, setHomeworkPending] = useState(false);
+
   useEffect(() => {
     fetch("/api/auth/me")
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(d => { if (d?.user) setUser(d.user); });
     fetch("/api/exercises/status")
-      .then(r => { if (r.status === 401) return null; return r.json(); })
+      .then(r => (r.status === 401 ? null : r.ok ? r.json() : null))
       .then(d => { if (d && !d.placementDone) router.push("/exercises/placement"); });
+    fetch("/api/homework")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d?.assignment && d?.progress && d.progress.completedReps < d.progress.totalReps) {
+          setHomeworkPending(true);
+        }
+      })
+      .catch(() => {});
   }, [router]);
 
-  const goWarmup = (next: string) => {
-    router.push(`/exercises/warmup?next=${encodeURIComponent(next)}`);
-  };
-
   return (
-    <div style={{
-      minHeight: "100dvh", background: "var(--bg)",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      padding: "24px 20px",
-      paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-    }}>
-      {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: 48 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)" }}>CallMeDaily</span>
-        </div>
-        <p style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6 }}>
+    <PageShell title="Home">
+      <div style={{ padding: "24px 18px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 24 }}>
           {user ? `Hey ${user.name}!` : "Hey!"} Wie möchtest du heute üben?
         </p>
-      </div>
 
-      {/* Maya avatar */}
-      <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--surface)", border: "2px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 40, position: "relative" }}>
-        <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "var(--accent)" }}>M</span>
-        <div style={{ position: "absolute", bottom: 0, right: 0, width: 16, height: 16, borderRadius: "50%", background: "var(--green)", border: "2px solid var(--bg)" }} />
-      </div>
-
-      {/* Mode cards */}
-      <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14 }}>
-
-        {/* Call mode — Soniox only (Fish voice hidden in UI for now) */}
-        <button
-          onClick={() => { localStorage.setItem("maya_voice", "soniox"); goWarmup("/callmode"); }}
+        <div
           style={{
-            width: "100%", padding: "20px", borderRadius: 14,
-            background: "var(--surface)", border: "1px solid var(--border)",
-            cursor: "pointer", textAlign: "left",
-            display: "flex", alignItems: "center", gap: 16,
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: "var(--surface)",
+            border: "2px solid var(--accent-dim)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 28,
+            position: "relative",
+          }}
+        >
+          <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "var(--accent)" }}>M</span>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              right: 0,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: "var(--green)",
+              border: "2px solid var(--bg)",
+            }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.setItem("maya_voice", "soniox");
+            router.push("/call");
+          }}
+          style={{
+            width: "100%",
+            minHeight: 52,
+            padding: "16px",
+            borderRadius: 14,
+            border: "none",
+            background: "#7F77DD",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 500,
+            fontFamily: "var(--font-mono)",
+            cursor: "pointer",
+            marginBottom: 12,
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <span style={{ fontSize: 22 }}>📞</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Call Mode</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Freihändig sprechen — Maya hört automatisch zu.</div>
-          </div>
+          Jetzt anrufen
         </button>
 
-        {/* Sentence ordering */}
-        <button
-          onClick={() => router.push("/exercises/sentences")}
+        <Link
+          href="/exercises/warmup?next=%2Fcall"
           style={{
-            width: "100%", padding: "16px 20px", borderRadius: 14,
-            background: "var(--surface)", border: "1px solid var(--border)",
-            cursor: "pointer", textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14,
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(124,77,170,0.1)", border: "1px solid rgba(124,77,170,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>
-            🧩
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Satzbau</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Satz einmal sehen — dann Wörter in der richtigen Reihenfolge tippen.</div>
-          </div>
-          <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
-        </button>
-
-        {/* Manual mode */}
-        <button
-          onClick={() => goWarmup("/call")}
-          style={{
-            width: "100%", padding: "20px", borderRadius: 14,
-            background: "var(--surface)", border: "1px solid var(--border)",
-            cursor: "pointer", textAlign: "left",
-            WebkitTapHighlightColor: "transparent",
-            transition: "border-color 0.2s",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", marginBottom: 4, fontFamily: "var(--font-serif)" }}>Manual</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Drücke den Knopf zum Sprechen. Du kontrollierst wann Maya antwortet.</div>
-            </div>
-            <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
-          </div>
-        </button>
-      </div>
-
-      {/* Bottom tab bar */}
-      <div style={{ display: "flex", gap: 8, marginTop: 32, width: "100%", maxWidth: 360 }}>
-        {[
-          { href: "/words", label: "Wörter", icon: "📚" },
-          { href: "/career", label: "Karriere", icon: "💼" },
-          { href: "/progress", label: "Fortschritt", icon: "📈" },
-          { href: "/history", label: "Verlauf", icon: "🕐" },
-          { href: "/profile", label: "Profil", icon: "👤" },
-        ].map(l => (
-          <a key={l.href} href={l.href} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-            gap: 4, padding: "10px 4px", borderRadius: 12,
-            background: "var(--surface)", border: "0.5px solid var(--border)",
+            width: "100%",
+            minHeight: 44,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            color: "var(--text-muted)",
             textDecoration: "none",
-          }}>
-            <span style={{ fontSize: 18 }}>{l.icon}</span>
-            <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{l.label}</span>
-          </a>
-        ))}
-      </div>
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          Kurzes Warmup →
+        </Link>
 
-      <button
-        onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
-        style={{ marginTop: 16, fontSize: 11, color: "var(--text-dim)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)" }}
-      >
-        Logout
-      </button>
-    </div>
+        <Link
+          href="/exercises/sentences"
+          style={{
+            width: "100%",
+            minHeight: 48,
+            padding: "14px 16px",
+            borderRadius: 12,
+            border: "0.5px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            fontSize: 13,
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: "var(--font-mono)",
+            marginBottom: 12,
+          }}
+        >
+          <span>🧩 Satzbau</span>
+          <span>→</span>
+        </Link>
+
+        {homeworkPending && (
+          <Link
+            href="/homework"
+            style={{
+              width: "100%",
+              minHeight: 44,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "0.5px solid var(--accent-dim)",
+              background: "var(--accent-glow)",
+              color: "var(--accent)",
+              fontSize: 13,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            📋 Hausaufgaben offen
+          </Link>
+        )}
+      </div>
+    </PageShell>
   );
 }

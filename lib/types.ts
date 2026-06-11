@@ -63,3 +63,32 @@ export interface UserProfile {
   totalSessions: number;
   facts: UserFacts;
 }
+
+export interface UserFeatures {
+  homeworkEnabled?: boolean;
+}
+
+export interface HomeworkSentence {
+  id: string;
+  text: string;
+  userSaid?: string;
+  note?: string;
+  source: "correction" | "useful";
+}
+
+export interface HomeworkRep {
+  repIndex: 1 | 2 | 3;
+  blobUrl: string;
+  transcript?: string;
+  recordedAt: number;
+}
+
+export interface HomeworkAssignment {
+  id: string;
+  userId: string;
+  sessionId?: string;
+  createdAt: number;
+  status: "pending" | "completed" | "skipped";
+  sentences: HomeworkSentence[];
+  progress: Record<string, HomeworkRep[]>;
+}

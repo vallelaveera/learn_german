@@ -12,7 +12,25 @@ export function stripEmojis(text: string): string {
     .trim();
 }
 
-/** Pass Claude text to Fish with emoji strip only — Fish handles pacing natively. */
+/**
+ * Format Claude text for Fish TTS — emoji-free with clear sentence boundaries.
+ * Fish pauses on . ! ? so each thought gets breathing room without slowing speech.
+ */
 export function prepareFishTTS(text: string): string {
-  return stripEmojis(text);
+  let t = stripEmojis(text);
+  if (!t) return t;
+
+  t = t.replace(/\s+/g, " ").trim();
+
+  const lines = t.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const parts: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    line = line.replace(/([a-zäöüß])\s+([A-ZÄÖÜ])/g, "$1. $2");
+    if (!/[.!?]$/.test(line)) line = line + ".";
+    parts.push(line);
+  }
+
+  return parts.join(" ");
 }

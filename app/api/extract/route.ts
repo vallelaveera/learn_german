@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress, getUsageStats } from "@/lib/kv";
+import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress, getUsageStats, saveHomework } from "@/lib/kv";
 import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
-import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions } from "@/lib/memory-agent";
+import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions, generateHomework, isProfileComplete } from "@/lib/memory-agent";
+import { isHomeworkEnabledForUser } from "@/lib/homework";
 import { Message } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -21,7 +22,12 @@ export async function POST(req: NextRequest) {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { messages, sessionStart, sessionEnd }: { messages: Message[]; sessionStart?: number; sessionEnd?: number } = await req.json();
+    const { messages, sessionStart, sessionEnd, sessionId }: {
+      messages: Message[];
+      sessionStart?: number;
+      sessionEnd?: number;
+      sessionId?: string;
+    } = await req.json();
     if (!messages?.length) return NextResponse.json({ ok: true });
 
     const usage = await getUsageStats(user.userId);
@@ -71,7 +77,23 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(promises);
 
-    return NextResponse.json({ ok: true, facts: newFacts });
+    let homeworkId: string | undefined;
+    if (
+      messages.length > 1 &&
+      isProfileComplete(user.facts) &&
+      (await isHomeworkEnabledForUser(user.userId))
+    ) {
+      try {
+        const sentences = await generateHomework(messages, user.germanLevel ?? user.facts.germanLevel);
+        if (sentences.length > 0) {
+          homeworkId = await saveHomework(user.userId, sessionId, sentences);
+        }
+      } catch (e) {
+        console.error("Homework generation failed (non-fatal):", e);
+      }
+    }
+
+    return NextResponse.json({ ok: true, facts: newFacts, homeworkId });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Extract failed" }, { status: 500 });

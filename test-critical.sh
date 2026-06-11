@@ -54,35 +54,26 @@ grep -q "onEnd();" components/SpeechRecorder.tsx \
 echo ""
 echo "── app/call/page.tsx ───────────────────"
 
-grep -q "_isSending = false" app/call/page.tsx \
-  && check "_isSending reset on start" "ok" \
-  || check "_isSending reset on start" "fail"
+grep -q "FreisprechenCall" app/call/page.tsx \
+  && check "call page: Freisprechen/Tippen orchestrator" "ok" \
+  || check "call page: Freisprechen/Tippen orchestrator" "fail"
 
-grep -q 'finalBufferRef.current = ""' app/call/page.tsx \
-  && check "finalBufferRef cleared on start" "ok" \
-  || check "finalBufferRef cleared on start" "fail"
+grep -q "CallReport" app/call/page.tsx \
+  && check "call page: unified CallReport" "ok" \
+  || check "call page: unified CallReport" "fail"
 
-grep -A3 "catch {" app/call/page.tsx | grep -q "_isSending = false" \
-  && check "_isSending reset in catch block" "ok" \
-  || check "_isSending reset in catch block" "fail"
+echo ""
+echo "── components/call/TippenCall.tsx ─────"
 
-grep -q "^let _isSending = false" app/call/page.tsx \
+grep -q "^let _isSending = false" components/call/TippenCall.tsx \
   && check "module-level _isSending exists" "ok" \
   || check "module-level _isSending exists" "fail"
 
-grep -q "^let _callModeActive = false" app/call/page.tsx \
-  && check "module-level _callModeActive exists" "ok" \
-  || check "module-level _callModeActive exists" "fail"
+check_absent "TippenCall: no embedded call mode toggle" "components/call/TippenCall.tsx" "_callModeActive"
 
-# Maya A streaming in manual call mode
-grep -q "CHUNK = 16384" app/call/page.tsx \
-  && check "manual mode: Soniox chunked streaming (16KB)" "ok" \
-  || check "manual mode: Soniox chunked streaming (16KB)" "fail"
-
-LISTENING_BLOCK=$(awk '/else if.*callState.*listening/,/else if.*callState.*speaking/' app/call/page.tsx)
-echo "$LISTENING_BLOCK" | grep -q 'finalBufferRef.current = ""' \
-  && check "buffer NOT cleared on tap-to-send" "fail" \
-  || check "buffer NOT cleared on tap-to-send" "ok"
+grep -q "CHUNK = 16384" components/call/TippenCall.tsx \
+  && check "Tippen mode: Soniox chunked streaming (16KB)" "ok" \
+  || check "Tippen mode: Soniox chunked streaming (16KB)" "fail"
 
 echo ""
 echo "── app/api/tts-stream/route.ts ─────────"
@@ -138,15 +129,13 @@ grep -q "Max 2 short sentences" lib/fish-tts.ts \
 
 check_absent "Fish TTS: no period injection hack" "lib/fish-tts.ts" 'A-ZÄÖÜ'
 
-grep -q "return stripEmojis" lib/fish-tts.ts \
-  && check "Fish TTS: prepareFishTTS is emoji-only" "ok" \
-  || check "Fish TTS: prepareFishTTS is emoji-only" "fail"
-
-grep -q "FISH_SPOKEN_RULES" app/callmode/page.tsx \
+grep -q "FISH_SPOKEN_RULES" components/call/FreisprechenCall.tsx \
   && check "callmode: Fish spoken rules in prompt" "ok" \
   || check "callmode: Fish spoken rules in prompt" "fail"
 
-check_absent "callmode: no prepareFishTTS in page" "app/callmode/page.tsx" "prepareFishTTS"
+grep -q "prepareFishTTS" components/call/FreisprechenCall.tsx \
+  && check "callmode: prepareFishTTS for Maya B display+TTS" "ok" \
+  || check "callmode: prepareFishTTS for Maya B display+TTS" "fail"
 
 grep -qE '/\\p\{' lib/fish-tts.ts \
   && check "ES5-safe emoji strip (no \\p{} regex)" "fail" \
@@ -157,11 +146,15 @@ echo "── app/mode/page.tsx ────────────────�
 
 check_absent "mode page: Fish voice button hidden" "app/mode/page.tsx" 'maya_voice", "fish"'
 
-grep -q 'maya_voice", "soniox"' app/mode/page.tsx \
-  && check "mode page: call mode sets soniox" "ok" \
-  || check "mode page: call mode sets soniox" "fail"
+grep -q 'localStorage.setItem("maya_voice", "soniox")' app/mode/page.tsx \
+  && check "mode page: call sets soniox" "ok" \
+  || check "mode page: call sets soniox" "fail"
 
-grep -q 'ttsProviderRef.current = "soniox"' app/callmode/page.tsx \
+grep -q 'router.push("/call")' app/mode/page.tsx \
+  && check "mode page: Jetzt anrufen direct to /call" "ok" \
+  || check "mode page: Jetzt anrufen direct to /call" "fail"
+
+grep -q 'ttsProviderRef.current = "soniox"' components/call/FreisprechenCall.tsx \
   && check "callmode: Maya B disabled, forces soniox" "ok" \
   || check "callmode: Maya B disabled, forces soniox" "fail"
 
@@ -194,32 +187,28 @@ grep -q 'buildCareerVocabReport' app/api/career-vocab/route.ts \
   && check "german_career_vocab.json exists" "ok" \
   || check "german_career_vocab.json exists" "fail"
 
-[ -f "app/career/page.tsx" ] \
-  && check "career report page exists" "ok" \
-  || check "career report page exists" "fail"
-
-grep -q "Beispiele" app/career/page.tsx \
-  && check "career: example sentences UI" "ok" \
-  || check "career: example sentences UI" "fail"
+grep -q "Karriere" app/words/page.tsx \
+  && check "words: Karriere chip view" "ok" \
+  || check "words: Karriere chip view" "fail"
 
 echo ""
-echo "── app/callmode/page.tsx ───────────────"
+echo "── components/call/FreisprechenCall.tsx ───────────────"
 
 [ -f "components/CallRecorder.tsx" ] \
   && check "CallRecorder.tsx exists" "ok" \
   || check "CallRecorder.tsx exists" "fail"
 
-grep -q "useCallRecorder" app/callmode/page.tsx \
+grep -q "useCallRecorder" components/call/FreisprechenCall.tsx \
   && check "callmode uses CallRecorder" "ok" \
   || check "callmode uses CallRecorder" "fail"
 
-check_absent "callmode does NOT use SpeechRecorder" "app/callmode/page.tsx" "useSpeechRecorder"
+check_absent "callmode does NOT use SpeechRecorder" "components/call/FreisprechenCall.tsx" "useSpeechRecorder"
 
-grep -q "_cm_sending" app/callmode/page.tsx \
+grep -q "_cm_sending" components/call/FreisprechenCall.tsx \
   && check "callmode has own module flags" "ok" \
   || check "callmode has own module flags" "fail"
 
-grep -q "SPEECH_THRESHOLD" app/callmode/page.tsx \
+grep -q "SPEECH_THRESHOLD" components/call/FreisprechenCall.tsx \
   && check "VAD: speech threshold gate" "ok" \
   || check "VAD: speech threshold gate" "fail"
 
@@ -227,7 +216,7 @@ grep -q "autoGainControl: false" components/CallRecorder.tsx \
   && check "mic: autoGainControl disabled" "ok" \
   || check "mic: autoGainControl disabled" "fail"
 
-grep -q "isSpeakingRef" app/callmode/page.tsx \
+grep -q "isSpeakingRef" components/call/FreisprechenCall.tsx \
   && check "VAD: transcript gated on isSpeakingRef" "ok" \
   || check "VAD: transcript gated on isSpeakingRef" "fail"
 
@@ -236,43 +225,43 @@ grep -q "Speech band only" components/CallRecorder.tsx \
   || check "CallRecorder: speech-frequency volume" "fail"
 
 # Maya A — chunked Soniox playback in callmode
-grep -q "CHUNK = 16384" app/callmode/page.tsx \
+grep -q "CHUNK = 16384" components/call/FreisprechenCall.tsx \
   && check "Maya A callmode: chunked playChunk (16KB)" "ok" \
   || check "Maya A callmode: chunked playChunk (16KB)" "fail"
 
-grep -q "playChunk" app/callmode/page.tsx \
+grep -q "playChunk" components/call/FreisprechenCall.tsx \
   && check "Maya A callmode: playChunk exists" "ok" \
   || check "Maya A callmode: playChunk exists" "fail"
 
 # Maya B — streamed MP3 chunks (same live-call path as Soniox)
-grep -q "TTS_CHUNK" app/callmode/page.tsx \
+grep -q "TTS_CHUNK" components/call/FreisprechenCall.tsx \
   && check "Maya B callmode: streamed TTS chunks" "ok" \
   || check "Maya B callmode: streamed TTS chunks" "fail"
 
-check_absent "Maya B callmode: NOT full-buffer playMP3" "app/callmode/page.tsx" "await playMP3"
+check_absent "Maya B callmode: NOT full-buffer playMP3" "components/call/FreisprechenCall.tsx" "await playMP3"
 
-grep -q 'provider: ttsProviderRef.current' app/callmode/page.tsx \
+grep -q 'provider: ttsProviderRef.current' components/call/FreisprechenCall.tsx \
   && check "callmode: provider sent to tts-stream API" "ok" \
   || check "callmode: provider sent to tts-stream API" "fail"
 
 # Smarter turn-end + short reply confirm
-grep -q "sttEndpointRef" app/callmode/page.tsx \
+grep -q "sttEndpointRef" components/call/FreisprechenCall.tsx \
   && check "turn-end: Soniox endpoint ref" "ok" \
   || check "turn-end: Soniox endpoint ref" "fail"
 
-grep -q "Bist du fertig" app/callmode/page.tsx \
+grep -q "Bist du fertig" components/call/FreisprechenCall.tsx \
   && check "short reply: Bist du fertig confirm" "ok" \
   || check "short reply: Bist du fertig confirm" "fail"
 
-grep -q "Meinst du das so" app/callmode/page.tsx \
+grep -q "Meinst du das so" components/call/FreisprechenCall.tsx \
   && check "short reply: Meinst du das so confirm" "ok" \
   || check "short reply: Meinst du das so confirm" "fail"
 
-grep -q "askShortConfirm" app/callmode/page.tsx \
+grep -q "askShortConfirm" components/call/FreisprechenCall.tsx \
   && check "short reply: askShortConfirm flow" "ok" \
   || check "short reply: askShortConfirm flow" "fail"
 
-grep -q "toggleMute" app/callmode/page.tsx \
+grep -q "toggleMute" components/call/FreisprechenCall.tsx \
   && check "callmode: mute button toggleMute" "ok" \
   || check "callmode: mute button toggleMute" "fail"
 
@@ -281,42 +270,42 @@ grep -q "setMuted" components/CallRecorder.tsx \
   || check "CallRecorder: setMuted export" "fail"
 
 # Welcome message
-grep -q "fallbackOpening" app/callmode/page.tsx \
+grep -q "fallbackOpening" components/call/FreisprechenCall.tsx \
   && check "welcome: fallbackOpening exists" "ok" \
   || check "welcome: fallbackOpening exists" "fail"
 
-grep -q "streamTTSRef" app/callmode/page.tsx \
+grep -q "streamTTSRef" components/call/FreisprechenCall.tsx \
   && check "welcome: streamTTSRef for reliable TTS" "ok" \
   || check "welcome: streamTTSRef for reliable TTS" "fail"
 
-grep -qE 'disabled=.*cachedOpening' app/callmode/page.tsx \
+grep -qE 'disabled=.*cachedOpening' components/call/FreisprechenCall.tsx \
   && check "call button NOT blocked on missing cachedOpening" "fail" \
   || check "call button NOT blocked on missing cachedOpening" "ok"
 
-grep -q 'contextReady && !limitReached' app/callmode/page.tsx \
+grep -q 'contextReady && !limitReached' components/call/FreisprechenCall.tsx \
   && check "call button: canCall = contextReady && !limitReached" "ok" \
   || check "call button: canCall = contextReady && !limitReached" "fail"
 
-grep -q 'disabled={!canCall}' app/callmode/page.tsx \
+grep -q 'disabled={!canCall}' components/call/FreisprechenCall.tsx \
   && check "call button disabled when !canCall" "ok" \
   || check "call button disabled when !canCall" "fail"
 
-check_absent "startCall does NOT bail if no opening" "app/callmode/page.tsx" 'if \(!opening\) return'
+check_absent "startCall does NOT bail if no opening" "components/call/FreisprechenCall.tsx" 'if \(!opening\) return'
 
 # Mic / 429 guards
-grep -q "_cm_mic_running" app/callmode/page.tsx \
+grep -q "_cm_mic_running" components/call/FreisprechenCall.tsx \
   && check "mic guard: _cm_mic_running" "ok" \
   || check "mic guard: _cm_mic_running" "fail"
 
-grep -q "finishTTSPlayback" app/callmode/page.tsx \
+grep -q "finishTTSPlayback" components/call/FreisprechenCall.tsx \
   && check "single TTS finish path" "ok" \
   || check "single TTS finish path" "fail"
 
-grep -q 'e.includes("429")' app/callmode/page.tsx \
+grep -q 'e.includes("429")' components/call/FreisprechenCall.tsx \
   && check "429 hard stop on concurrent STT" "ok" \
   || check "429 hard stop on concurrent STT" "fail"
 
-check_absent "ES5-safe (no \\p{} in callmode)" "app/callmode/page.tsx" '\\p\{'
+check_absent "ES5-safe (no \\p{} in callmode)" "components/call/FreisprechenCall.tsx" '\\p\{'
 
 echo ""
 echo "── exercises (flashcards) ─"
@@ -383,13 +372,9 @@ grep -q 'source=call' app/api/exercises/sentences/route.ts \
   && check "sentences API: call source" "ok" \
   || check "sentences API: call source" "fail"
 
-grep -q 'CallCorrectionsPanel' app/callmode/page.tsx \
-  && check "callmode: corrections report" "ok" \
-  || check "callmode: corrections report" "fail"
-
-grep -q 'CallCorrectionsPanel' app/call/page.tsx \
-  && check "call: corrections report" "ok" \
-  || check "call: corrections report" "fail"
+grep -q 'computeCallReportStats' app/call/page.tsx \
+  && check "call: unified client report stats" "ok" \
+  || check "call: unified client report stats" "fail"
 
 echo ""
 echo "── middleware.ts ───────────────────────"

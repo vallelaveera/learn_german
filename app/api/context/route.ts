@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, updateStreak } from "@/lib/kv";
-import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions } from "@/lib/memory-agent";
+import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, getActiveHomework } from "@/lib/kv";
+import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions, generateHomeworkNagOpening } from "@/lib/memory-agent";
 import { getUsageStats } from "@/lib/kv";
+import { isHomeworkEnabledForUser, getHomeworkProgress } from "@/lib/homework";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,16 +66,40 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [opening, systemPrompt, topics] = await Promise.all([
+    const [opening, systemPrompt, topics, homeworkEnabled, pendingHomework] = await Promise.all([
       generateOpening(user, daysSince, unpracticedWords, recentTopics),
       Promise.resolve(buildSystemPrompt(user, daysSince, unpracticedWords)),
       generateTopicSuggestions(user),
+      isHomeworkEnabledForUser(user.userId),
+      isHomeworkEnabledForUser(user.userId).then(async enabled => {
+        if (!enabled) return null;
+        return getActiveHomework(user.userId);
+      }),
     ]);
 
-    // Topic question is a SEPARATE message after the greeting
+    let homeworkNagActive = false;
+    let normalOpening = opening;
+    let finalOpening = opening;
+    let homeworkProgress = null;
+
+    if (pendingHomework) {
+      homeworkProgress = getHomeworkProgress(pendingHomework);
+      const remaining = homeworkProgress.totalReps - homeworkProgress.completedReps;
+      if (remaining > 0) {
+        homeworkNagActive = true;
+        finalOpening = await generateHomeworkNagOpening(user.name, remaining);
+        normalOpening = opening;
+      }
+    }
+
+    const finalSystemPrompt = homeworkNagActive
+      ? buildSystemPrompt(user, daysSince, unpracticedWords, true)
+      : systemPrompt;
+
     return NextResponse.json({
-      opening,
-      systemPrompt,
+      opening: finalOpening,
+      normalOpening,
+      systemPrompt: finalSystemPrompt,
       user,
       daysSinceLastCall: daysSince,
       unpracticedWords,
@@ -82,6 +107,13 @@ export async function GET(req: NextRequest) {
       isOnboarding: false,
       topics,
       usage,
+      homeworkEnabled,
+      homeworkNagActive,
+      pendingHomework: pendingHomework ? {
+        id: pendingHomework.id,
+        sentences: pendingHomework.sentences,
+        progress: homeworkProgress,
+      } : null,
     });
   } catch (e) {
     console.error(e);
