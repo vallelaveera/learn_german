@@ -34,6 +34,7 @@ interface PipelineSummary {
   rejected: number;
   rejectionRate: string;
   savedIds: string[];
+  duplicatesSkipped?: number;
   rejectedLog: { de: string; issues: string[] }[];
   type?: "words" | "sentences";
 }
@@ -647,7 +648,8 @@ function AdminGeneratePageInner() {
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Ablehnungsrate</div>
                   <div style={{ fontSize: 20, fontWeight: 500, color: highRejection ? "#DC2626" : "var(--accent)" }}>{result.rejectionRate}</div>
                   <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
-                    {result.savedIds.length} neue IDs gespeichert
+                    {result.savedIds.length} neu gespeichert
+                    {(result.duplicatesSkipped ?? 0) > 0 && ` · ${result.duplicatesSkipped} Duplikate übersprungen`}
                     {result.rejected > 0 && " · Abgelehnte werden nicht gespeichert (nur hier + Server-Log)"}
                   </div>
                 </div>

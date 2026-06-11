@@ -9,6 +9,7 @@ export interface PipelineSummary {
   rejected: number;
   rejectionRate: string;
   savedIds: string[];
+  duplicatesSkipped: number;
   rejectedLog: { de: string; issues: string[] }[];
 }
 
@@ -49,6 +50,7 @@ export async function runGenerationPipeline(params: GenerateParams): Promise<Pip
     rejected: rejected.length,
     rejectionRate,
     savedIds,
+    duplicatesSkipped: passed.length - savedIds.length,
     rejectedLog,
   };
 }
