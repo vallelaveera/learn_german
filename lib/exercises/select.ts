@@ -1,19 +1,20 @@
-import { getVocab, getWarmupMasteredKeys } from "@/lib/kv";
+import { getVocab, getExerciseExcludedKeys } from "@/lib/kv";
 import type { UserProfile } from "@/lib/types";
 import { getWarmupPool, resolveWordEntry, resolveWordsToEntries } from "./load";
 import { isLevelAppropriate, isTooBasic } from "./levels";
 import { toBinaryCards } from "./cards";
+import { isExerciseEntryExcluded } from "./exclusion";
 import type { BinaryCard, FlashCardEntry } from "./types";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
-function isMastered(entry: FlashCardEntry, mastered: Set<string>): boolean {
-  return mastered.has(entry.id) || mastered.has(entry.german.toLowerCase().trim());
+function isExcluded(entry: FlashCardEntry, excluded: Set<string>): boolean {
+  return isExerciseEntryExcluded(entry.id, entry.german, excluded);
 }
 
 export async function selectWarmupCards(userId: string, profile: UserProfile, limit = 5): Promise<BinaryCard[]> {
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
-  const mastered = await getWarmupMasteredKeys(userId);
+  const excluded = await getExerciseExcludedKeys(userId, "warmup");
   const vocab = await getVocab(userId);
   const now = Date.now();
   const picked: string[] = [];
@@ -44,23 +45,14 @@ export async function selectWarmupCards(userId: string, profile: UserProfile, li
     e =>
       !isTooBasic(e.german, userLevel) &&
       isLevelAppropriate(e.level, userLevel) &&
-      !isMastered(e, mastered)
+      !isExcluded(e, excluded)
   );
 
   if (entries.length < limit) {
-    const pool = getWarmupPool(userLevel, limit * 10);
+    const pool = getWarmupPool(userLevel, limit * 12);
     for (const entry of pool) {
       if (entries.length >= limit) break;
-      if (isMastered(entry, mastered)) continue;
-      if (!entries.some(e => e.id === entry.id)) entries.push(entry);
-    }
-  }
-
-  // Pool exhausted — allow repeats only after the 7-day mastery window
-  if (entries.length < limit) {
-    const fallback = getWarmupPool(userLevel, limit * 4);
-    for (const entry of fallback) {
-      if (entries.length >= limit) break;
+      if (isExcluded(entry, excluded)) continue;
       if (!entries.some(e => e.id === entry.id)) entries.push(entry);
     }
   }

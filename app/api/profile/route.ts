@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
     const profile = await getUserProfile(user.userId);
     if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (name) profile.name = name;
-    if (germanLevel) profile.germanLevel = germanLevel;
+    if (germanLevel) {
+      profile.germanLevel = germanLevel;
+      profile.facts = {
+        ...profile.facts,
+        germanLevel,
+        levelOnboarded: true,
+        lastUpdated: Date.now(),
+      };
+    }
     await saveUserProfile(profile);
     return NextResponse.json({ ok: true, user: profile });
   } catch {

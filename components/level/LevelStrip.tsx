@@ -1,49 +1,60 @@
 "use client";
 
-import { GERMAN_LEVELS } from "@/lib/levels";
+import { GERMAN_LEVELS, type GermanLevel } from "@/lib/levels";
 
 const PURPLE = "#7F77DD";
 
 interface Props {
   currentLevel: string;
-  onTap: () => void;
+  onSelect: (level: GermanLevel) => void;
 }
 
-export function LevelStrip({ currentLevel, onTap }: Props) {
+export function LevelStrip({ currentLevel, onSelect }: Props) {
   return (
-    <button
-      type="button"
-      onClick={onTap}
+    <div
       style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        gap: 4,
         width: "100%",
-        minHeight: 44,
-        padding: "10px 8px",
+        padding: "8px 4px",
         borderRadius: 10,
         border: "0.5px solid var(--border)",
         background: "var(--surface)",
-        cursor: "pointer",
-        WebkitTapHighlightColor: "transparent",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "nowrap", gap: 6 }}>
-        {GERMAN_LEVELS.map((level, i) => (
-          <span key={level} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: currentLevel === level ? 700 : 400,
-                color: currentLevel === level ? PURPLE : "#9ca3af",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              {level}
-            </span>
-            {i < GERMAN_LEVELS.length - 1 && (
-              <span style={{ color: "#d1d5db", fontSize: 11 }}>—</span>
-            )}
-          </span>
-        ))}
-      </div>
-    </button>
+      {GERMAN_LEVELS.map(level => {
+        const selected = currentLevel === level;
+        return (
+          <button
+            key={level}
+            type="button"
+            onClick={() => onSelect(level)}
+            style={{
+              flex: 1,
+              minHeight: 44,
+              minWidth: 0,
+              padding: selected ? "10px 4px 8px" : "8px 2px 6px",
+              borderRadius: 8,
+              border: selected ? `1.5px solid ${PURPLE}` : "1px solid transparent",
+              background: selected ? "#EEEDFE" : "transparent",
+              cursor: "pointer",
+              fontFamily: "var(--font-mono)",
+              fontSize: selected ? 18 : 12,
+              fontWeight: selected ? 700 : 400,
+              color: selected ? PURPLE : "#9ca3af",
+              lineHeight: 1,
+              transition: "font-size 0.15s ease, padding 0.15s ease, background 0.15s ease, border-color 0.15s ease",
+              WebkitTapHighlightColor: "transparent",
+            }}
+            aria-pressed={selected}
+            aria-label={`Level ${level}`}
+          >
+            {level}
+          </button>
+        );
+      })}
+    </div>
   );
 }

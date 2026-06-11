@@ -19,7 +19,13 @@ export function nextGermanLevel(level: string): GermanLevel | null {
 
 export function shouldSkipLevelOnLogin(user: {
   totalSessions?: number;
-  facts?: { placementDone?: boolean };
+  createdAt?: number;
+  facts?: { placementDone?: boolean; levelOnboarded?: boolean };
 }): boolean {
-  return (user.totalSessions ?? 0) > 0 || !!user.facts?.placementDone;
+  if (user.facts?.levelOnboarded) return true;
+  if ((user.totalSessions ?? 0) > 0) return true;
+  if (user.facts?.placementDone) return true;
+  // Legacy accounts that already used the app before level onboarding existed
+  if (user.createdAt && Date.now() - user.createdAt > 24 * 60 * 60 * 1000) return true;
+  return false;
 }

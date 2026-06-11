@@ -1,5 +1,6 @@
 import sentencesData from "@/data/flashcards/sentences.json";
-import { getExerciseMasteredKeys } from "@/lib/kv";
+import { getExerciseExcludedKeys } from "@/lib/kv";
+import { isExerciseEntryExcluded } from "./exclusion";
 import { isLevelAppropriate } from "./levels";
 import type { UserProfile } from "@/lib/types";
 
@@ -43,14 +44,20 @@ export async function selectSentenceExercises(
   limit = 5
 ): Promise<SentenceExercise[]> {
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
-  const mastered = await getExerciseMasteredKeys(userId, "sentence");
+  const excluded = await getExerciseExcludedKeys(userId, "sentence");
 
   let pool = bank.filter(
-    e => isLevelAppropriate(e.level, userLevel) && !mastered.has(e.id)
+    e =>
+      isLevelAppropriate(e.level, userLevel) &&
+      !isExerciseEntryExcluded(e.id, e.german, excluded)
   );
 
   if (pool.length < limit) {
-    const extra = bank.filter(e => isLevelAppropriate(e.level, userLevel));
+    const extra = bank.filter(
+      e =>
+        isLevelAppropriate(e.level, userLevel) &&
+        !isExerciseEntryExcluded(e.id, e.german, excluded)
+    );
     pool = [...pool, ...extra.filter(e => !pool.some(p => p.id === e.id))];
   }
 

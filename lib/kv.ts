@@ -263,40 +263,106 @@ export async function saveExerciseResults(
     const prev: StoredExerciseResult[] = existing
       ? (typeof existing === "string" ? JSON.parse(existing) : existing)
       : [];
-    const merged = [...prev, ...results].slice(-200);
+    const merged = [...prev, ...results].slice(-500);
     await redis.set(key, JSON.stringify(merged));
   } catch {}
 }
 
-export const EXERCISE_MASTERED_MS = 7 * 24 * 60 * 60 * 1000;
+export const EXERCISE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+/** @deprecated use EXERCISE_COOLDOWN_MS */
+export const EXERCISE_MASTERED_MS = EXERCISE_COOLDOWN_MS;
+export const EXERCISE_LIFETIME_MASTERED = 3;
 
-/** itemIds (+ german lowercase for warmup) answered correctly within the last week */
+async function loadExerciseResults(userId: string): Promise<StoredExerciseResult[]> {
+  try {
+    const data = await redis.get<string>(`exercise_results:${userId}`);
+    if (!data) return [];
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return [];
+  }
+}
+
+function exerciseResultAliases(r: StoredExerciseResult): string[] {
+  const aliases: string[] = [];
+  if (r.itemId) aliases.push(r.itemId);
+  if (r.german) {
+    const g = r.german.toLowerCase().trim();
+    if (g) {
+      aliases.push(g);
+      aliases.push(`g:${g}`);
+    }
+  }
+  return aliases;
+}
+
+function exerciseResultPrimaryKey(r: StoredExerciseResult): string | null {
+  if (r.itemId) return r.itemId;
+  if (r.german) {
+    const g = r.german.toLowerCase().trim();
+    if (g) return `g:${g}`;
+  }
+  return null;
+}
+
+/**
+ * Keys to skip when selecting exercises:
+ * - any item answered correctly in the last 7 days (weekly cooldown)
+ * - any item answered correctly 3+ times lifetime (permanently mastered)
+ */
+export async function getExerciseExcludedKeys(
+  userId: string,
+  type: StoredExerciseResult["type"]
+): Promise<Set<string>> {
+  const excluded = new Set<string>();
+  const cutoff = Date.now() - EXERCISE_COOLDOWN_MS;
+  const lifetimeCorrect = new Map<string, number>();
+  const aliasesByPrimary = new Map<string, Set<string>>();
+
+  const results = await loadExerciseResults(userId);
+  for (const r of results) {
+    if (r.type !== type || !r.correct) continue;
+    const primary = exerciseResultPrimaryKey(r);
+    if (!primary) continue;
+
+    const aliases = exerciseResultAliases(r);
+    if (!aliasesByPrimary.has(primary)) aliasesByPrimary.set(primary, new Set());
+    for (const a of aliases) aliasesByPrimary.get(primary)!.add(a);
+
+    lifetimeCorrect.set(primary, (lifetimeCorrect.get(primary) ?? 0) + 1);
+    if (r.ts >= cutoff) {
+      for (const a of aliases) excluded.add(a);
+    }
+  }
+
+  for (const [primary, count] of Array.from(lifetimeCorrect.entries())) {
+    if (count >= EXERCISE_LIFETIME_MASTERED) {
+      const aliases = aliasesByPrimary.get(primary);
+      if (aliases) {
+        for (const a of Array.from(aliases)) excluded.add(a);
+      }
+    }
+  }
+
+  return excluded;
+}
+
+/** @deprecated use getExerciseExcludedKeys */
 export async function getExerciseMasteredKeys(
   userId: string,
   type: StoredExerciseResult["type"],
-  withinMs = EXERCISE_MASTERED_MS
+  withinMs = EXERCISE_COOLDOWN_MS
 ): Promise<Set<string>> {
-  const cutoff = Date.now() - withinMs;
-  const mastered = new Set<string>();
-  try {
-    const data = await redis.get<string>(`exercise_results:${userId}`);
-    if (!data) return mastered;
-    const results: StoredExerciseResult[] =
-      typeof data === "string" ? JSON.parse(data) : data;
-    for (const r of results) {
-      if (r.type !== type || !r.correct || r.ts < cutoff) continue;
-      if (r.itemId) mastered.add(r.itemId);
-      if (type === "warmup" && r.german) mastered.add(r.german.toLowerCase().trim());
-    }
-  } catch {}
-  return mastered;
+  void withinMs;
+  return getExerciseExcludedKeys(userId, type);
 }
 
 export async function getWarmupMasteredKeys(
   userId: string,
-  withinMs = EXERCISE_MASTERED_MS
+  withinMs = EXERCISE_COOLDOWN_MS
 ): Promise<Set<string>> {
-  return getExerciseMasteredKeys(userId, "warmup", withinMs);
+  void withinMs;
+  return getExerciseExcludedKeys(userId, "warmup");
 }
 
 export async function isPlacementDone(userId: string): Promise<boolean> {
