@@ -1,4 +1,4 @@
-import { callClaude, parseJsonArray, type GenerateParams } from "./generate";
+import { buildExcludeClause, callClaude, parseJsonArray, type GenerateParams } from "./generate";
 import type { CEFRLevel, VocabCategory, WordInput } from "@/lib/vocab/types";
 import { countGermanWords, isWithinWordLimit, MAX_VOCAB_WORDS } from "./vocab-word-count";
 
@@ -41,7 +41,7 @@ function buildUserPrompt(params: GenerateParams): string {
   const topicClause = params.topic ? `, topic ${params.topic}` : "";
   return `Generate ${params.count} German vocabulary entries for level ${params.level}, category ${params.category}${topicClause}.
 Each German entry must be at most ${MAX_VOCAB_WORDS} words. Single words preferred.
-Return only the JSON array.`;
+Return only the JSON array.${buildExcludeClause(params.excludeDe)}`;
 }
 
 function normalizeWord(raw: GeneratedWord, params: GenerateParams): WordInput | null {

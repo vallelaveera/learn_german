@@ -1,6 +1,7 @@
 import { generateSentences, type GenerateParams } from "./generate";
 import { validateSentences } from "./validate";
 import { saveSentences } from "@/lib/vocab/save";
+import { listCorpusGermanByCategoryLevel } from "@/lib/vocab/load";
 
 export interface PipelineSummary {
   requested: number;
@@ -16,7 +17,12 @@ export interface PipelineSummary {
 export async function runGenerationPipeline(params: GenerateParams): Promise<PipelineSummary> {
   const requested = Math.min(Math.max(params.count, 1), 50);
 
-  const generated = await generateSentences({ ...params, count: requested });
+  const excludeDe = await listCorpusGermanByCategoryLevel(params.category, params.level, "sentences");
+  if (excludeDe.length) {
+    console.log(`[pipeline] excluding ${excludeDe.length} existing entries`);
+  }
+
+  const generated = await generateSentences({ ...params, count: requested, excludeDe });
   const { passed, rejected } = await validateSentences(generated);
 
   const rejectionRate =

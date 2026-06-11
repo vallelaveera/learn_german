@@ -56,11 +56,28 @@ export function parseJsonArray<T>(text: string): T[] | null {
   return null;
 }
 
+export const EXCLUDE_LIST_CAP = 80;
+
 export interface GenerateParams {
   level: CEFRLevel;
   category: VocabCategory;
   topic?: string;
   count: number;
+  /** Existing German entries to avoid duplicating in generation. */
+  excludeDe?: string[];
+}
+
+export function buildExcludeClause(excludeDe?: string[]): string {
+  if (!excludeDe?.length) return "";
+  const unique = Array.from(new Set(excludeDe.map(d => d.trim()).filter(Boolean)));
+  const list = unique.slice(0, EXCLUDE_LIST_CAP);
+  const omitted = unique.length - list.length;
+  const lines = list.map(d => `- ${d}`).join("\n");
+  const tail =
+    omitted > 0
+      ? `\n(...and ${omitted} more — do not repeat any of them either)`
+      : "";
+  return `\n\nAlready in the corpus for this category and level — do NOT duplicate or repeat these German entries:\n${lines}${tail}\nGenerate completely NEW entries only.`;
 }
 
 interface GeneratedSentence {
@@ -102,7 +119,7 @@ function buildUserPrompt(params: GenerateParams): string {
   const topicClause = params.topic ? `, topic ${params.topic}` : "";
   return `Generate ${params.count} German sentences for level ${params.level}, category ${params.category}${topicClause}.
 Each German sentence must be at most ${MAX_GERMAN_WORDS} words (5–8 preferred). Shorter is better.
-Return only the JSON array.`;
+Return only the JSON array.${buildExcludeClause(params.excludeDe)}`;
 }
 
 function normalizeSentence(raw: GeneratedSentence, params: GenerateParams): SentenceInput | null {
