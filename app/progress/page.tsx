@@ -6,6 +6,7 @@ import { Session, Message } from "@/lib/types";
 
 interface VocabWord {
   word: string;
+  firstSeen?: number;
   usedByUser?: boolean;
 }
 
@@ -68,7 +69,10 @@ export default function ProgressPage() {
         (a, s) => a + (s.endedAt ? Math.round((s.endedAt - s.startedAt) / 60000) : 0),
         0,
       ),
-      words: weekSessions.reduce((a, s) => a + (s.newWords?.length ?? 0), 0),
+      words: vocab.filter(w => {
+        const seen = w.firstSeen ?? 0;
+        return seen >= start && seen < end;
+      }).length,
     };
   });
 

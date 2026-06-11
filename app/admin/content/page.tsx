@@ -73,8 +73,7 @@ export default function AdminContentPage() {
       .then(d => {
         if (d) {
           setAuditAvailable(d.available);
-          if (d.provider === "gemini") setAuditProviderLabel("Gemini Flash");
-          else if (d.provider === "openai") setAuditProviderLabel("GPT-4o mini");
+          setAuditProviderLabel(d.providerLabel ?? "DeepL");
         }
       });
   }, [router]);
@@ -162,12 +161,11 @@ export default function AdminContentPage() {
                 Corpus-Audit (generierte Wörter)
               </div>
               <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
-                Zweitmeinung via {auditProviderLabel || "Gemini Flash oder GPT-4o mini"} — ein Wort pro Prüfung, unabhängig von Claude.
-                DeepL eignet sich nicht für Artikel/Grammatik.
+                Zweitmeinung via {auditProviderLabel || "DeepL"} — prüft Übersetzung (DE→EN) und bei API Pro auch Grammatik/Artikel (Write).
               </p>
               {auditAvailable === false && (
                 <p style={{ fontSize: 12, color: "#92400E", margin: "0 0 12px" }}>
-                  GEMINI_API_KEY oder OPENAI_API_KEY in Vercel setzen.
+                  DEEPL_AUTH_KEY in Vercel setzen. Write (Artikel/Grammatik) erfordert DeepL API Pro.
                 </p>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: auditResult || auditError ? 12 : 0 }}>

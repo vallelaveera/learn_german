@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message } from "@/lib/types";
+import { computeCallReportStats } from "@/lib/call-report-stats";
 import { useRouter } from "next/navigation";
 import styles from "@/app/call/call.module.css";
 
@@ -165,6 +166,7 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
 
   // ── Auto save ────────────────────────────────────────────
   const autoSave = useCallback((msgs: Message[]) => {
+    const durationSec = Math.max(0, Math.round((Date.now() - sessionStart) / 1000));
     fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -174,6 +176,7 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
         messages: msgs,
         title: msgs.find(m => m.role === "user")?.content?.slice(0, 60) ?? "Gespraech",
         totalMessages: msgs.length,
+        newWords: computeCallReportStats(msgs, durationSec).newWords,
       }),
     });
   }, [sessionId, sessionStart]);

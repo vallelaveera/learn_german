@@ -3,6 +3,7 @@
 import { useEffect, useCallback } from "react";
 import type { BinaryCard } from "@/lib/exercises/types";
 import { DirectionToggle, type ExerciseDirection } from "@/components/DirectionToggle";
+import { WordExamplesPanel } from "@/components/exercises/WordExamplesPanel";
 import { speakExercisePrompt, stopExerciseSpeech } from "@/lib/exercise-speech";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   onDirectionChange?: (direction: ExerciseDirection) => void;
   showDirectionToggle?: boolean;
   speakOnShow?: boolean;
+  showWordExamples?: boolean;
 }
 
 export function BinaryFlashcard({
@@ -29,6 +31,7 @@ export function BinaryFlashcard({
   onDirectionChange,
   showDirectionToggle = true,
   speakOnShow = true,
+  showWordExamples = false,
 }: Props) {
   const isEnDe = direction === "en-de";
   const prompt = isEnDe ? card.english : card.german;
@@ -92,6 +95,10 @@ export function BinaryFlashcard({
           {prompt}
         </p>
       </div>
+
+      {showWordExamples && (
+        <WordExamplesPanel word={card.german} disabled={!!feedback} />
+      )}
 
       <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginBottom: 10 }}>{chooseLabel}</p>
 

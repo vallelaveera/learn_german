@@ -1,18 +1,11 @@
-import { parseJsonArray } from "./generate";
 import {
-  callAuditLlm,
-  getAuditProviderLabel,
-  getAvailableAuditProvider,
-  type AuditProvider,
-} from "./llm-providers";
-import type { WordInput } from "@/lib/vocab/types";
+  deeplCorrectGerman,
+  deeplTranslateDeToEn,
+  getDeepLAuditLabel,
+  isDeepLConfigured,
+  probeDeepLWrite,
+} from "./deepl-client";
 import type { SavedWord } from "@/lib/vocab/types";
-import {
-  issuesReferenceOtherGerman,
-  validationResultMatchesWord,
-  WORD_VALIDATION_SYSTEM_PROMPT,
-  type WordValidationResult,
-} from "./word-validation-prompt";
 
 export interface AuditWordFinding {
   id: string;
@@ -23,7 +16,7 @@ export interface AuditWordFinding {
 }
 
 export interface AuditWordsSummary {
-  provider: AuditProvider;
+  provider: "deepl";
   providerLabel: string;
   checked: number;
   flagged: number;
@@ -31,91 +24,97 @@ export interface AuditWordsSummary {
   findings: AuditWordFinding[];
 }
 
-const AUDIT_SYSTEM_PROMPT = `${WORD_VALIDATION_SYSTEM_PROMPT}
-
-This is an independent audit of vocabulary already saved in the corpus.
-Be especially careful about der/die/das articles and distractor format consistency.`;
-
-function savedWordToInput(word: SavedWord): WordInput {
-  return {
-    de: word.de,
-    en: word.en,
-    level: word.level,
-    category: word.category,
-    topic: word.topic,
-    distractors: word.distractors,
-  };
+function normalizeEnglish(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/^the\s+/, "")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, " ");
 }
 
-function parseAuditResults(text: string, word: WordInput): WordValidationResult | null {
-  let results = parseJsonArray<WordValidationResult>(text);
-  if (!results) {
-    try {
-      const obj = JSON.parse(text) as { results?: WordValidationResult[] } & WordValidationResult;
-      if (Array.isArray(obj.results)) results = obj.results;
-      else if (typeof obj.passed === "boolean") results = [obj as WordValidationResult];
-    } catch {
-      return null;
+function normalizeGerman(text: string): string {
+  return text.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function translationsAlign(storedEn: string, deeplEn: string): boolean {
+  const stored = normalizeEnglish(storedEn);
+  const translated = normalizeEnglish(deeplEn);
+  if (!stored || !translated) return false;
+  if (stored === translated) return true;
+  if (stored.includes(translated) || translated.includes(stored)) return true;
+
+  const storedWords = new Set(stored.split(" ").filter(w => w.length > 2));
+  const translatedWords = new Set(translated.split(" ").filter(w => w.length > 2));
+  if (storedWords.size === 0 || translatedWords.size === 0) return stored === translated;
+
+  let overlap = 0;
+  storedWords.forEach(word => {
+    if (translatedWords.has(word)) overlap++;
+  });
+  return overlap / Math.min(storedWords.size, translatedWords.size) >= 0.5;
+}
+
+function distractorMatchesTranslation(distractors: string[], deeplEn: string): string | null {
+  const translated = normalizeEnglish(deeplEn);
+  for (const distractor of distractors) {
+    const norm = normalizeEnglish(distractor);
+    if (norm && (norm === translated || translated.includes(norm) || norm.includes(translated))) {
+      return distractor;
     }
   }
-
-  const result = results?.find(r => validationResultMatchesWord(r, word.de, 0)) ?? results?.[0];
-  if (!result || !validationResultMatchesWord(result, word.de, 0)) return null;
-  return result;
+  return null;
 }
 
 async function auditSingleWord(
   word: SavedWord,
-  provider: AuditProvider,
+  writeEnabled: boolean,
 ): Promise<AuditWordFinding | null> {
-  const input = savedWordToInput(word);
-  const userPrompt = `Audit this ONE saved vocabulary entry. Return a JSON array with exactly one object.\n${JSON.stringify([input])}`;
+  const issues: string[] = [];
 
   try {
-    const text = await callAuditLlm(provider, AUDIT_SYSTEM_PROMPT, userPrompt, 1024);
-    const result = parseAuditResults(text, input);
-
-    if (!result) {
-      return {
-        id: word.id,
-        de: word.de,
-        en: word.en,
-        level: word.level,
-        issues: ["Audit could not verify this entry — manual review recommended"],
-      };
+    const deeplEn = await deeplTranslateDeToEn(word.de);
+    if (!deeplEn) {
+      issues.push("DeepL returned no English translation");
+    } else if (!translationsAlign(word.en, deeplEn)) {
+      issues.push(`Translation mismatch — stored «${word.en}», DeepL suggests «${deeplEn}»`);
     }
 
-    if (result.passed && result.levelAccurate !== false) return null;
-
-    const issues = [...(result.issues ?? [])];
-    if (!result.levelAccurate && !issues.some(i => /level/i.test(i))) {
-      issues.push("Level accuracy check failed");
+    const badDistractor = distractorMatchesTranslation(word.distractors, deeplEn);
+    if (badDistractor) {
+      issues.push(`Distractor «${badDistractor}» matches DeepL translation «${deeplEn}»`);
     }
-    if (issues.length === 0) issues.push("Marked as failed with no details");
 
-    return { id: word.id, de: word.de, en: word.en, level: word.level, issues };
+    if (writeEnabled) {
+      const corrected = await deeplCorrectGerman(word.de);
+      if (corrected && normalizeGerman(corrected) !== normalizeGerman(word.de)) {
+        issues.push(`DeepL corrected German: «${corrected}» (stored: «${word.de}»)`);
+      }
+    }
   } catch (e) {
-    console.error(`[audit-words] failed for ${word.de}:`, e);
+    console.error(`[audit-words] DeepL failed for ${word.de}:`, e);
     return {
       id: word.id,
       de: word.de,
       en: word.en,
       level: word.level,
-      issues: ["Audit call failed — manual review recommended"],
+      issues: ["DeepL audit call failed — manual review recommended"],
     };
   }
+
+  if (issues.length === 0) return null;
+  return { id: word.id, de: word.de, en: word.en, level: word.level, issues };
 }
 
 export async function auditSavedWords(
   words: SavedWord[],
-  options: { limit?: number; concurrency?: number; provider?: AuditProvider } = {},
+  options: { limit?: number; concurrency?: number } = {},
 ): Promise<AuditWordsSummary> {
-  const provider = options.provider ?? getAvailableAuditProvider();
-  if (!provider) {
-    throw new Error("No audit provider configured — set GEMINI_API_KEY or OPENAI_API_KEY");
+  if (!isDeepLConfigured()) {
+    throw new Error("DEEPL_AUTH_KEY not configured");
   }
-  const auditProvider: AuditProvider = provider;
 
+  const writeEnabled = await probeDeepLWrite();
   const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
   const concurrency = Math.min(Math.max(options.concurrency ?? 3, 1), 5);
   const batch = words.slice(0, limit);
@@ -126,7 +125,7 @@ export async function auditSavedWords(
   async function worker() {
     while (index < batch.length) {
       const i = index++;
-      const finding = await auditSingleWord(batch[i], auditProvider);
+      const finding = await auditSingleWord(batch[i], writeEnabled);
       if (finding) findings.push(finding);
     }
   }
@@ -134,8 +133,8 @@ export async function auditSavedWords(
   await Promise.all(Array.from({ length: Math.min(concurrency, batch.length) }, () => worker()));
 
   return {
-    provider: auditProvider,
-    providerLabel: getAuditProviderLabel(auditProvider),
+    provider: "deepl",
+    providerLabel: getDeepLAuditLabel(writeEnabled),
     checked: batch.length,
     flagged: findings.length,
     passed: batch.length - findings.length,

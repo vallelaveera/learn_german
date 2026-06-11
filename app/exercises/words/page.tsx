@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
+import type { ExerciseDirection } from "@/components/DirectionToggle";
 import type { BinaryCard } from "@/lib/exercises/types";
 
 function WordsPracticeInner() {
@@ -16,6 +17,7 @@ function WordsPracticeInner() {
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [noMore, setNoMore] = useState(false);
+  const [direction, setDirection] = useState<ExerciseDirection>("de-en");
 
   const loadCards = useCallback(async (isMore = false) => {
     if (isMore) setLoadingMore(true);
@@ -57,7 +59,9 @@ function WordsPracticeInner() {
   const handleChoose = (option: "A" | "B") => {
     const card = cards[index];
     if (!card || feedback) return;
-    const correct = card.correctOption === option;
+    const correct = direction === "en-de"
+      ? card.deCorrectOption === option
+      : card.correctOption === option;
     if (correct) setScore(s => s + 1);
     setFeedback(correct ? "correct" : "wrong");
     saveResult({ itemId: card.id, german: card.german, correct });
@@ -144,7 +148,11 @@ function WordsPracticeInner() {
       <header style={{ width: "100%", maxWidth: 300, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <p style={{ fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 300, color: "var(--text)", marginBottom: 4 }}>Wörter üben</p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>Deutsch oben — wähle die richtige Bedeutung.</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>
+            {direction === "de-en"
+              ? "Deutsch oben — wähle die richtige Bedeutung."
+              : "English oben — wähle das richtige Deutsch."}
+          </p>
         </div>
         <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6, textDecoration: "none" }}>←</Link>
       </header>
@@ -155,8 +163,9 @@ function WordsPracticeInner() {
         total={cards.length}
         feedback={feedback}
         onChoose={handleChoose}
-        direction="de-en"
-        showDirectionToggle={false}
+        direction={direction}
+        onDirectionChange={setDirection}
+        showWordExamples
       />
     </div>
   );
