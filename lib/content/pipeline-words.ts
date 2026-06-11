@@ -41,6 +41,7 @@ export async function runWordGenerationPipeline(params: GenerateParams): Promise
     rejected: rejected.length,
     rejectionRate,
     savedIds,
+    duplicatesSkipped: passed.length - savedIds.length,
     rejectedLog,
   };
 }

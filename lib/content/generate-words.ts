@@ -20,9 +20,10 @@ Rules:
 - No full sentences — vocabulary only
 - No brand names, no proper nouns, no political topics
 - Vocabulary must match the stated CEFR level exactly
+- Nouns MUST use the correct article: der (m), die (f), das (n) — e.g. "der Mietvertrag" NOT "das Mietvertrag"
 - Include exactly 2 English distractors — plausible but clearly wrong translations
+- Distractors must match the English style of the correct answer (all with "the" or all without)
 - Distractors must not duplicate the correct English translation
-- German entries must use correct articles for nouns where natural (e.g. "der Vertrag")
 
 Output ONLY valid JSON array, no markdown, no commentary:
 [
