@@ -3,6 +3,7 @@ import { put } from "@vercel/blob";
 import { getAuthUser } from "@/lib/auth";
 import { getHomework, updateHomeworkProgress } from "@/lib/kv";
 import { isBlobStorageConfigured } from "@/lib/blob";
+import { saveHomeworkAudioRedis } from "@/lib/homework-audio";
 import { isHomeworkEnabledForUser } from "@/lib/homework";
 import { HomeworkRep } from "@/lib/types";
 
@@ -15,10 +16,6 @@ export async function POST(req: NextRequest) {
 
     if (!(await isHomeworkEnabledForUser(user.userId))) {
       return NextResponse.json({ error: "Homework not enabled" }, { status: 403 });
-    }
-
-    if (!isBlobStorageConfigured()) {
-      return NextResponse.json({ error: "Blob storage not configured" }, { status: 503 });
     }
 
     const form = await req.formData();
@@ -46,15 +43,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid sentence" }, { status: 400 });
     }
 
-    const blob = await put(
-      `homework/${user.userId}/${homeworkId}/${sentenceId}-${repIndex}.webm`,
-      audio,
-      { access: "public" }
-    );
+    let blobUrl: string;
+    if (isBlobStorageConfigured()) {
+      const blob = await put(
+        `homework/${user.userId}/${homeworkId}/${sentenceId}-${repIndex}.webm`,
+        audio,
+        { access: "public" }
+      );
+      blobUrl = blob.url;
+    } else {
+      const data = await audio.arrayBuffer();
+      blobUrl = await saveHomeworkAudioRedis(
+        user.userId,
+        homeworkId,
+        sentenceId,
+        repIndex,
+        data
+      );
+    }
 
     const rep: HomeworkRep = {
       repIndex,
-      blobUrl: blob.url,
+      blobUrl,
       transcript,
       recordedAt: Date.now(),
     };
@@ -63,6 +73,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, rep, assignment: updated });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    const message = e instanceof Error ? e.message : "Upload failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
