@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const level = body.level as string;
     const category = body.category as string;
     const topic = body.topic as string | undefined;
-    const count = typeof body.count === "number" ? body.count : 20;
+    const count = typeof body.count === "number" ? body.count : 50;
     const type = body.type === "words" ? "words" : "sentences";
 
     if (!level || !isCEFRLevel(level)) {

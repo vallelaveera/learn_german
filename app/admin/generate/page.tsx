@@ -123,7 +123,7 @@ function AdminGeneratePageInner() {
   const [category, setCategory] = useState<string>("career");
   const [topicMode, setTopicMode] = useState("");
   const [customTopic, setCustomTopic] = useState("");
-  const [count, setCount] = useState(20);
+  const [count, setCount] = useState(50);
   const [running, setRunning] = useState(false);
   const [taxonomyBusy, setTaxonomyBusy] = useState(false);
   const [error, setError] = useState("");
@@ -595,7 +595,7 @@ function AdminGeneratePageInner() {
                 disabled={running}
                 style={{ width: "100%" }}
               />
-              <span style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>1–50 · Standard 20</span>
+              <span style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>1–50 · Standard 50</span>
             </label>
 
             <button
