@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { getAuthUser } from "@/lib/auth";
 import { getHomework, updateHomeworkProgress } from "@/lib/kv";
+import { isBlobStorageConfigured } from "@/lib/blob";
 import { isHomeworkEnabledForUser } from "@/lib/homework";
 import { HomeworkRep } from "@/lib/types";
 
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Homework not enabled" }, { status: 403 });
     }
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    if (!isBlobStorageConfigured()) {
       return NextResponse.json({ error: "Blob storage not configured" }, { status: 503 });
     }
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     const blob = await put(
       `homework/${user.userId}/${homeworkId}/${sentenceId}-${repIndex}.webm`,
       audio,
-      { access: "public", token: process.env.BLOB_READ_WRITE_TOKEN }
+      { access: "public" }
     );
 
     const rep: HomeworkRep = {
