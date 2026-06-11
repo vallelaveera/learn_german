@@ -337,9 +337,9 @@ grep -q 'completePlacement' lib/kv.ts \
   && check "KV: completePlacement helper" "ok" \
   || check "KV: completePlacement helper" "fail"
 
-grep -q 'getWarmupMasteredKeys' lib/kv.ts \
-  && check "warmup: 7-day mastery skip" "ok" \
-  || check "warmup: 7-day mastery skip" "fail"
+grep -q 'getExerciseExcludedKeys' lib/kv.ts \
+  && check "exercises: weekly cooldown + 3x lifetime skip" "ok" \
+  || check "exercises: weekly cooldown + 3x lifetime skip" "fail"
 
 test -f app/exercises/sentences/page.tsx \
   && check "standalone sentence ordering page" "ok" \

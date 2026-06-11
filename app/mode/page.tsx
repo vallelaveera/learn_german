@@ -3,7 +3,6 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, type ReactNode } from "react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelStrip } from "@/components/level/LevelStrip";
-import { LevelBottomSheet } from "@/components/level/LevelBottomSheet";
 import type { GermanLevel } from "@/lib/levels";
 
 const PURPLE = "#7F77DD";
@@ -78,7 +77,6 @@ export default function ModePage() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; germanLevel?: string } | null>(null);
   const [level, setLevel] = useState<string>("A1");
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -107,7 +105,7 @@ export default function ModePage() {
     <PageShell showTabBar>
       <div style={{ padding: "16px 18px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
         <div>
-          <LevelStrip currentLevel={level} onTap={() => setSheetOpen(true)} />
+          <LevelStrip currentLevel={level} onSelect={saveLevel} />
           <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.45, textAlign: "center" }}>
             Nach ein paar Gesprächen empfehlen wir dir das beste Level.
           </p>
@@ -167,17 +165,10 @@ export default function ModePage() {
             icon={<IconBooks />}
             label="Wörter üben"
             subtext="Übe deine Vokabeln"
-            onClick={() => router.push("/words")}
+            onClick={() => router.push("/exercises/words")}
           />
         </div>
       </div>
-
-      <LevelBottomSheet
-        open={sheetOpen}
-        currentLevel={level}
-        onClose={() => setSheetOpen(false)}
-        onSave={saveLevel}
-      />
     </PageShell>
   );
 }

@@ -26,6 +26,7 @@ export interface UserFacts {
   occupation?: string; // "student" | "working" | "both"
   placementDone?: boolean;
   placementScore?: number;
+  levelOnboarded?: boolean;
 }
 
 export interface Session {
