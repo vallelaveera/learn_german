@@ -1,77 +1,13 @@
 "use client";
-import { Suspense, useState, useEffect, type ReactNode } from "react";
+
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Phone, PenLine, BookOpen } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelStrip } from "@/components/level/LevelStrip";
+import { MayaAvatar } from "@/components/ui/MayaAvatar";
+import { ActivityCard } from "@/components/ui/ActivityCard";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
-
-const PURPLE = "#7F77DD";
-
-function IconPhone() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5l1.5-2.5 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
-    </svg>
-  );
-}
-
-function IconWriting() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
-
-function IconBooks() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  );
-}
-
-interface HomeButtonProps {
-  primary?: boolean;
-  icon: ReactNode;
-  label: string;
-  subtext: string;
-  onClick: () => void;
-}
-
-function HomeButton({ primary, icon, label, subtext, onClick }: HomeButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: "100%",
-        minHeight: 64,
-        padding: "14px 16px",
-        borderRadius: 14,
-        border: primary ? "none" : "0.5px solid var(--border)",
-        background: primary ? PURPLE : "var(--surface)",
-        color: primary ? "#fff" : "var(--text)",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        textAlign: "left",
-        WebkitTapHighlightColor: "transparent",
-      }}
-    >
-      <span style={{ color: primary ? "#fff" : PURPLE, flexShrink: 0 }}>{icon}</span>
-      <span style={{ flex: 1 }}>
-        <span style={{ display: "block", fontSize: 15, fontWeight: 500, marginBottom: 2 }}>{label}</span>
-        <span style={{ display: "block", fontSize: 12, color: primary ? "rgba(255,255,255,0.85)" : "var(--text-muted)" }}>
-          {subtext}
-        </span>
-      </span>
-    </button>
-  );
-}
 
 export default function ModePage() {
   return (
@@ -125,68 +61,53 @@ function ModePageInner() {
 
   return (
     <PageShell showTabBar>
-      <div style={{ padding: "16px 18px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
-        <div>
-          <LevelStrip currentLevel={level} onSelect={saveLevel} />
-          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.45, textAlign: "center" }}>
-            Nach ein paar Gesprächen empfehlen wir dir das beste Level.
-          </p>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "var(--surface)",
-              border: "2px solid var(--accent-dim)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-            }}
-          >
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "var(--accent)" }}>M</span>
-            <div
-              style={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                background: "var(--green)",
-                border: "2px solid var(--bg)",
-              }}
-            />
+      <div className="ui-page">
+        <div className="ui-hero animate-fade-in">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 20 }}>
+            <MayaAvatar size={80} />
+            <div style={{ textAlign: "center" }}>
+              <h1 className="ui-title-serif" style={{ fontSize: 24, marginBottom: 6 }}>
+                {user ? `Hey ${user.name}!` : "Hey!"}
+              </h1>
+              <p className="ui-muted" style={{ margin: 0 }}>
+                Wie möchtest du heute Deutsch üben?
+              </p>
+            </div>
           </div>
-          <p style={{ fontSize: 14, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6, margin: 0 }}>
-            {user ? `Hey ${user.name}!` : "Hey!"} Wie möchtest du heute üben?
-          </p>
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <HomeButton
+          <ActivityCard
             primary
-            icon={<IconPhone />}
-            label="Mit Maya üben"
-            subtext="Sprich direkt mit Maya"
+            tone="purple"
+            icon={<Phone size={22} color="#fff" strokeWidth={2} />}
+            label="Mit Maya sprechen"
+            subtext="Freisprechen — wie ein echtes Gespräch"
             onClick={() => {
               localStorage.setItem("maya_voice", "soniox");
               router.push("/call");
             }}
           />
-          <HomeButton
-            icon={<IconWriting />}
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <LevelStrip currentLevel={level} onSelect={saveLevel} />
+          <p className="ui-muted" style={{ fontSize: 12, marginTop: 10, textAlign: "center" }}>
+            Tippe dein Level — Maya passt sich an.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <ActivityCard
+            tone="orange"
+            icon={<PenLine size={20} strokeWidth={2} />}
             label="Sätze üben"
-            subtext="Lerne neue Sätze"
+            subtext="Flashcards mit Maya-Stimme"
             onClick={() => router.push("/exercises/sentences")}
           />
-          <HomeButton
-            icon={<IconBooks />}
+          <ActivityCard
+            tone="green"
+            icon={<BookOpen size={20} strokeWidth={2} />}
             label="Wörter üben"
-            subtext="Übe deine Vokabeln"
+            subtext="Vokabeln aus deinen Gesprächen"
             onClick={() => router.push("/exercises/words")}
           />
         </div>

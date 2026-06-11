@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Puzzle, Volume2 } from "lucide-react";
 import {
   prefetchExerciseGerman,
   revokeExerciseSpeechPrefetch,
@@ -190,11 +191,25 @@ function SentencesInner() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <p style={{ fontSize: 40, marginBottom: 12 }}>🧩</p>
-        <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: "var(--accent-soft)",
+            color: "var(--accent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          <Puzzle size={32} />
+        </div>
+        <h1 className="ui-title-serif" style={{ fontSize: 26, marginBottom: 8 }}>
           {score} / {exercises.length} richtig
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: noMore ? 12 : 28 }}>
+        <p className="ui-muted" style={{ marginBottom: noMore ? 12 : 28 }}>
           {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
         </p>
         {noMore && (
@@ -208,22 +223,13 @@ function SentencesInner() {
               type="button"
               onClick={() => void loadExercises(true)}
               disabled={loadingMore}
-              style={{
-                width: "100%", minHeight: 48, padding: "14px 28px", borderRadius: 10,
-                background: "#7F77DD", color: "#fff", fontSize: 14, fontFamily: "var(--font-mono)",
-                border: "none", cursor: loadingMore ? "wait" : "pointer",
-                opacity: loadingMore ? 0.7 : 1,
-              }}
+              className="ui-btn-primary"
+              style={{ fontSize: 14, opacity: loadingMore ? 0.7 : 1, cursor: loadingMore ? "wait" : "pointer" }}
             >
               {loadingMore ? "Lädt..." : "Weiter üben"}
             </button>
           )}
-          <Link href="/mode" style={{
-            padding: "14px 28px", borderRadius: 10,
-            border: "0.5px solid var(--border)", background: "var(--surface)",
-            color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none",
-            textAlign: "center", minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+          <Link href="/mode" className="ui-btn-ghost" style={{ textDecoration: "none", minHeight: 48, justifyContent: "center" }}>
             Zurück
           </Link>
         </div>
@@ -269,14 +275,11 @@ function SentencesInner() {
               <button
                 type="button"
                 onClick={playGerman}
-                style={{
-                  flexShrink: 0, fontSize: 10, padding: "4px 8px", borderRadius: 4,
-                  border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
-                  color: "var(--accent)", cursor: "pointer",
-                }}
+                className="ui-btn-ghost"
+                style={{ flexShrink: 0, padding: "6px 8px" }}
                 aria-label="Nochmal anhören"
               >
-                🔊
+                <Volume2 size={14} />
               </button>
             </div>
           </div>
@@ -302,14 +305,11 @@ function SentencesInner() {
               <button
                 type="button"
                 onClick={playGerman}
-                style={{
-                  flexShrink: 0, fontSize: 10, padding: "5px 10px", borderRadius: 6,
-                  border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
-                  color: "var(--accent)", cursor: "pointer",
-                }}
+                className="ui-btn-ghost"
+                style={{ flexShrink: 0, padding: "6px 10px" }}
                 aria-label="Nochmal anhören"
               >
-                🔊
+                <Volume2 size={14} />
               </button>
               <button
                 type="button"

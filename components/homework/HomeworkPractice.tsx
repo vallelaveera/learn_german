@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { Volume2, Play, ClipboardList } from "lucide-react";
 import { HomeworkRecorder, playBlobUrl } from "@/components/HomeworkRecorder";
 import { speakExercisePrompt, unlockExerciseAudio } from "@/lib/exercise-speech";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   HomeworkAssignment,
   HomeworkSentence,
@@ -146,13 +147,13 @@ export function HomeworkPractice() {
 
   if (!assignment) {
     return (
-      <div style={{ textAlign: "center", padding: 32 }}>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, color: "var(--text)", marginBottom: 8 }}>Keine Hausaufgaben</p>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
-          Ruf Maya an — nach dem Gespräch bekommst du neue Sätze zum Üben.
-        </p>
-        <Link href="/call" style={{ color: "var(--accent)", fontSize: 13 }}>Mit Maya sprechen →</Link>
-      </div>
+      <EmptyState
+        icon={<ClipboardList size={28} />}
+        title="Keine Hausaufgaben"
+        description="Ruf Maya an — nach dem Gespräch bekommst du neue Sätze zum Üben."
+        actionLabel="Mit Maya sprechen"
+        actionHref="/call"
+      />
     );
   }
 
@@ -192,21 +193,19 @@ export function HomeworkPractice() {
             {summary?.completedReps ?? progress?.completedReps ?? 0} / {summary?.totalReps ?? progress?.totalReps ?? 15} gesamt
           </span>
         </div>
-        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+        <div className="ui-progress-track">
           <div
+            className="ui-progress-fill"
             style={{
-              height: "100%",
-              background: "var(--accent)",
-              width: `${((progress?.completedReps ?? 0) / (progress?.totalReps ?? 15)) * 100}%`,
-              transition: "width 0.3s",
+              width: `${((summary?.completedReps ?? progress?.completedReps ?? 0) / (summary?.totalReps ?? progress?.totalReps ?? 15)) * 100}%`,
             }}
           />
         </div>
       </div>
 
       {sentence && (
-        <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 14, padding: 20, marginBottom: 24 }}>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.5, marginBottom: 12 }}>{sentence.text}</p>
+        <div className="ui-card ui-card-padded" style={{ marginBottom: 24, background: "var(--gradient-soft)" }}>
+          <p className="ui-title-serif" style={{ fontSize: 20, lineHeight: 1.5, marginBottom: 12 }}>{sentence.text}</p>
           {sentence.userSaid && (
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
               Du sagtest: <em>{sentence.userSaid}</em>
@@ -228,17 +227,21 @@ export function HomeworkPractice() {
               onClick={() => rep && playBlobUrl(rep.blobUrl)}
               disabled={!rep}
               style={{
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 borderRadius: "50%",
                 border: `2px solid ${rep ? "var(--green)" : repToDo === i ? "var(--accent)" : "var(--border)"}`,
-                background: rep ? "rgba(39,174,96,0.1)" : "var(--surface)",
-                color: rep ? "var(--green)" : "var(--text-muted)",
+                background: rep ? "var(--brand-green-soft)" : repToDo === i ? "var(--accent-soft)" : "var(--surface)",
+                color: rep ? "var(--green)" : repToDo === i ? "var(--accent)" : "var(--text-muted)",
                 fontSize: 14,
                 cursor: rep ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: repToDo === i ? "var(--shadow-sm)" : "none",
               }}
             >
-              {rep ? "▶" : i}
+              {rep ? <Play size={16} fill="currentColor" /> : i}
             </button>
           );
         })}
@@ -254,9 +257,10 @@ export function HomeworkPractice() {
           type="button"
           onClick={playMaya}
           disabled={ttsLoading}
-          style={{ padding: "10px 20px", borderRadius: 8, border: "0.5px solid var(--accent-dim)", background: "var(--accent-glow)", color: "var(--accent)", fontSize: 13, cursor: "pointer" }}
+          className="ui-btn-ghost"
         >
-          {ttsLoading ? "..." : "🔊 Maya anhören"}
+          <Volume2 size={16} />
+          {ttsLoading ? "..." : "Maya anhören"}
         </button>
       </div>
 

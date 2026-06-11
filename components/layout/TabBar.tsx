@@ -2,12 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Home, TrendingUp, BookOpen, User } from "lucide-react";
 
 const TABS = [
-  { href: "/mode", label: "Home", icon: "🏠" },
-  { href: "/progress", label: "Fortschritt", icon: "📈" },
-  { href: "/words", label: "Üben", icon: "📚" },
-  { href: "/profile", label: "Profil", icon: "👤" },
+  { href: "/mode", label: "Home", Icon: Home },
+  { href: "/progress", label: "Fortschritt", Icon: TrendingUp },
+  { href: "/words", label: "Üben", Icon: BookOpen },
+  { href: "/profile", label: "Profil", Icon: User },
 ] as const;
 
 export function TabBar() {
@@ -37,16 +38,20 @@ export function TabBar() {
         width: "100%",
         maxWidth: 390,
         display: "flex",
-        gap: 4,
-        padding: "8px 18px calc(env(safe-area-inset-bottom, 0px) + 8px)",
-        background: "var(--bg)",
-        borderTop: "0.5px solid var(--border)",
+        gap: 2,
+        padding: "10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px)",
+        background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderTop: "1px solid var(--border-light)",
+        boxShadow: "0 -4px 24px rgba(42,32,28,0.06)",
         zIndex: 100,
       }}
     >
       {TABS.map(tab => {
         const active = pathname === tab.href || (tab.href === "/mode" && pathname === "/");
         const showBadge = tab.href === "/words" && homeworkRemaining > 0;
+        const Icon = tab.Icon;
         return (
           <Link
             key={tab.href}
@@ -57,40 +62,43 @@ export function TabBar() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: 2,
-              minHeight: 44,
+              gap: 4,
+              minHeight: 48,
               textDecoration: "none",
-              color: active ? "#7F77DD" : "var(--text-muted)",
+              color: active ? "var(--accent)" : "var(--text-dim)",
               position: "relative",
+              borderRadius: 12,
+              background: active ? "var(--accent-soft)" : "transparent",
+              transition: "background 0.15s ease, color 0.15s ease",
             }}
           >
-            <span style={{ fontSize: 22, lineHeight: 1, position: "relative" }}>
-              {tab.icon}
+            <span style={{ position: "relative", display: "flex" }}>
+              <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
               {showBadge && (
                 <span
                   style={{
                     position: "absolute",
-                    top: -4,
-                    right: -10,
-                    minWidth: 16,
-                    height: 16,
+                    top: -6,
+                    right: -12,
+                    minWidth: 17,
+                    height: 17,
                     padding: "0 4px",
-                    borderRadius: 8,
-                    background: "#E74C3C",
+                    borderRadius: 9,
+                    background: "var(--red)",
                     color: "#fff",
                     fontSize: 9,
-                    fontFamily: "var(--font-mono)",
                     fontWeight: 700,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    border: "2px solid #fff",
                   }}
                 >
                   {homeworkRemaining > 99 ? "99+" : homeworkRemaining}
                 </span>
               )}
             </span>
-            <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
+            <span style={{ fontSize: 10, fontWeight: active ? 600 : 500, letterSpacing: "0.02em" }}>
               {tab.label}
             </span>
           </Link>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Target } from "lucide-react";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
 import type { BinaryCard, PlacementLevel } from "@/lib/exercises/types";
 import { normalizeGermanLevel } from "@/lib/levels";
@@ -94,15 +95,31 @@ export default function PlacementPage() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <p style={{ fontSize: 40, marginBottom: 16 }}>🎯</p>
-        <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>Level: {finished.level}</h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28, lineHeight: 1.6 }}>
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: "var(--accent-soft)",
+            color: "var(--accent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 20,
+          }}
+        >
+          <Target size={36} />
+        </div>
+        <h1 className="ui-title-serif" style={{ fontSize: 28, marginBottom: 8 }}>Level: {finished.level}</h1>
+        <p className="ui-muted" style={{ marginBottom: 28, maxWidth: 300 }}>
           Maya passt ihre Sprache an dein Niveau an.
           {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
         </p>
         <button
+          type="button"
           onClick={() => router.push(`/mode?level=${finished.level}`)}
-          style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", border: "none", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)" }}
+          className="ui-btn-primary"
+          style={{ width: "auto", minWidth: 200, fontSize: 14 }}
         >
           Weiter →
         </button>
@@ -127,10 +144,10 @@ export default function PlacementPage() {
       display: "flex", flexDirection: "column", alignItems: "center",
     }}>
       <header style={{ width: "100%", maxWidth: 360, marginBottom: 28 }}>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 6 }}>
+        <p className="ui-title-serif" style={{ fontSize: 22, marginBottom: 6 }}>
           {betaShort ? "Kurzer Level-Check" : "Dein Deutsch-Level"}
         </p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+        <p className="ui-muted">
           {betaShort
             ? `${cards.length} kurze Fragen — wähle die richtige englische Bedeutung.`
             : `Kurzer Check — wähle die richtige englische Bedeutung. Stufe ${level}.`}
@@ -150,13 +167,10 @@ export default function PlacementPage() {
       )}
 
       <button
+        type="button"
         onClick={skipAll}
-        style={{
-          marginTop: 32, fontSize: 12, color: "var(--text-muted)",
-          background: "none", border: "0.5px solid var(--border)",
-          padding: "10px 20px", borderRadius: 8, cursor: "pointer",
-          fontFamily: "var(--font-mono)",
-        }}
+        className="ui-btn-ghost"
+        style={{ marginTop: 32 }}
       >
         {betaShort ? "Später — ich starte mit A1" : "Überspringen (A1 annehmen)"}
       </button>

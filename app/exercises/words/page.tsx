@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BookOpen } from "lucide-react";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
 import type { ExerciseDirection } from "@/components/DirectionToggle";
 import type { BinaryCard } from "@/lib/exercises/types";
@@ -98,11 +99,25 @@ function WordsPracticeInner() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <p style={{ fontSize: 40, marginBottom: 12 }}>📚</p>
-        <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: "var(--accent-soft)",
+            color: "var(--accent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          <BookOpen size={32} />
+        </div>
+        <h1 className="ui-title-serif" style={{ fontSize: 26, marginBottom: 8 }}>
           {score} / {cards.length} richtig
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: noMore ? 12 : 28 }}>Wörter üben</p>
+        <p className="ui-muted" style={{ marginBottom: noMore ? 12 : 28 }}>Wörter üben</p>
         {noMore && (
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
             Keine neuen Wörter gerade — schau in ein paar Tagen wieder vorbei.
@@ -114,22 +129,13 @@ function WordsPracticeInner() {
               type="button"
               onClick={() => void loadCards(true)}
               disabled={loadingMore}
-              style={{
-                width: "100%", minHeight: 48, padding: "14px 28px", borderRadius: 10,
-                background: "#7F77DD", color: "#fff", fontSize: 14, fontFamily: "var(--font-mono)",
-                border: "none", cursor: loadingMore ? "wait" : "pointer",
-                opacity: loadingMore ? 0.7 : 1,
-              }}
+              className="ui-btn-primary"
+              style={{ fontSize: 14, opacity: loadingMore ? 0.7 : 1, cursor: loadingMore ? "wait" : "pointer" }}
             >
               {loadingMore ? "Lädt..." : "Weiter üben"}
             </button>
           )}
-          <Link href="/mode" style={{
-            padding: "14px 28px", borderRadius: 10,
-            border: "0.5px solid var(--border)", background: "var(--surface)",
-            color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none",
-            textAlign: "center", minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+          <Link href="/mode" className="ui-btn-ghost" style={{ textDecoration: "none", minHeight: 48, justifyContent: "center" }}>
             Zurück
           </Link>
         </div>
@@ -147,7 +153,7 @@ function WordsPracticeInner() {
     }}>
       <header style={{ width: "100%", maxWidth: 300, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 300, color: "var(--text)", marginBottom: 4 }}>Wörter üben</p>
+          <p className="ui-title-serif" style={{ fontSize: 18, marginBottom: 4 }}>Wörter üben</p>
           <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>
             {direction === "de-en"
               ? "Deutsch oben — wähle die richtige Bedeutung."

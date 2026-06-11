@@ -3,9 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
+import { MayaAvatar } from "@/components/ui/MayaAvatar";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
-
-const PURPLE = "#7F77DD";
 
 type Step = "email" | "name" | "level" | "native";
 
@@ -137,28 +136,10 @@ export default function LoginPage() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
-          <div style={{
-            width: 80, height: 80, borderRadius: "50%",
-            background: "var(--surface)", border: "2px solid var(--border)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative",
-          }}>
-            <span style={{
-              fontFamily: "var(--font-serif)", fontSize: 32,
-              fontWeight: 300, color: "var(--accent)"
-            }}>M</span>
-            <div style={{
-              position: "absolute", bottom: -2, right: -2,
-              width: 20, height: 20, borderRadius: "50%",
-              background: "var(--green)", border: "2px solid var(--bg)",
-            }}/>
-          </div>
+          <MayaAvatar size={88} />
         </div>
 
-        <div style={{
-          background: "var(--surface)", border: "1px solid var(--border)",
-          borderRadius: 12, padding: "28px 24px",
-        }}>
+        <div className="ui-card" style={{ padding: "28px 24px" }}>
           {step === "email" ? (
             <form onSubmit={handleEmail}>
               <label style={{
@@ -182,13 +163,7 @@ export default function LoginPage() {
                 }}
               />
               {error && <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 12 }}>{error}</p>}
-              <button type="submit" style={{
-                width: "100%", minHeight: 44, padding: "12px",
-                background: "var(--accent)", border: "none",
-                borderRadius: 8, color: "var(--bg)", fontSize: 14,
-                fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-mono)",
-                letterSpacing: "0.04em",
-              }}>
+              <button type="submit" className="ui-btn-primary" style={{ fontSize: 14 }}>
                 Weiter →
               </button>
             </form>
@@ -225,14 +200,7 @@ export default function LoginPage() {
                 }}
               />
               {error && <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 12 }}>{error}</p>}
-              <button type="submit" disabled={loading} style={{
-                width: "100%", minHeight: 44, padding: "12px",
-                background: "var(--accent)", border: "none",
-                borderRadius: 8, color: "var(--bg)", fontSize: 14,
-                fontWeight: 500, cursor: loading ? "wait" : "pointer",
-                fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-                opacity: loading ? 0.7 : 1,
-              }}>
+              <button type="submit" disabled={loading} className="ui-btn-primary" style={{ fontSize: 14, opacity: loading ? 0.7 : 1, cursor: loading ? "wait" : "pointer" }}>
                 {loading ? "Wird geladen..." : "Weiter →"}
               </button>
             </form>
@@ -254,14 +222,8 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!selectedLevel || loading}
-                style={{
-                  width: "100%", minHeight: 44, marginTop: 20, padding: "12px",
-                  background: PURPLE, border: "none",
-                  borderRadius: 8, color: "#fff", fontSize: 15,
-                  fontWeight: 500, cursor: selectedLevel && !loading ? "pointer" : "not-allowed",
-                  fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-                  opacity: selectedLevel && !loading ? 1 : 0.5,
-                }}
+                className="ui-btn-primary"
+                style={{ marginTop: 20, fontSize: 15, opacity: selectedLevel && !loading ? 1 : 0.5, cursor: selectedLevel && !loading ? "pointer" : "not-allowed" }}
               >
                 {loading ? "Wird geladen..." : "Weiter"}
               </button>
@@ -294,14 +256,8 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!nativeLanguage.trim() || loading}
-                style={{
-                  width: "100%", minHeight: 44, marginTop: 20, padding: "12px",
-                  background: PURPLE, border: "none",
-                  borderRadius: 8, color: "#fff", fontSize: 15,
-                  fontWeight: 500, cursor: nativeLanguage.trim() && !loading ? "pointer" : "not-allowed",
-                  fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-                  opacity: nativeLanguage.trim() && !loading ? 1 : 0.5,
-                }}
+                className="ui-btn-primary"
+                style={{ marginTop: 20, fontSize: 15, opacity: nativeLanguage.trim() && !loading ? 1 : 0.5, cursor: nativeLanguage.trim() && !loading ? "pointer" : "not-allowed" }}
               >
                 {loading ? "Wird geladen..." : "Los geht's"}
               </button>

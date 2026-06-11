@@ -27,27 +27,30 @@ export function PageShell({ children, title, showTabBar = true, headerRight }: P
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "12px 18px",
-            paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)",
-            borderBottom: "0.5px solid var(--border)",
+            padding: "14px 18px",
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 14px)",
+            borderBottom: "1px solid var(--border-light)",
+            background: "rgba(255,255,255,0.85)",
+            backdropFilter: "blur(8px)",
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span
               style={{
                 fontFamily: "var(--font-serif)",
                 fontSize: 11,
                 fontWeight: 600,
-                background: "var(--accent)",
-                color: "var(--bg)",
-                padding: "2px 6px",
-                borderRadius: 3,
+                background: "var(--gradient)",
+                color: "#fff",
+                padding: "4px 8px",
+                borderRadius: 8,
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               DE
             </span>
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 300, color: "var(--text)" }}>
+            <span className="ui-title-serif" style={{ fontSize: 18 }}>
               {title}
             </span>
           </div>
@@ -59,7 +62,7 @@ export function PageShell({ children, title, showTabBar = true, headerRight }: P
           flex: 1,
           overflowY: "auto",
           overflowX: "hidden",
-          paddingBottom: showTabBar ? "calc(72px + env(safe-area-inset-bottom, 0px))" : undefined,
+          paddingBottom: showTabBar ? "calc(80px + env(safe-area-inset-bottom, 0px))" : undefined,
         }}
       >
         {children}
