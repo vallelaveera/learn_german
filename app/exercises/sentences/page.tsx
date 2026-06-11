@@ -43,9 +43,42 @@ function SentencesInner() {
   const [wrongId, setWrongId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [noMore, setNoMore] = useState(false);
   const [showEnHint, setShowEnHint] = useState(false);
 
   const current = exercises[index];
+
+  const exercisesUrl = fromCall
+    ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
+    : "/api/exercises/sentences";
+
+  const loadExercises = useCallback(async (isMore = false) => {
+    if (isMore) setLoadingMore(true);
+    else setLoading(true);
+    setNoMore(false);
+    try {
+      const res = await fetch(exercisesUrl);
+      if (res.status === 401) { router.push("/login"); return false; }
+      const data = await res.json();
+      if (!data?.exercises?.length) {
+        if (isMore) setNoMore(true);
+        else setExercises([]);
+        return false;
+      }
+      setExercises(data.exercises);
+      setIndex(0);
+      setScore(0);
+      setBuilt([]);
+      setWrongId(null);
+      setShowEnHint(false);
+      setPhase("preview");
+      return true;
+    } finally {
+      if (isMore) setLoadingMore(false);
+      else setLoading(false);
+    }
+  }, [exercisesUrl, router]);
 
   const playGerman = useCallback(() => {
     if (!current) return;
@@ -60,14 +93,8 @@ function SentencesInner() {
   }, [current?.id, current?.german]);
 
   useEffect(() => {
-    const url = fromCall
-      ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
-      : "/api/exercises/sentences";
-    fetch(url)
-      .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
-      .then(data => { if (data?.exercises?.length) setExercises(data.exercises); })
-      .finally(() => setLoading(false));
-  }, [router, fromCall, sessionId]);
+    void loadExercises();
+  }, [loadExercises]);
 
   useEffect(() => {
     if (phase !== "preview" || !current) return;
@@ -167,12 +194,39 @@ function SentencesInner() {
         <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
           {score} / {exercises.length} richtig
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: noMore ? 12 : 28 }}>
           {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
         </p>
-        <Link href="/mode" style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none" }}>
-          Zurück
-        </Link>
+        {noMore && (
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
+            Keine neuen Sätze gerade — schau in ein paar Tagen wieder vorbei.
+          </p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
+          {!noMore && (
+            <button
+              type="button"
+              onClick={() => void loadExercises(true)}
+              disabled={loadingMore}
+              style={{
+                width: "100%", minHeight: 48, padding: "14px 28px", borderRadius: 10,
+                background: "#7F77DD", color: "#fff", fontSize: 14, fontFamily: "var(--font-mono)",
+                border: "none", cursor: loadingMore ? "wait" : "pointer",
+                opacity: loadingMore ? 0.7 : 1,
+              }}
+            >
+              {loadingMore ? "Lädt..." : "Weiter üben"}
+            </button>
+          )}
+          <Link href="/mode" style={{
+            padding: "14px 28px", borderRadius: 10,
+            border: "0.5px solid var(--border)", background: "var(--surface)",
+            color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none",
+            textAlign: "center", minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            Zurück
+          </Link>
+        </div>
       </div>
     );
   }

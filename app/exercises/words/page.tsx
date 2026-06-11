@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
@@ -12,15 +12,39 @@ function WordsPracticeInner() {
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [noMore, setNoMore] = useState(false);
+
+  const loadCards = useCallback(async (isMore = false) => {
+    if (isMore) setLoadingMore(true);
+    else setLoading(true);
+    setNoMore(false);
+    try {
+      const res = await fetch("/api/exercises/warmup");
+      if (res.status === 401) { router.push("/login"); return false; }
+      const data = await res.json();
+      if (!data?.cards?.length) {
+        if (isMore) setNoMore(true);
+        else setCards([]);
+        return false;
+      }
+      setCards(data.cards);
+      setIndex(0);
+      setScore(0);
+      setFeedback(null);
+      setDone(false);
+      return true;
+    } finally {
+      if (isMore) setLoadingMore(false);
+      else setLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
-    fetch("/api/exercises/warmup")
-      .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
-      .then(data => { if (data?.cards) setCards(data.cards); })
-      .finally(() => setLoading(false));
-  }, [router]);
+    void loadCards();
+  }, [loadCards]);
 
   const saveResult = (result: { itemId: string; german: string; correct: boolean }) => {
     fetch("/api/exercises/warmup", {
@@ -74,10 +98,37 @@ function WordsPracticeInner() {
         <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
           {score} / {cards.length} richtig
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Wörter üben</p>
-        <Link href="/mode" style={{ padding: "14px 28px", borderRadius: 10, background: "#7F77DD", color: "#fff", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none" }}>
-          Zurück
-        </Link>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: noMore ? 12 : 28 }}>Wörter üben</p>
+        {noMore && (
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
+            Keine neuen Wörter gerade — schau in ein paar Tagen wieder vorbei.
+          </p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
+          {!noMore && (
+            <button
+              type="button"
+              onClick={() => void loadCards(true)}
+              disabled={loadingMore}
+              style={{
+                width: "100%", minHeight: 48, padding: "14px 28px", borderRadius: 10,
+                background: "#7F77DD", color: "#fff", fontSize: 14, fontFamily: "var(--font-mono)",
+                border: "none", cursor: loadingMore ? "wait" : "pointer",
+                opacity: loadingMore ? 0.7 : 1,
+              }}
+            >
+              {loadingMore ? "Lädt..." : "Weiter üben"}
+            </button>
+          )}
+          <Link href="/mode" style={{
+            padding: "14px 28px", borderRadius: 10,
+            border: "0.5px solid var(--border)", background: "var(--surface)",
+            color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none",
+            textAlign: "center", minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            Zurück
+          </Link>
+        </div>
       </div>
     );
   }
