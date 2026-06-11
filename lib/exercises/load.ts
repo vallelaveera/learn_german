@@ -1,6 +1,7 @@
 import placementData from "@/data/flashcards/placement.json";
 import commonData from "@/data/flashcards/common.json";
 import { getCareerVocabEntries } from "@/lib/career-vocab/load";
+import { loadCorpusWords } from "@/lib/vocab/load";
 import { isLevelAppropriate, isTooBasic, levelRank, normalizeLevel } from "./levels";
 import type { FlashCardEntry } from "./types";
 
@@ -10,6 +11,21 @@ const placementDeck = placementData as PlacementDeck;
 const commonDeck = commonData as FlashCardEntry[];
 
 let lookupCache: Map<string, FlashCardEntry> | null = null;
+let corpusWordsCache: FlashCardEntry[] | null = null;
+
+async function ensureCorpusWordsLoaded(): Promise<FlashCardEntry[]> {
+  if (corpusWordsCache) return corpusWordsCache;
+  const words = await loadCorpusWords();
+  corpusWordsCache = words.map(w => ({
+    id: w.id,
+    german: w.de,
+    english: w.en,
+    distractors: w.distractors.slice(0, 2),
+    level: w.level,
+  }));
+  lookupCache = null;
+  return corpusWordsCache;
+}
 
 function buildLookup(): Map<string, FlashCardEntry> {
   if (lookupCache) return lookupCache;
@@ -34,6 +50,13 @@ function buildLookup(): Map<string, FlashCardEntry> {
         distractors: pickCareerDistractors(entry.english, entry.level),
         level: entry.level,
       });
+    }
+  }
+  for (const entry of corpusWordsCache ?? []) {
+    const key = entry.german.toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, entry);
+      map.set(entry.id, entry);
     }
   }
   lookupCache = map;
@@ -70,6 +93,52 @@ export function getCommonEntries(level?: string, limit = 12): FlashCardEntry[] {
 }
 
 /** Level-matched pool for pre-call warm-up — no A1 greetings for A2+ users. */
+export async function getWarmupPoolAsync(userLevel: string | undefined, limit: number): Promise<FlashCardEntry[]> {
+  const corpusWords = await ensureCorpusWordsLoaded();
+  const normalized = normalizeLevel(userLevel);
+  const rank = levelRank(normalized);
+  const deckLevels: Array<"A1" | "A2" | "B1"> =
+    rank >= 3 ? ["B1", "A2"] : rank >= 2 ? ["A2", "B1"] : ["A1", "A2"];
+
+  const pool: FlashCardEntry[] = [];
+  const seen = new Set<string>();
+
+  const add = (entry: FlashCardEntry) => {
+    if (seen.has(entry.id) || isTooBasic(entry.german, normalized)) return;
+    if (!isLevelAppropriate(entry.level, normalized)) return;
+    seen.add(entry.id);
+    pool.push(entry);
+  };
+
+  for (const lv of deckLevels) {
+    for (const entry of getPlacementEntries(lv)) add(entry);
+  }
+  for (const entry of commonDeck) add(entry);
+
+  const career = shuffle(
+    getCareerVocabEntries().filter(e => {
+      const r = levelRank(e.level);
+      return r >= rank && r <= rank + 1 && e.text.length <= 35 && !e.text.includes("/");
+    })
+  ).slice(0, 24);
+
+  for (const entry of career) {
+    add({
+      id: entry.id,
+      german: entry.text,
+      english: entry.english,
+      distractors: pickCareerDistractors(entry.english, entry.level),
+      level: entry.level,
+    });
+  }
+
+  for (const entry of corpusWords) {
+    if (entry.german.length <= 35 && !entry.german.includes("/")) add(entry);
+  }
+
+  return shuffle(pool).slice(0, limit);
+}
+
 export function getWarmupPool(userLevel: string | undefined, limit: number): FlashCardEntry[] {
   const normalized = normalizeLevel(userLevel);
   const rank = levelRank(normalized);
@@ -109,6 +178,17 @@ export function getWarmupPool(userLevel: string | undefined, limit: number): Fla
   }
 
   return shuffle(pool).slice(0, limit);
+}
+
+export async function preloadCorpusWords(): Promise<void> {
+  await ensureCorpusWordsLoaded();
+}
+
+export async function resolveWordEntryAsync(word: string): Promise<FlashCardEntry | null> {
+  await ensureCorpusWordsLoaded();
+  const map = buildLookup();
+  const key = word.trim().toLowerCase();
+  return map.get(key) ?? null;
 }
 
 export function resolveWordEntry(word: string): FlashCardEntry | null {

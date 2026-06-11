@@ -9,7 +9,9 @@ interface ContentWord {
   german: string;
   english: string;
   level: string;
-  source: "placement" | "common" | "career";
+  source: "placement" | "common" | "career" | "generated";
+  category?: string;
+  topic?: string;
 }
 
 interface ContentSentence {
@@ -17,13 +19,16 @@ interface ContentSentence {
   german: string;
   english: string;
   level: string;
+  source?: "static" | "generated";
+  category?: string;
+  topic?: string;
 }
 
 interface Catalog {
   words: ContentWord[];
   sentences: ContentSentence[];
   counts: {
-    words: { total: number; placement: number; common: number; career: number; byLevel: Record<string, number> };
+    words: { total: number; placement: number; common: number; career: number; generated: number; byLevel: Record<string, number> };
     sentences: { total: number; byLevel: Record<string, number> };
   };
 }
@@ -77,7 +82,10 @@ export default function AdminContentPage() {
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--red)", color: "white", padding: "2px 6px", borderRadius: 3 }}>ADMIN</span>
           <span style={{ fontFamily: "var(--font-serif)", fontSize: 15, fontWeight: 300 }}>Übungsinhalt</span>
         </div>
-        <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Nutzer</Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/admin/generate" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>Generieren</Link>
+          <Link href="/admin" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Nutzer</Link>
+        </div>
       </header>
 
       {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, padding: 24 }}>Lädt...</p>}
@@ -89,7 +97,7 @@ export default function AdminContentPage() {
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Wörter</div>
               <div style={{ fontSize: 26, fontWeight: 500, color: "var(--accent)", marginBottom: 6 }}>{catalog.counts.words.total}</div>
               <div style={{ fontSize: 10, color: "var(--text-dim)", lineHeight: 1.5 }}>
-                Placement {catalog.counts.words.placement} · Common {catalog.counts.words.common} · Career {catalog.counts.words.career}
+                Placement {catalog.counts.words.placement} · Common {catalog.counts.words.common} · Career {catalog.counts.words.career} · Generated {catalog.counts.words.generated}
               </div>
             </div>
             <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: 14 }}>
@@ -157,15 +165,27 @@ export default function AdminContentPage() {
                 </div>
                 <p style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text)", margin: "0 0 4px", lineHeight: 1.35 }}>{w.german}</p>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, fontStyle: "italic" }}>{w.english}</p>
+                {w.source === "generated" && (w.category || w.topic) && (
+                  <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", fontFamily: "var(--font-mono)" }}>
+                    {[w.category, w.topic].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
             )) : filteredSentences.map(s => (
               <div key={s.id} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 10, color: "#7F77DD", fontFamily: "var(--font-mono)" }}>{s.level}</span>
-                  <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{s.id}</span>
+                  <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
+                    {s.source === "generated" ? "generated" : "static"} · {s.id}
+                  </span>
                 </div>
                 <p style={{ fontFamily: "var(--font-serif)", fontSize: 14, color: "var(--text)", margin: "0 0 4px", lineHeight: 1.4 }}>{s.german}</p>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, fontStyle: "italic" }}>{s.english}</p>
+                {s.source === "generated" && (s.category || s.topic) && (
+                  <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", fontFamily: "var(--font-mono)" }}>
+                    {[s.category, s.topic].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
             ))}
 

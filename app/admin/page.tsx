@@ -22,28 +22,55 @@ interface Stats {
   totalMinutes: number;
 }
 
+interface CoverageGap {
+  category: string;
+  words: number;
+  sentences: number;
+  needsWords: number;
+  needsSentences: number;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  career: "Karriere",
+  travel: "Reisen",
+  food: "Essen",
+  health: "Gesundheit",
+  housing: "Wohnen",
+  daily_life: "Alltag",
+  finance: "Finanzen",
+  transport: "Transport",
+  social: "Soziales",
+};
+
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [contentGaps, setContentGaps] = useState<CoverageGap[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/admin")
-      .then(r => {
+    Promise.all([
+      fetch("/api/admin").then(r => {
         if (r.status === 401) { router.push("/mode"); return null; }
         return r.json();
-      })
-      .then(d => {
-        if (!d) return;
-        setStats(d.stats);
-        setUsers(d.users);
+      }),
+      fetch("/api/admin/generate").then(r => r.ok ? r.json() : null),
+    ])
+      .then(([adminData, generateData]) => {
+        if (adminData) {
+          setStats(adminData.stats);
+          setUsers(adminData.users);
+        }
+        if (generateData?.coverage?.gaps) {
+          setContentGaps(generateData.coverage.gaps.slice(0, 4));
+        }
         setLoading(false);
       })
       .catch(e => { setError(String(e)); setLoading(false); });
-  }, []);
+  }, [router]);
 
   const filtered = users.filter(u =>
     search ? (u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -85,13 +112,45 @@ export default function AdminPage() {
             ))}
           </div>
 
+          {contentGaps.length > 0 && (
+            <div style={{ padding: "0 16px 12px" }}>
+              <div style={{ background: "#FFFBEB", border: "0.5px solid #FDE68A", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                  Inhalt-Lücken (generiert)
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                  {contentGaps.map(gap => (
+                    <div key={gap.category} style={{ fontSize: 12, color: "#B45309", fontFamily: "var(--font-mono)" }}>
+                      {CATEGORY_LABELS[gap.category] ?? gap.category}: {gap.words} W · {gap.sentences} S
+                      {(gap.needsWords > 0 || gap.needsSentences > 0) && (
+                        <span style={{ color: "#92400E" }}> — fehlen ~{gap.needsWords} W, ~{gap.needsSentences} S</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Link href="/admin/generate" style={{ fontSize: 12, color: "#7F77DD", fontWeight: 500, textDecoration: "none" }}>
+                  Inhalt generieren →
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Content catalog */}
-          <div style={{ padding: "0 16px 12px" }}>
+          <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
             <Link href="/admin/content" style={{ textDecoration: "none" }}>
               <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, marginBottom: 4 }}>Übungsinhalt</div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Wörter & Sätze in der App ansehen</div>
+                </div>
+                <span style={{ color: "var(--text-dim)", fontSize: 16 }}>→</span>
+              </div>
+            </Link>
+            <Link href="/admin/generate" style={{ textDecoration: "none" }}>
+              <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, marginBottom: 4 }}>Inhalt generieren</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Wörter & Sätze mit Claude erstellen</div>
                 </div>
                 <span style={{ color: "var(--text-dim)", fontSize: 16 }}>→</span>
               </div>

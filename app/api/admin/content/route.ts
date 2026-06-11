@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
-import { getExerciseContentCatalog } from "@/lib/exercises/content-catalog";
+import { getExerciseContentCatalogAsync } from "@/lib/exercises/content-catalog";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const catalog = getExerciseContentCatalog();
+    const catalog = await getExerciseContentCatalogAsync();
     return NextResponse.json(catalog);
   } catch (e) {
     console.error(e);

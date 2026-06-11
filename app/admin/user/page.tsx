@@ -236,7 +236,7 @@ function AdminUserContent() {
               </div>
             )}
             <p style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 10 }}>
-              Requires HOMEWORK_ENABLED=true globally + BLOB_READ_WRITE_TOKEN
+              Requires HOMEWORK_ENABLED=true globally + Vercel Blob (OIDC or BLOB_READ_WRITE_TOKEN)
             </p>
           </div>
 
