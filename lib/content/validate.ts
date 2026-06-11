@@ -50,6 +50,10 @@ Output ONLY valid JSON array, no markdown, no commentary:
 
 Be strict on grammar, spelling, and natural language. If you are even slightly unsure about grammar, mark passed: false. Length alone is not a reason to reject at ${MAX_GERMAN_WORDS} words or below.`;
 
+/** Keep batches small — large batches truncate validation JSON at max_tokens. */
+const VALIDATION_BATCH_SIZE = 15;
+const VALIDATION_MAX_TOKENS = 8192;
+
 function isLengthOnlyIssue(issue: string): boolean {
   return /word count|words|length|exceeds|limit|too long|8-word|9-word|10-word/i.test(issue);
 }
@@ -66,13 +70,31 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
   const passed: SentenceInput[] = [];
   const rejected: ValidateOutput["rejected"] = [];
 
+  for (let offset = 0; offset < sentences.length; offset += VALIDATION_BATCH_SIZE) {
+    const batch = sentences.slice(offset, offset + VALIDATION_BATCH_SIZE);
+    const batchNum = Math.floor(offset / VALIDATION_BATCH_SIZE) + 1;
+    const batchResult = await validateSentenceBatch(batch, `batch ${batchNum}, ${batch.length} items`);
+    passed.push(...batchResult.passed);
+    rejected.push(...batchResult.rejected);
+  }
+
+  return { passed, rejected };
+}
+
+async function validateSentenceBatch(
+  sentences: SentenceInput[],
+  batchLabel: string,
+): Promise<ValidateOutput> {
+  const passed: SentenceInput[] = [];
+  const rejected: ValidateOutput["rejected"] = [];
+
   try {
-    const userPrompt = `Check these sentences. Each German sentence must be at most ${MAX_GERMAN_WORDS} words.\n${JSON.stringify(sentences)}`;
-    const text = await callClaude(SYSTEM_PROMPT, userPrompt);
+    const userPrompt = `Check these ${sentences.length} sentences. Each German sentence must be at most ${MAX_GERMAN_WORDS} words.\n${JSON.stringify(sentences)}`;
+    const text = await callClaude(SYSTEM_PROMPT, userPrompt, VALIDATION_MAX_TOKENS);
     const results = parseJsonArray<ValidationResult>(text);
 
     if (!results) {
-      console.error("[validate] JSON parse failed:", text.slice(0, 500));
+      console.error(`[validate] JSON parse failed (${batchLabel}):`, text.slice(0, 500));
       for (const sentence of sentences) {
         rejected.push({ sentence, issues: ["Validation response parse failed"] });
         console.warn("[validate] REJECTED", JSON.stringify({ de: sentence.de, en: sentence.en, issues: ["Validation response parse failed"] }));
@@ -126,7 +148,6 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
       });
     }
 
-    // Hard word-count guard after corrections
     const withinLimit: SentenceInput[] = [];
     for (const sentence of passed) {
       if (isWithinWordLimit(sentence.de)) {
@@ -139,7 +160,7 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
     }
     return { passed: withinLimit, rejected };
   } catch (e) {
-    console.error("[validate] Claude call failed:", e);
+    console.error(`[validate] Claude call failed (${batchLabel}):`, e);
     for (const sentence of sentences) {
       rejected.push({ sentence, issues: ["Validation call failed"] });
       console.warn("[validate] REJECTED", JSON.stringify({ de: sentence.de, en: sentence.en, issues: ["Validation call failed"] }));

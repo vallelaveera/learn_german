@@ -19,6 +19,10 @@ export interface ValidateWordsOutput {
   rejected: { word: WordInput; issues: string[] }[];
 }
 
+/** Keep batches small — 50 entries in one validation response truncates at max_tokens. */
+const VALIDATION_BATCH_SIZE = 12;
+const VALIDATION_MAX_TOKENS = 8192;
+
 const SYSTEM_PROMPT = `You are a strict German vocabulary checker for a language learning flashcard app.
 Every entry must be perfect — no errors allowed.
 
@@ -30,7 +34,8 @@ For each entry check:
 5. Distractors — exactly 2, plausible but wrong, not duplicates of the correct answer
 6. Length — German entry must be at most ${MAX_VOCAB_WORDS} words; reject full sentences
 
-Output ONLY valid JSON array, no markdown, no commentary:
+Output ONLY valid JSON array, no markdown, no commentary.
+Use "id" matching the index in the input list (0, 1, 2, …).
 [
   {
     "id": 0,
@@ -53,21 +58,20 @@ function hasValidDistractors(en: string, distractors: string[]): boolean {
   return distractors.every(d => d.trim().length > 0 && d.toLowerCase().trim() !== correct);
 }
 
-export async function validateWords(words: WordInput[]): Promise<ValidateWordsOutput> {
-  if (words.length === 0) {
-    return { passed: [], rejected: [] };
-  }
-
+async function validateWordsBatch(
+  words: WordInput[],
+  batchLabel: string,
+): Promise<ValidateWordsOutput> {
   const passed: WordInput[] = [];
   const rejected: ValidateWordsOutput["rejected"] = [];
 
   try {
-    const userPrompt = `Check these vocabulary entries. Each German entry must be at most ${MAX_VOCAB_WORDS} words.\n${JSON.stringify(words)}`;
-    const text = await callClaude(SYSTEM_PROMPT, userPrompt);
+    const userPrompt = `Check these ${words.length} vocabulary entries. Each German entry must be at most ${MAX_VOCAB_WORDS} words.\n${JSON.stringify(words)}`;
+    const text = await callClaude(SYSTEM_PROMPT, userPrompt, VALIDATION_MAX_TOKENS);
     const results = parseJsonArray<ValidationResult>(text);
 
     if (!results) {
-      console.error("[validate-words] JSON parse failed:", text.slice(0, 500));
+      console.error(`[validate-words] JSON parse failed (${batchLabel}):`, text.slice(0, 500));
       for (const word of words) {
         rejected.push({ word, issues: ["Validation response parse failed"] });
         console.warn("[validate-words] REJECTED", JSON.stringify({ de: word.de, en: word.en, issues: ["Validation response parse failed"] }));
@@ -89,7 +93,7 @@ export async function validateWords(words: WordInput[]): Promise<ValidateWordsOu
 
       if (!result.passed || !result.levelAccurate) {
         const allIssues = [...issues];
-        if (!result.levelAccurate && !allIssues.some(i => /level/i.test(i))) {
+        if (!result.levelAccurate && !allIssues.some(issue => /level/i.test(issue))) {
           allIssues.push("Level accuracy check failed");
         }
         rejected.push({ word, issues: allIssues });
@@ -121,11 +125,33 @@ export async function validateWords(words: WordInput[]): Promise<ValidateWordsOu
       passed.push(corrected);
     }
   } catch (e) {
-    console.error("[validate-words] Claude call failed:", e);
+    console.error(`[validate-words] Claude call failed (${batchLabel}):`, e);
     for (const word of words) {
       rejected.push({ word, issues: ["Validation call failed"] });
       console.warn("[validate-words] REJECTED", JSON.stringify({ de: word.de, en: word.en, issues: ["Validation call failed"] }));
     }
+  }
+
+  return { passed, rejected };
+}
+
+export async function validateWords(words: WordInput[]): Promise<ValidateWordsOutput> {
+  if (words.length === 0) {
+    return { passed: [], rejected: [] };
+  }
+
+  const passed: WordInput[] = [];
+  const rejected: ValidateWordsOutput["rejected"] = [];
+
+  for (let offset = 0; offset < words.length; offset += VALIDATION_BATCH_SIZE) {
+    const batch = words.slice(offset, offset + VALIDATION_BATCH_SIZE);
+    const batchNum = Math.floor(offset / VALIDATION_BATCH_SIZE) + 1;
+    const { passed: batchPassed, rejected: batchRejected } = await validateWordsBatch(
+      batch,
+      `batch ${batchNum}, ${batch.length} items`,
+    );
+    passed.push(...batchPassed);
+    rejected.push(...batchRejected);
   }
 
   return { passed, rejected };
