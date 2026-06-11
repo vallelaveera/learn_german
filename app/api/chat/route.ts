@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5",
-      max_tokens: 300,
+      max_tokens: 180,
       stream: true,
       system: systemPrompt ?? TUTOR_SYSTEM_PROMPT,
       messages: apiMessages,

@@ -72,9 +72,9 @@ function WarmupInner() {
       paddingLeft: 20, paddingRight: 20,
       display: "flex", flexDirection: "column", alignItems: "center",
     }}>
-      <header style={{ width: "100%", maxWidth: 360, marginBottom: 28 }}>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 6 }}>Aufwärmen</p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Kurz aktivieren — dann sprichst du mit Maya.</p>
+      <header style={{ width: "100%", maxWidth: 300, marginBottom: 18 }}>
+        <p style={{ fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 300, color: "var(--text)", marginBottom: 4 }}>Aufwärmen</p>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>Kurz aktivieren — dann mit Maya sprechen.</p>
       </header>
 
       <BinaryFlashcard
@@ -88,9 +88,9 @@ function WarmupInner() {
       <button
         onClick={() => finish(true)}
         style={{
-          marginTop: 32, fontSize: 12, color: "var(--text-muted)",
+          marginTop: 22, fontSize: 11, color: "var(--text-dim)",
           background: "none", border: "0.5px solid var(--border)",
-          padding: "10px 20px", borderRadius: 8, cursor: "pointer",
+          padding: "8px 16px", borderRadius: 6, cursor: "pointer",
           fontFamily: "var(--font-mono)",
         }}
       >

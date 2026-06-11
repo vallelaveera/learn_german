@@ -1,7 +1,7 @@
 /** Rules appended to system prompt when Maya B (Fish) is active in call mode. */
 export const FISH_SPOKEN_RULES = `
 
-SPOKEN OUTPUT: Max 2 short sentences per reply.
+SPOKEN OUTPUT: Max 2 short sentences, ~20 words total. One short question only. No emojis.
 `;
 
 /** Strip emojis — ES5-safe (no \p{} property escapes). */
