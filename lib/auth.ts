@@ -32,15 +32,23 @@ export async function getAuthUser(req: NextRequest): Promise<UserProfile | null>
 }
 
 export async function findOrCreateUser(email: string, name: string): Promise<UserProfile> {
+  const trimmedName = name.trim() || email.split("@")[0];
   const existingId = await getUserIdByEmail(email);
   if (existingId) {
     const profile = await getUserProfile(existingId);
-    if (profile) return profile;
+    if (profile) {
+      if (trimmedName && profile.name !== trimmedName) {
+        profile.name = trimmedName;
+      }
+      profile.lastActiveAt = Date.now();
+      await saveUserProfile(profile);
+      return profile;
+    }
   }
   const newProfile: UserProfile = {
     userId: generateId(),
     email,
-    name,
+    name: trimmedName,
     germanLevel: "A1",
     createdAt: Date.now(),
     lastActiveAt: Date.now(),

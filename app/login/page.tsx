@@ -6,7 +6,6 @@ import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSele
 import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
 import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
 import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
-import { TabBar } from "@/components/layout/TabBar";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
 type Step = "email" | "name" | "level" | "native";
@@ -34,11 +33,13 @@ export default function LoginPage() {
     if (nativeLang?.trim()) payload.nativeLanguage = nativeLang.trim();
 
     if (Object.keys(payload).length > 0) {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
+      if (!res.ok) throw new Error("Profile update failed");
     }
     router.push("/mode");
   };
@@ -52,17 +53,20 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name }),
+        credentials: "include",
+        body: JSON.stringify({ email, name: name.trim() }),
       });
-      if (!res.ok) throw new Error("Login failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Login failed");
+      if (!data?.user) throw new Error("Invalid login response");
+
       if (shouldSkipLevelOnLogin(data.user)) {
         await completeLogin();
       } else {
         setStep("level");
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -117,13 +121,21 @@ export default function LoginPage() {
   return (
     <div style={{
       position: "relative",
-      minHeight: "100vh", display: "flex", alignItems: "center",
-      justifyContent: "center", padding: "24px",
-      paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
-      overflow: "hidden",
+      minHeight: "100dvh",
+      overflowY: "auto",
+      overflowX: "hidden",
     }}>
       <DecorativeBackground />
-      <div style={{ width: "100%", maxWidth: 400, position: "relative", zIndex: 1 }}>
+      <div style={{
+        position: "relative",
+        zIndex: 1,
+        width: "100%",
+        maxWidth: 400,
+        margin: "0 auto",
+        padding: "24px",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)",
+      }}>
 
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -280,7 +292,6 @@ export default function LoginPage() {
           No password needed. Maya remembers you.
         </p>
       </div>
-      <TabBar />
     </div>
   );
 }
