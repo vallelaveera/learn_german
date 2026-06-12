@@ -405,6 +405,16 @@ grep -q 'grammar/articles' components/grammar/GrammarDetailSheet.tsx \
   && check "grammar sheet links to article trainer" "ok" \
   || check "grammar sheet links to article trainer" "fail"
 
+grep -q 'attachCorrectionToLastUser' components/call/FreisprechenCall.tsx \
+  && check "call: Korrektur attached to user messages" "ok" \
+  || check "call: Korrektur attached to user messages" "fail"
+
+grep -q 'homeworkSentencesFromMessages' lib/corrections.ts \
+  && check "homework: corrections-only sentences" "ok" \
+  || check "homework: corrections-only sentences" "fail"
+
+check_absent "homework: no Maya phrase padding" "lib/memory-agent.ts" "mayaLines"
+
 echo ""
 echo "── middleware.ts ───────────────────────"
 

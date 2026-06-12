@@ -1,3 +1,5 @@
+import type { Message } from "./types";
+
 export interface ParsedTutorResponse {
   german: string;
   hint?: string;
@@ -30,9 +32,9 @@ export function parseTutorResponse(fullText: string): ParsedTutorResponse {
 }
 
 export function attachCorrectionToLastUser(
-  messages: { role: string; correction?: string }[],
+  messages: Message[],
   correction: string,
-) {
+): Message[] {
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === "user") {
       return [

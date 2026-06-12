@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message } from "@/lib/types";
 import { computeCallReportStats } from "@/lib/call-report-stats";
+import { parseTutorResponse, attachCorrectionToLastUser } from "@/lib/tutor-response";
 import { useRouter } from "next/navigation";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
@@ -234,22 +235,24 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
         }
       }
       if (!fullText) throw new Error();
-      const allLines = fullText.split("\n").filter(Boolean);
-      const hint = allLines.find(l => l.startsWith("\u{1F4A1}"));
-      const german = allLines.filter(l => !l.startsWith("\u{1F4A1}")).join(" ").trim();
+      const parsed = parseTutorResponse(fullText);
       const assistantMsg: Message = {
         role: "assistant",
-        content: german,
-        translation: hint?.replace("\u{1F4A1} ", ""),
+        content: parsed.german,
+        translation: parsed.hint,
         timestamp: Date.now(),
       };
       setMessages(prev => {
-        const updated = [...prev, assistantMsg];
+        let updated = prev;
+        if (parsed.correction) {
+          updated = attachCorrectionToLastUser(updated, parsed.correction);
+        }
+        updated = [...updated, assistantMsg];
         autoSave(updated);
         return updated;
       });
       _isSending = false;
-      await streamTTS(german);
+      await streamTTS(parsed.german);
     } catch {
       _isSending = false;
       setError(null); // silently retry on timeout

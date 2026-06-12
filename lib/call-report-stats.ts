@@ -21,7 +21,7 @@ export function computeCallReportStats(messages: Message[], durationSec: number)
   const corrections = extractCallCorrections(messages);
   const grammarScore = userTurns > 0
     ? Math.round(((userTurns - corrections.length) / userTurns) * 100)
-    : 100;
+    : 0;
 
   const fmtDuration = `${String(Math.floor(durationSec / 60)).padStart(2, "0")}:${String(durationSec % 60).padStart(2, "0")}`;
 

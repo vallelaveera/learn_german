@@ -85,7 +85,11 @@ export async function POST(req: NextRequest) {
       (await isHomeworkEnabledForUser(user.userId))
     ) {
       try {
-        const sentences = await generateHomework(messages, user.germanLevel ?? user.facts.germanLevel);
+        const sentences = await generateHomework(
+          messages,
+          user.germanLevel ?? user.facts.germanLevel,
+          sessionId ?? "session",
+        );
         if (sentences.length > 0) {
           const topic = inferHomeworkTopic(messages, mergedFacts.askedTopics ?? []);
           homeworkId = await saveHomework(user.userId, sessionId, sentences, topic);
