@@ -13,6 +13,13 @@ interface CallRecorderOptions {
   getContext?: () => string;
 }
 
+function pickMimeType(): string {
+  if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) return "audio/webm;codecs=opus";
+  if (MediaRecorder.isTypeSupported("audio/webm")) return "audio/webm";
+  if (MediaRecorder.isTypeSupported("audio/mp4")) return "audio/mp4";
+  return "";
+}
+
 export function useCallRecorder({
   apiKey,
   onTranscript,
@@ -31,14 +38,48 @@ export function useCallRecorder({
   const silentNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const finalBufferRef = useRef("");
   const mutedRef = useRef(false);
+  const transcriptPausedRef = useRef(false);
   const intentionalStopRef = useRef(false);
   const sessionGenRef = useRef(0);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingMimeRef = useRef("audio/webm");
+  const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const cleanupStream = useCallback(() => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
+    }
+    cancelAnimationFrame(animFrameRef.current);
+    onVolume(0);
+    try { silentNodeRef.current?.stop(); } catch {}
+    silentNodeRef.current = null;
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    mediaRecorderRef.current = null;
+  }, [onVolume]);
+
+  const closeWs = useCallback(() => {
+    const ws = wsRef.current;
+    wsRef.current = null;
+    if (!ws) return;
+    ws.onerror = null;
+    ws.onmessage = null;
+    ws.onclose = null;
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(""); } catch {}
+    }
+    setTimeout(() => {
+      try { ws.close(); } catch {}
+    }, 300);
+  }, []);
 
   const start = useCallback(async () => {
     const sessionGen = ++sessionGenRef.current;
     intentionalStopRef.current = false;
     finishedFiredRef.current = false;
     finalBufferRef.current = "";
+    recordingChunksRef.current = [];
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -55,7 +96,6 @@ export function useCallRecorder({
       audioCtxRef.current = ctx;
       if (ctx.state === "suspended") await ctx.resume();
 
-      // iOS: silent looping buffer keeps AudioContext alive
       const silentBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const silentSource = ctx.createBufferSource();
       silentSource.buffer = silentBuffer;
@@ -64,20 +104,18 @@ export function useCallRecorder({
       silentSource.start();
       silentNodeRef.current = silentSource;
 
-      // Volume tracking
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
       source.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
-        if (mutedRef.current) {
+        if (mutedRef.current || transcriptPausedRef.current) {
           onVolume(0);
           animFrameRef.current = requestAnimationFrame(tick);
           return;
         }
         analyser.getByteFrequencyData(data);
-        // Speech band only (~300–3400 Hz) — ignores low rumble / chair creaks
         const start = Math.floor(data.length * 0.08);
         const end = Math.floor(data.length * 0.55);
         let sum = 0;
@@ -91,6 +129,7 @@ export function useCallRecorder({
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (sessionGen !== sessionGenRef.current) return;
         const context = getContext?.() ?? "";
 
         ws.send(JSON.stringify({
@@ -102,24 +141,21 @@ export function useCallRecorder({
           ...(context ? { context } : {}),
         }));
 
-        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : MediaRecorder.isTypeSupported("audio/mp4")
-          ? "audio/mp4"
-          : "";
-
+        const mimeType = pickMimeType();
+        recordingMimeRef.current = mimeType || "audio/webm";
         const mr = mimeType
           ? new MediaRecorder(stream, { mimeType })
           : new MediaRecorder(stream);
         mediaRecorderRef.current = mr;
 
         mr.ondataavailable = (e) => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data);
+          if (e.data.size > 0) {
+            recordingChunksRef.current.push(e.data);
+            if (ws.readyState === WebSocket.OPEN) ws.send(e.data);
           }
         };
+
+        mr.onerror = () => onError("Mikrofon Fehler");
 
         mr.start(250);
         onReady?.();
@@ -129,17 +165,20 @@ export function useCallRecorder({
           onVolume(0);
         }
 
-        const keepAlive = setInterval(() => {
+        keepAliveRef.current = setInterval(() => {
           if (mr.state === "recording") mr.requestData();
-          else clearInterval(keepAlive);
+          else if (keepAliveRef.current) {
+            clearInterval(keepAliveRef.current);
+            keepAliveRef.current = null;
+          }
         }, 250);
-
-        mr.onerror = () => onError("Mikrofon Fehler");
       };
 
       ws.onmessage = (event) => {
+        if (sessionGen !== sessionGenRef.current) return;
         const res = JSON.parse(event.data);
         if (res.error_code) { onError(`${res.error_code}: ${res.error_message}`); return; }
+        if (transcriptPausedRef.current) return;
 
         let finalText = "";
         let nonFinalText = "";
@@ -158,9 +197,7 @@ export function useCallRecorder({
         if (res.finished && !finishedFiredRef.current) {
           finishedFiredRef.current = true;
           const words = finalBufferRef.current.trim().split(/\s+/).filter(Boolean);
-          if (words.length >= 1) {
-            onFinished();
-          }
+          if (words.length >= 1) onFinished();
         }
       };
 
@@ -184,36 +221,48 @@ export function useCallRecorder({
       if (muted && mr.state === "recording") mr.pause();
       else if (!muted && mr.state === "paused") mr.resume();
     }
-    if (muted) onVolume(0);
+    if (muted || transcriptPausedRef.current) onVolume(0);
   }, [onVolume]);
 
-  const stop = useCallback(() => {
+  const setTranscriptPaused = useCallback((paused: boolean) => {
+    transcriptPausedRef.current = paused;
+    if (paused) onVolume(0);
+  }, [onVolume]);
+
+  const stop = useCallback((): Promise<Blob | null> => {
     intentionalStopRef.current = true;
     sessionGenRef.current += 1;
     finishedFiredRef.current = true;
     mutedRef.current = false;
-    cancelAnimationFrame(animFrameRef.current);
-    onVolume(0);
-    try { silentNodeRef.current?.stop(); } catch {}
-    silentNodeRef.current = null;
-    mediaRecorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    const ws = wsRef.current;
-    if (ws) {
-      ws.onerror = null;
-      ws.onmessage = null;
-      ws.onclose = null;
-      if (ws.readyState === WebSocket.OPEN) {
-        try { ws.send(""); } catch {}
-      }
-      setTimeout(() => {
-        try { ws.close(); } catch {}
-      }, 300);
-    }
-    wsRef.current = null;
-    mediaRecorderRef.current = null;
-    streamRef.current = null;
-  }, [onVolume]);
+    transcriptPausedRef.current = false;
 
-  return { start, stop, setMuted, audioCtxRef };
+    const mr = mediaRecorderRef.current;
+    if (!mr || mr.state === "inactive") {
+      closeWs();
+      cleanupStream();
+      return Promise.resolve(null);
+    }
+
+    return new Promise(resolve => {
+      mr.onstop = () => {
+        const blob = recordingChunksRef.current.length
+          ? new Blob(recordingChunksRef.current, { type: recordingMimeRef.current })
+          : null;
+        recordingChunksRef.current = [];
+        closeWs();
+        cleanupStream();
+        resolve(blob && blob.size > 0 ? blob : null);
+      };
+      try {
+        if (mr.state === "recording" || mr.state === "paused") mr.requestData();
+        mr.stop();
+      } catch {
+        closeWs();
+        cleanupStream();
+        resolve(null);
+      }
+    });
+  }, [cleanupStream, closeWs]);
+
+  return { start, stop, setMuted, setTranscriptPaused, audioCtxRef };
 }
