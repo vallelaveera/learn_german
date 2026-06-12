@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2 } from "lucide-react";
 import { ExerciseCategoryPicker } from "@/components/exercises/ExerciseCategoryPicker";
+import { SentencePreviewDurationSetting } from "@/components/exercises/SentencePreviewDurationSetting";
 import { SentenceSelfRecorder, playRecordingUrls } from "@/components/exercises/SentenceSelfRecorder";
 import { ExerciseShell } from "@/components/layout/ExerciseShell";
 import { truncateForDisplay } from "@/lib/corrections";
@@ -16,6 +17,7 @@ import {
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
 import { SentenceIllustration } from "@/components/illustrations/SentenceIllustration";
 import { resolveIllustrationId } from "@/lib/content/illustration-lookup";
+import { loadPreviewDurationSetting, resolvePreviewSeconds } from "@/lib/exercises/sentence-preview-duration";
 import {
   prefetchExerciseGerman,
   revokeExerciseSpeechPrefetch,
@@ -91,6 +93,9 @@ function SentencesPractice({
   const [skipMaya, setSkipMaya] = useState(false);
   const [userRecordings, setUserRecordings] = useState<Record<number, string>>({});
   const [playingAll, setPlayingAll] = useState(false);
+  const [previewSeconds, setPreviewSeconds] = useState(() =>
+    typeof window === "undefined" ? 5 : resolvePreviewSeconds(loadPreviewDurationSetting()),
+  );
 
   const current = exercises[index];
   const illustrationId = current
@@ -154,18 +159,23 @@ function SentencesPractice({
   useEffect(() => {
     if (phase !== "preview" || !current) return;
 
+    let cancelled = false;
+    const startedAt = Date.now();
+    const minDisplayMs = previewSeconds * 1000;
+
+    const finishPreview = () => {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, minDisplayMs - elapsed);
+      window.setTimeout(() => {
+        if (!cancelled) setPhase("build");
+      }, remaining);
+    };
+
     if (skipMaya && currentRecording) {
-      let cancelled = false;
       const audio = new Audio(currentRecording);
-      audio.onended = () => {
-        if (!cancelled) setPhase("build");
-      };
-      audio.onerror = () => {
-        if (!cancelled) setPhase("build");
-      };
-      void audio.play().catch(() => {
-        if (!cancelled) setPhase("build");
-      });
+      audio.onended = () => finishPreview();
+      audio.onerror = () => finishPreview();
+      void audio.play().catch(() => finishPreview());
       return () => {
         cancelled = true;
         audio.pause();
@@ -173,24 +183,25 @@ function SentencesPractice({
     }
 
     if (skipMaya) {
-      setPhase("build");
-      return;
+      finishPreview();
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
     void (async () => {
       unlockExerciseAudio();
       await prefetchExerciseGerman(current.german);
       if (cancelled) return;
       await speakExercisePrompt(current.german, "de");
-      if (!cancelled) setPhase("build");
+      if (!cancelled) finishPreview();
     })();
 
     return () => {
       cancelled = true;
       stopExerciseSpeech();
     };
-  }, [phase, current?.id, current?.german, index, skipMaya, currentRecording]);
+  }, [phase, current?.id, current?.german, index, skipMaya, currentRecording, previewSeconds]);
 
   useEffect(() => {
     setShowEnHint(false);
@@ -367,6 +378,10 @@ function SentencesPractice({
         <Link href="/exercises/sentences" style={{ fontSize: 11, color: "var(--text-muted)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 10, textDecoration: "none" }}>←</Link>
       </header>
 
+      <div style={{ maxWidth: 400, margin: "0 auto 16px" }}>
+        <SentencePreviewDurationSetting compact onChange={setPreviewSeconds} />
+      </div>
+
       <div style={{ maxWidth: 400, margin: "0 auto" }}>
         {phase === "preview" && current && (
           <div style={{
@@ -377,7 +392,7 @@ function SentencesPractice({
               <SentenceIllustration sentenceId={illustrationId} height={130} />
             )}
             <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
-              {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : "MERKE DIR DEN SATZ"}
+              {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : `MERKE DIR DEN SATZ · ${previewSeconds} SEK.`}
             </p>
             {fromCall && current.said && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>

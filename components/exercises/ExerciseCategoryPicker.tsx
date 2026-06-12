@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CategoryCard } from "@/components/exercises/CategoryCard";
+import { SentencePreviewDurationSetting } from "@/components/exercises/SentencePreviewDurationSetting";
 import {
   WORD_CATEGORIES,
   SENTENCE_CATEGORIES,
@@ -96,6 +97,12 @@ export function ExerciseCategoryPicker({ type }: ExerciseCategoryPickerProps) {
           </div>
         </div>
       </header>
+
+      {type === "sentences" && (
+        <div style={{ marginBottom: 20 }}>
+          <SentencePreviewDurationSetting />
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {categories.map(cat => (
