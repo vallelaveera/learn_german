@@ -174,17 +174,17 @@ export function LoginIllustration({ userName }: LoginIllustrationProps) {
           x="116"
           y="55"
           width="88"
-          height="36"
+          height="30"
           rx="10"
           fill="white"
           stroke="#CECBF6"
           strokeWidth="1"
         />
-        <path d="M116 72 L108 76 L120 76Z" fill="white" stroke="#CECBF6" strokeWidth="1" />
-        <path d="M109 76 L120 76" stroke="white" strokeWidth="2" />
+        <path d="M116 68 L108 72 L120 72Z" fill="white" stroke="#CECBF6" strokeWidth="1" />
+        <path d="M109 72 L120 72" stroke="white" strokeWidth="2" />
         <text
           x="160"
-          y="69"
+          y="74"
           textAnchor="middle"
           fontSize="10"
           fontWeight="500"
@@ -193,26 +193,24 @@ export function LoginIllustration({ userName }: LoginIllustrationProps) {
         >
           Wie geht es dir?
         </text>
-        <text
-          x="160"
-          y="83"
-          textAnchor="middle"
-          fontSize="9"
-          fill="#888780"
-          fontFamily="sans-serif"
-        >
-          How are you?
-        </text>
       </g>
 
       {/* User reply bubble — below Maya (outer group positions; inner animates scale only) */}
-      <g transform="translate(0, 48)">
+      <g transform="translate(0, 40)">
         <g className="bub2">
           <rect x="116" y="55" width="88" height="30" rx="10" fill="#7F77DD" />
           <path d="M204 65 L212 60 L204 70Z" fill="#7F77DD" />
-          <circle cx="142" cy="70" r="3" fill="white" className="d1" />
-          <circle cx="154" cy="70" r="3" fill="white" className="d2" />
-          <circle cx="166" cy="70" r="3" fill="white" className="d3" />
+          <text
+            x="160"
+            y="74"
+            textAnchor="middle"
+            fontSize="10"
+            fontWeight="500"
+            fill="white"
+            fontFamily="sans-serif"
+          >
+            How are you?
+          </text>
         </g>
       </g>
 

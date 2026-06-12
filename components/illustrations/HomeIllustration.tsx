@@ -8,6 +8,7 @@ import {
 
 const FALLBACK_QUESTION: MayaQuestion = {
   de: "Wie geht es dir?",
+  en: "How are you?",
   emoji: "😊",
   level: "A1",
   category: "greeting",
@@ -86,6 +87,7 @@ export function HomeIllustration({
     if (recent.length > 0 && Math.random() < 0.4) {
       q = {
         de: `Was bedeutet '${recent[0]}'?`,
+        en: `What does '${recent[0]}' mean?`,
         emoji: "💭",
         level: "B1",
         category: "vocabulary",
@@ -118,6 +120,9 @@ export function HomeIllustration({
   const bubbleTextY1 = twoLines ? 66 : 69;
   const bubbleTextY2 = 82;
   const userBubbleOffsetY = bubbleHeight + 10;
+  const userBubbleText = truncateLine(activeQuestion.en, 28);
+  const userBubbleWidth = Math.max(88, userBubbleText.length * 5.5 + 24);
+  const userBubbleX = 160 - userBubbleWidth / 2;
 
   const dePillWidth = Math.max(52, vocabPair.de.length * 5.5 + 24);
   const enPillWidth = Math.max(52, vocabPair.en.length * 5.5 + 16);
@@ -330,11 +335,29 @@ export function HomeIllustration({
       {/* User reply bubble — below Maya (outer group positions; inner animates scale only) */}
       <g transform={`translate(0, ${userBubbleOffsetY})`}>
         <g className="bub2">
-          <rect x="116" y="55" width="88" height="30" rx="10" fill="#7F77DD" />
-          <path d="M204 65 L212 60 L204 70Z" fill="#7F77DD" />
-          <circle cx="142" cy="70" r="3" fill="white" className="d1" />
-          <circle cx="154" cy="70" r="3" fill="white" className="d2" />
-          <circle cx="166" cy="70" r="3" fill="white" className="d3" />
+          <rect
+            x={userBubbleX}
+            y="55"
+            width={userBubbleWidth}
+            height="30"
+            rx="10"
+            fill="#7F77DD"
+          />
+          <path
+            d={`M${userBubbleX + userBubbleWidth} 65 L${userBubbleX + userBubbleWidth + 8} 60 L${userBubbleX + userBubbleWidth} 70Z`}
+            fill="#7F77DD"
+          />
+          <text
+            x="160"
+            y="74"
+            textAnchor="middle"
+            fontSize="10"
+            fontWeight="500"
+            fill="white"
+            fontFamily="sans-serif"
+          >
+            {userBubbleText}
+          </text>
         </g>
       </g>
 
