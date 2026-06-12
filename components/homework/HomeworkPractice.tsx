@@ -74,7 +74,7 @@ function HistoryCard({ assignment }: { assignment: HomeworkAssignment }) {
           />
         </div>
         <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "6px 0 0" }}>
-          {progress.completedReps} / {progress.totalReps} Aufnahmen
+          {progress.completedReps} / {progress.totalReps} Aufnahmen · {progress.completedSentences} / {assignment.sentences.length} Sätze mit 3×
         </p>
       </div>
 
@@ -108,6 +108,18 @@ function HistorySentenceRow({
       <p style={{ fontSize: 14, fontFamily: "var(--font-serif)", margin: "0 0 8px", lineHeight: 1.45 }}>
         {sentence.text}
       </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Sprechen-Score</span>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: reps.length >= 3 ? "var(--green)" : "var(--accent)",
+          }}
+        >
+          {Math.min(reps.length, 3)} / 3
+        </span>
+      </div>
       <div style={{ display: "flex", gap: 8 }}>
         {([1, 2, 3] as const).map(i => {
           const rep = reps.find(r => r.repIndex === i);
@@ -357,8 +369,8 @@ function OpenHomeworkPractice({
 
       <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
         {repToDo
-          ? `Nimm Satz ${repToDo} von 3 auf — je öfter, desto besser merkst du dir ihn`
-          : "Satz fertig — weiter zum nächsten!"}
+          ? `Aufnahme ${repToDo} von 3 — sprich den Satz laut`
+          : "3× geschafft — weiter zum nächsten Satz!"}
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>

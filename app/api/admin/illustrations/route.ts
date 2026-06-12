@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
     const rows = await Promise.all(sentences.map(getSentenceStatus));
     const stats = await getCategoryStats(category);
 
-    return NextResponse.json({ result, stats, sentences: rows });
+    return NextResponse.json({
+      result,
+      stats,
+      sentences: rows,
+      categories: await getAllCategoryStats(),
+    });
   } catch (e) {
     console.error("Admin illustrations POST failed:", e);
     const message = e instanceof Error ? e.message : "Generation failed";

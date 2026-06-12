@@ -51,6 +51,23 @@ const fallbackOpening = (name?: string) =>
     ? `Hallo ${name}! Schön, dass du da bist. Wie geht's dir?`
     : "Hallo! Schön, dass du da bist. Wie geht's dir?";
 
+async function ensureMicPermission(): Promise<boolean> {
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+      },
+    });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type Phase = "idle" | "active";
 type CallState = "listening" | "thinking" | "speaking";
 
@@ -667,6 +684,19 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId }: Freispre
 
     durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
     setPhase("active");
+
+    const micOk = await ensureMicPermission();
+    if (!micOk) {
+      _cm_active = false;
+      _cm_sending = false;
+      setPhase("idle");
+      if (durationRef.current) {
+        clearInterval(durationRef.current);
+        durationRef.current = null;
+      }
+      setError("Mikrofon-Zugriff nötig — bitte erlauben und erneut starten.");
+      return;
+    }
 
     let opening = skipNag
       ? (normalOpeningRef.current ?? openingRef.current ?? cachedOpening)

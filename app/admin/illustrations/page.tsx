@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SentenceCard } from "@/components/illustrations/SentenceCard";
 import { AdminCard, AdminStatGrid } from "@/components/admin/AdminShell";
@@ -43,6 +43,8 @@ export default function AdminIllustrationsPage() {
   const [stats, setStats] = useState<CategoryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [runningAll, setRunningAll] = useState(false);
+  const abortAllRef = useRef(false);
   const [retry, setRetry] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [lastResult, setLastResult] = useState<IllustrationBatchResult | null>(null);
@@ -110,6 +112,77 @@ export default function AdminIllustrationsPage() {
     }
   }
 
+  async function runGenerationAll() {
+    setRunningAll(true);
+    setRunning(true);
+    abortAllRef.current = false;
+    setLogs([]);
+    setLastResult(null);
+    setError("");
+
+    const allLogs: string[] = [];
+    let batchNum = 0;
+    let totalGenerated = 0;
+    let totalFailed = 0;
+    let lastResult: IllustrationBatchResult | null = null;
+
+    try {
+      let hasMore = true;
+      while (hasMore && !abortAllRef.current) {
+        batchNum += 1;
+        allLogs.push(`--- Batch ${batchNum} (max ${ILLUSTRATION_BATCH_LIMIT}) ---`);
+        setLogs([...allLogs]);
+
+        const res = await fetch("/api/admin/illustrations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: selectedCategory,
+            retry,
+            limit: ILLUSTRATION_BATCH_LIMIT,
+          }),
+        });
+        const data = await readApiJson(res);
+        if (!res.ok) throw new Error(String(data.error ?? "Generation failed"));
+
+        const result = data.result as IllustrationBatchResult;
+        lastResult = result;
+        totalGenerated += result.generated;
+        totalFailed += result.failed;
+        allLogs.push(...(result.logs ?? []));
+        if (result.hasMore) {
+          allLogs.push(`Batch ${batchNum} done — ${result.pending} still pending`);
+        }
+        setLogs([...allLogs]);
+        setLastResult(result);
+        setSentences((data.sentences as SentenceIllustrationRow[]) ?? []);
+        setStats((data.stats as CategoryStats) ?? null);
+        if (data.categories) setCategories(data.categories as CategoryStats[]);
+
+        hasMore = result.hasMore;
+      }
+
+      if (abortAllRef.current) {
+        allLogs.push("Stopped by user.");
+      } else {
+        allLogs.push(
+          `All batches complete — ${batchNum} batch(es), ${totalGenerated} generated, ${totalFailed} failed.`,
+        );
+      }
+      setLogs([...allLogs]);
+      if (lastResult) setLastResult(lastResult);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+      setRunningAll(false);
+    }
+  }
+
+  function stopGenerationAll() {
+    abortAllRef.current = true;
+  }
+
   if (!isDev) {
     return (
       <AdminCard>
@@ -127,7 +200,7 @@ export default function AdminIllustrationsPage() {
           Generate animated Maya SVGs per category via Claude Haiku. On Vercel, SVGs are stored in Redis (
           <code>KV_REST_API_URL</code>); locally they also save to <code>data/illustrations/</code>.
           Includes batch sentences plus matching flashcard/corpus entries.
-          Generates up to <strong>{ILLUSTRATION_BATCH_LIMIT}</strong> SVGs per click — click again until done.
+          Generates up to <strong>{ILLUSTRATION_BATCH_LIMIT}</strong> SVGs per batch — use &quot;Generate all&quot; to run every batch automatically.
         </p>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
@@ -181,7 +254,28 @@ export default function AdminIllustrationsPage() {
               opacity: running || loading ? 0.7 : 1,
             }}
           >
-            {running ? `Generating (${ILLUSTRATION_BATCH_LIMIT} max)…` : `Generate next ${ILLUSTRATION_BATCH_LIMIT}`}
+            {running && !runningAll
+              ? `Generating (${ILLUSTRATION_BATCH_LIMIT} max)…`
+              : `Generate next ${ILLUSTRATION_BATCH_LIMIT}`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => (runningAll ? stopGenerationAll() : void runGenerationAll())}
+            disabled={loading || (running && !runningAll)}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 8,
+              border: `1px solid ${PURPLE}`,
+              background: runningAll ? "#fff" : PURPLE,
+              color: runningAll ? PURPLE : "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: running ? "wait" : "pointer",
+              opacity: loading || (running && !runningAll) ? 0.7 : 1,
+            }}
+          >
+            {runningAll ? "Stop" : "Generate all (×10 batches)"}
           </button>
         </div>
 
@@ -204,8 +298,8 @@ export default function AdminIllustrationsPage() {
           <p style={{ fontSize: 12, margin: 0, color: "var(--text-muted)", lineHeight: 1.5 }}>
             Batch complete — generated {lastResult.generated}, skipped {lastResult.skipped}, failed {lastResult.failed}.
             Est. cost ${lastResult.costEstimate}
-            {lastResult.hasMore && (
-              <> · <strong>{lastResult.pending}</strong> still pending — click &quot;Generate next {ILLUSTRATION_BATCH_LIMIT}&quot; again.</>
+            {lastResult.hasMore && !runningAll && (
+              <> · <strong>{lastResult.pending}</strong> still pending — click &quot;Generate next {ILLUSTRATION_BATCH_LIMIT}&quot; or &quot;Generate all&quot;.</>
             )}
           </p>
         </AdminCard>

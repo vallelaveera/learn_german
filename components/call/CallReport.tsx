@@ -4,13 +4,14 @@ import { useState } from "react";
 import { Message } from "@/lib/types";
 import { nextGermanLevel } from "@/lib/levels";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
-import { VocabIcon } from "@/components/vocab/VocabIcon";
 
 export interface CallReportStats {
   durationLabel: string;
   sentenceCount: number;
   grammarScore: number;
-  newWords: string[];
+  corrections: { said: string; correct: string; note?: string }[];
+  /** @deprecated */
+  newWords?: string[];
 }
 
 interface CallReportProps {
@@ -172,36 +173,49 @@ export function CallReport({
           </div>
         )}
 
-        {stats.newWords.length > 0 && (
+        {stats.corrections.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-              Neue Wörter
+              Deine Fehler — zum Üben
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {stats.newWords.map(w => (
-                <Link
-                  key={w}
-                  href={`/words?highlight=${encodeURIComponent(w)}`}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {stats.corrections.map((c, i) => (
+                <div
+                  key={`${c.said}-${i}`}
                   style={{
-                    background: "var(--accent-glow)",
-                    border: "0.5px solid var(--accent-dim)",
-                    color: "#7F77DD",
-                    borderRadius: 20,
-                    padding: "6px 12px 6px 6px",
-                    fontSize: 13,
-                    fontFamily: "var(--font-serif)",
-                    textDecoration: "none",
-                    minHeight: 44,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    background: "var(--surface)",
+                    border: "0.5px solid var(--border)",
                   }}
                 >
-                  <VocabIcon word={w} status="new" size={28} showBadge={false} />
-                  {w}
-                </Link>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 6px", lineHeight: 1.4 }}>
+                    Du sagtest: <span style={{ fontStyle: "italic" }}>{c.said}</span>
+                  </p>
+                  <p style={{ fontSize: 14, fontFamily: "var(--font-serif)", color: "var(--text)", margin: 0, lineHeight: 1.45 }}>
+                    ✓ {c.correct}
+                  </p>
+                  {c.note && (
+                    <p style={{ fontSize: 11, color: "var(--accent)", margin: "6px 0 0", fontStyle: "italic" }}>
+                      💡 {c.note}
+                    </p>
+                  )}
+                </div>
               ))}
             </div>
+            <Link
+              href="/exercises/sentences?source=call"
+              style={{
+                display: "inline-flex",
+                marginTop: 12,
+                fontSize: 13,
+                color: "#7F77DD",
+                textDecoration: "none",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              Sätze üben →
+            </Link>
           </div>
         )}
 

@@ -229,7 +229,7 @@ export function HomeIllustration({
           textAnchor="middle"
           fontSize="11"
           fontWeight="500"
-          fill="#E85A28"
+          fill="#534AB7"
           fontFamily="sans-serif"
         >
           Maya
@@ -270,7 +270,7 @@ export function HomeIllustration({
           textAnchor="middle"
           fontSize={userFontSize}
           fontWeight="500"
-          fill="#534AB7"
+          fill="#E85A28"
           fontFamily="sans-serif"
         >
           {userLabel}
@@ -306,7 +306,7 @@ export function HomeIllustration({
           textAnchor="middle"
           fontSize="10"
           fontWeight="500"
-          fill="#E85A28"
+          fill="#534AB7"
           fontFamily="sans-serif"
         >
           {line1}
@@ -318,7 +318,7 @@ export function HomeIllustration({
             textAnchor="middle"
             fontSize="10"
             fontWeight="500"
-            fill="#E85A28"
+            fill="#534AB7"
             fontFamily="sans-serif"
           >
             {line2}
