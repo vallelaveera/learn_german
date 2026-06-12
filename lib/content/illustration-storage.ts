@@ -9,6 +9,16 @@ function localPath(id: string): string {
   return path.join(LOCAL_DIR, `${id}.svg`);
 }
 
+function isLocalStorageWritable(): boolean {
+  if (process.env.VERCEL) return false;
+  try {
+    ensureLocalDir();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function ensureLocalDir(): void {
   if (!fs.existsSync(LOCAL_DIR)) {
     fs.mkdirSync(LOCAL_DIR, { recursive: true });
@@ -38,15 +48,30 @@ export async function getStoredIllustration(id: string): Promise<string | null> 
 }
 
 export async function storeIllustration(id: string, svg: string): Promise<void> {
-  ensureLocalDir();
-  fs.writeFileSync(localPath(id), svg, "utf8");
+  let stored = false;
 
-  if (!redisConfigured()) return;
+  if (redisConfigured()) {
+    try {
+      await redis.set(illustrationRedisKey(id), svg);
+      stored = true;
+    } catch (err) {
+      console.error("Redis write failed:", id, err);
+    }
+  }
 
-  try {
-    await redis.set(illustrationRedisKey(id), svg);
-  } catch (err) {
-    console.error("Redis write failed, kept local copy:", id, err);
+  if (isLocalStorageWritable()) {
+    try {
+      fs.writeFileSync(localPath(id), svg, "utf8");
+      stored = true;
+    } catch (err) {
+      console.error("Local illustration write failed:", id, err);
+    }
+  }
+
+  if (!stored) {
+    throw new Error(
+      "Illustration storage unavailable. Set KV_REST_API_URL and KV_REST_API_TOKEN on Vercel, or run locally.",
+    );
   }
 }
 

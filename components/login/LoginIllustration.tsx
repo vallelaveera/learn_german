@@ -1,6 +1,20 @@
 "use client";
 
-export function LoginIllustration() {
+function formatLabelName(raw?: string): string {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed) return "Du";
+  if (trimmed.length <= 12) return trimmed;
+  return `${trimmed.slice(0, 11)}…`;
+}
+
+interface LoginIllustrationProps {
+  userName?: string;
+}
+
+export function LoginIllustration({ userName }: LoginIllustrationProps) {
+  const userLabel = formatLabelName(userName);
+  const userFontSize = userLabel.length > 8 ? 9 : 11;
+
   return (
     <svg
       width="100%"
@@ -106,7 +120,7 @@ export function LoginIllustration() {
           textAnchor="middle"
           fontSize="11"
           fontWeight="500"
-          fill="white"
+          fill="#534AB7"
           fontFamily="sans-serif"
         >
           Maya
@@ -145,12 +159,12 @@ export function LoginIllustration() {
           x="232"
           y="30"
           textAnchor="middle"
-          fontSize="11"
+          fontSize={userFontSize}
           fontWeight="500"
           fill="#2C2C2A"
           fontFamily="sans-serif"
         >
-          Du
+          {userLabel}
         </text>
       </g>
 

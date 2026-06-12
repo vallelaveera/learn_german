@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ categories, sentences: [] });
   }
 
-  const sentences = getSentencesByCategory(category);
+  const sentences = await getSentencesByCategory(category);
   const rows = await Promise.all(sentences.map(getSentenceStatus));
   const stats = await getCategoryStats(category);
 
@@ -65,12 +65,11 @@ export async function POST(req: NextRequest) {
       retryPlaceholders: Boolean(body.retry),
     });
 
-    const sentences = await Promise.all(
-      getSentencesByCategory(category).map(getSentenceStatus),
-    );
+    const sentences = await getSentencesByCategory(category);
+    const rows = await Promise.all(sentences.map(getSentenceStatus));
     const stats = await getCategoryStats(category);
 
-    return NextResponse.json({ result, stats, sentences });
+    return NextResponse.json({ result, stats, sentences: rows });
   } catch (e) {
     console.error("Admin illustrations POST failed:", e);
     return NextResponse.json({ error: "Generation failed" }, { status: 500 });

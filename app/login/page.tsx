@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
@@ -10,6 +10,20 @@ import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib
 
 type Step = "email" | "name" | "level" | "native";
 
+const LOGIN_NAMES_KEY = "cmd_login_names";
+
+function readSavedNames(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LOGIN_NAMES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -18,7 +32,28 @@ export default function LoginPage() {
   const [nativeLanguage, setNativeLanguage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [savedNames, setSavedNames] = useState<Record<string, string>>({});
   const router = useRouter();
+
+  useEffect(() => {
+    setSavedNames(readSavedNames());
+  }, []);
+
+  const illustrationName =
+    name.trim() ||
+    savedNames[email.toLowerCase().trim()] ||
+    undefined;
+
+  const rememberName = (userEmail: string, userName: string) => {
+    const key = userEmail.toLowerCase().trim();
+    const trimmed = userName.trim();
+    if (!key || !trimmed) return;
+    setSavedNames(prev => {
+      const next = { ...prev, [key]: trimmed };
+      localStorage.setItem(LOGIN_NAMES_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const handleEmail = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +94,8 @@ export default function LoginPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Login failed");
       if (!data?.user) throw new Error("Invalid login response");
+
+      rememberName(email, name.trim());
 
       if (shouldSkipLevelOnLogin(data.user)) {
         await completeLogin();
@@ -154,7 +191,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {step === "email" && (
+        {(step === "email" || step === "name") && (
           <div style={{
             width: "100%",
             height: 200,
@@ -163,7 +200,7 @@ export default function LoginPage() {
             borderRadius: 0,
             margin: "16px 0",
           }}>
-            <LoginIllustration />
+            <LoginIllustration userName={illustrationName} />
           </div>
         )}
 

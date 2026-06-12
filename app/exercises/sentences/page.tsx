@@ -14,6 +14,8 @@ import {
   type SentenceExerciseCategory,
 } from "@/lib/exercises/categories";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { SentenceIllustration } from "@/components/illustrations/SentenceIllustration";
+import { resolveIllustrationId } from "@/lib/content/illustration-lookup";
 import {
   prefetchExerciseGerman,
   revokeExerciseSpeechPrefetch,
@@ -91,6 +93,9 @@ function SentencesPractice({
   const [playingAll, setPlayingAll] = useState(false);
 
   const current = exercises[index];
+  const illustrationId = current
+    ? resolveIllustrationId(current.id, current.german)
+    : null;
   const currentRecording = userRecordings[index] ?? null;
 
   const exercisesUrl = fromCall
@@ -368,6 +373,9 @@ function SentencesPractice({
             textAlign: "center", padding: "28px 20px", marginBottom: 24,
             background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", borderRadius: 12,
           }}>
+            {!fromCall && illustrationId && (
+              <SentenceIllustration sentenceId={illustrationId} height={130} />
+            )}
             <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
               {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : "MERKE DIR DEN SATZ"}
             </p>
@@ -407,6 +415,9 @@ function SentencesPractice({
             textAlign: "center", padding: "28px 20px", marginBottom: 24,
             background: "rgba(39,174,96,0.08)", border: "0.5px solid rgba(39,174,96,0.35)", borderRadius: 12,
           }}>
+            {!fromCall && illustrationId && (
+              <SentenceIllustration sentenceId={illustrationId} height={130} />
+            )}
             <p style={{ fontSize: 10, color: "var(--green)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>RICHTIG!</p>
             <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.45, marginBottom: 10 }}>{current.german}</p>
             {fromCall && current.note ? (
@@ -426,6 +437,9 @@ function SentencesPractice({
 
         {phase === "build" && current && (
           <>
+            {!fromCall && illustrationId && (
+              <SentenceIllustration sentenceId={illustrationId} height={120} />
+            )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
               <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, flex: 1 }}>
                 Baue den Satz aus dem Gedächtnis

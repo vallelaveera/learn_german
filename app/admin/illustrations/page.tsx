@@ -105,8 +105,9 @@ export default function AdminIllustrationsPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <AdminCard>
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 16px", lineHeight: 1.5 }}>
-          Generate animated Maya SVGs per category via Claude Haiku. Stored in{" "}
-          <code>data/illustrations/</code> (and Redis when configured).
+          Generate animated Maya SVGs per category via Claude Haiku. On Vercel, SVGs are stored in Redis (
+          <code>KV_REST_API_URL</code>); locally they also save to <code>data/illustrations/</code>.
+          Includes batch sentences plus matching flashcard/corpus entries.
         </p>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>

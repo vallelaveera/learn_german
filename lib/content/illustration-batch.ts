@@ -1,6 +1,11 @@
 import type { BatchSentence } from "./sentences-batch";
 import { BATCH_SENTENCES } from "./sentences-batch";
 import {
+  corpusCategoryMatchesBatch,
+  inferBatchCategoryFromGerman,
+  normalizeGerman,
+} from "./illustration-lookup";
+import {
   generateIllustrationSvg,
   PLACEHOLDER_ILLUSTRATION_SVG,
 } from "./sentence-illustrations";
@@ -10,6 +15,9 @@ import {
   needsRegeneration,
   storeIllustration,
 } from "./illustration-storage";
+import sentencesData from "@/data/flashcards/sentences.json";
+import { loadCorpusSentences } from "@/lib/vocab/load";
+import type { CEFRLevel } from "@/lib/vocab/types";
 
 export type IllustrationStatus = "missing" | "placeholder" | "generated";
 
@@ -57,8 +65,61 @@ export interface IllustrationBatchResult {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-export function getSentencesByCategory(category: string): BatchSentence[] {
-  return BATCH_SENTENCES.filter(s => s.category === category);
+const FLASHCARD_SENTENCES = sentencesData as {
+  id: string;
+  german: string;
+  english: string;
+  level: string;
+}[];
+
+function dedupeSentences(sentences: BatchSentence[]): BatchSentence[] {
+  const seen = new Set<string>();
+  const out: BatchSentence[] = [];
+  for (const s of sentences) {
+    const key = normalizeGerman(s.de);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
+
+export async function getSentencesByCategory(category: string): Promise<BatchSentence[]> {
+  const batch = BATCH_SENTENCES.filter(s => s.category === category);
+  const extras: BatchSentence[] = [];
+
+  for (const fc of FLASHCARD_SENTENCES) {
+    const inferred = inferBatchCategoryFromGerman(fc.german);
+    if (inferred !== category) continue;
+    extras.push({
+      id: fc.id,
+      de: fc.german,
+      en: fc.english,
+      level: fc.level as CEFRLevel,
+      category,
+    });
+  }
+
+  try {
+    const corpus = await loadCorpusSentences();
+    for (const s of corpus) {
+      const matches =
+        corpusCategoryMatchesBatch(s.category, category) ||
+        inferBatchCategoryFromGerman(s.de) === category;
+      if (!matches) continue;
+      extras.push({
+        id: s.id,
+        de: s.de,
+        en: s.en,
+        level: s.level,
+        category,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to load corpus sentences for illustrations:", err);
+  }
+
+  return dedupeSentences([...batch, ...extras]);
 }
 
 export async function getSentenceStatus(sentence: BatchSentence): Promise<SentenceIllustrationRow> {
@@ -84,7 +145,7 @@ export async function getSentenceStatus(sentence: BatchSentence): Promise<Senten
 
 export async function getCategoryStats(category: string): Promise<CategoryStats> {
   const meta = BATCH_CATEGORIES.find(c => c.id === category);
-  const sentences = getSentencesByCategory(category);
+  const sentences = await getSentencesByCategory(category);
   const rows = await Promise.all(sentences.map(getSentenceStatus));
 
   return {
@@ -106,7 +167,7 @@ export async function runIllustrationBatchForCategory(
   options: { retryPlaceholders?: boolean; delayMs?: number } = {},
 ): Promise<IllustrationBatchResult> {
   const delayMs = options.delayMs ?? 500;
-  const sentences = getSentencesByCategory(category);
+  const sentences = await getSentencesByCategory(category);
   const logs: string[] = [];
   let generated = 0;
   let skipped = 0;
