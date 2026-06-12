@@ -14,10 +14,11 @@ interface PageShellProps {
 export function PageShell({ children, title, showTabBar = true, headerRight, minimalHeader = false }: PageShellProps) {
   return (
     <div
+      className="ui-phone-shell"
       style={{
         position: "relative",
         minHeight: "100dvh",
-        background: "transparent",
+        background: "var(--bg-warm)",
         maxWidth: 390,
         margin: "0 auto",
         width: "100%",

@@ -5,6 +5,7 @@ import {
   skipHomework,
   getHomework,
   getPendingHomeworkList,
+  getHomeworkHistoryList,
 } from "@/lib/kv";
 import {
   isHomeworkEnabledForUser,
@@ -24,12 +25,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ enabled: false, assignments: [], assignment: null, summary: null });
     }
 
+    const filter = req.nextUrl.searchParams.get("filter");
+    if (filter === "completed") {
+      const history = await getHomeworkHistoryList(user.userId);
+      return NextResponse.json({
+        enabled: true,
+        assignments: [],
+        assignment: null,
+        history,
+        summary: summarizeHomeworkList([]),
+        progress: null,
+      });
+    }
+
     const assignments = await getPendingHomeworkList(user.userId);
     if (!assignments.length) {
       return NextResponse.json({
         enabled: true,
         assignments: [],
         assignment: null,
+        history: [],
         summary: summarizeHomeworkList([]),
         progress: null,
       });
@@ -42,6 +57,7 @@ export async function GET(req: NextRequest) {
       enabled: true,
       assignments,
       assignment,
+      history: [],
       summary,
       progress,
     });

@@ -13,6 +13,7 @@ type CallState = "idle" | "listening" | "thinking" | "speaking";
 export interface TippenCallProps {
   onCallEnded?: (messages: Message[], durationSec: number) => void;
   embedded?: boolean;
+  scenarioId?: string | null;
 }
 
 // ── Module-level guards — never stale ──────────────────────
@@ -28,7 +29,7 @@ function useWakeLock() {
   return { acquire, release };
 }
 
-export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
+export function TippenCall({ onCallEnded, embedded, scenarioId }: TippenCallProps = {}) {
   // ── State ────────────────────────────────────────────────
   const [callState, setCallState] = useState<CallState>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -72,7 +73,11 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
 
   // ── Load context on mount ────────────────────────────────
   useEffect(() => {
-    fetch("/api/context")
+    const contextUrl = scenarioId
+      ? `/api/context?scenario=${encodeURIComponent(scenarioId)}`
+      : "/api/context";
+
+    fetch(contextUrl)
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
         if (!data) return;
@@ -102,7 +107,7 @@ export function TippenCall({ onCallEnded, embedded }: TippenCallProps = {}) {
         }
       })
       .catch(console.error);
-  }, []);
+  }, [router, scenarioId]);
 
   // ── Audio ────────────────────────────────────────────────
   const getAudioCtx = () => {

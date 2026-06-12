@@ -14,9 +14,10 @@ import type { BinaryCard } from "@/lib/exercises/types";
 
 interface WordsPracticeProps {
   category: WordExerciseCategory;
+  scenarioId?: string | null;
 }
 
-export function WordsPractice({ category }: WordsPracticeProps) {
+export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
   const router = useRouter();
   const meta = getWordCategoryMeta(category);
   const [cards, setCards] = useState<BinaryCard[]>([]);
@@ -34,7 +35,8 @@ export function WordsPractice({ category }: WordsPracticeProps) {
     else setLoading(true);
     setNoMore(false);
     try {
-      const res = await fetch(`/api/exercises/warmup?category=${category}`);
+      const scenarioQuery = scenarioId ? `&scenario=${encodeURIComponent(scenarioId)}` : "";
+      const res = await fetch(`/api/exercises/warmup?category=${category}${scenarioQuery}`);
       if (res.status === 401) { router.push("/login"); return false; }
       const data = await res.json();
       if (!data?.cards?.length) {
@@ -52,7 +54,7 @@ export function WordsPractice({ category }: WordsPracticeProps) {
       if (isMore) setLoadingMore(false);
       else setLoading(false);
     }
-  }, [category, router]);
+  }, [category, scenarioId, router]);
 
   useEffect(() => {
     void loadCards();

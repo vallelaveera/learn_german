@@ -3,15 +3,19 @@ export function DecorativeBackground() {
   return (
     <div
       aria-hidden
-      style={{
-        position: "fixed",
-        inset: 0,
-        maxWidth: 390,
-        margin: "0 auto",
-        pointerEvents: "none",
-        overflow: "hidden",
-        zIndex: 0,
-      }}
+        style={{
+          position: "fixed",
+          inset: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          maxWidth: 390,
+          width: "100%",
+          margin: "0 auto",
+          pointerEvents: "none",
+          overflow: "hidden",
+          zIndex: 0,
+          borderRadius: "inherit",
+        }}
     >
       <div className="ui-blob ui-blob-a" />
       <div className="ui-blob ui-blob-b" />

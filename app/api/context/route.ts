@@ -5,6 +5,7 @@ import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboard
 import { resolveNativeLanguage } from "@/lib/native-languages";
 import { getUsageStats } from "@/lib/kv";
 import { isHomeworkEnabledForUser, summarizeHomeworkList } from "@/lib/homework";
+import { getScenario, parseScenarioId } from "@/lib/exercises/scenarios";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,9 +71,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const scenarioId = parseScenarioId(req.nextUrl.searchParams.get("scenario"));
+    const scenario = getScenario(scenarioId);
+    const practiceScenario = scenario
+      ? { label: scenario.label, prompt: scenario.callPrompt }
+      : undefined;
+
     const [opening, systemPrompt, topics, homeworkEnabled, pendingList] = await Promise.all([
       generateOpening(user, daysSince, unpracticedWords, recentTopics),
-      Promise.resolve(buildSystemPrompt(user, daysSince, unpracticedWords)),
+      Promise.resolve(buildSystemPrompt(user, daysSince, unpracticedWords, false, 0, practiceScenario)),
       generateTopicSuggestions(user),
       isHomeworkEnabledForUser(user.userId),
       isHomeworkEnabledForUser(user.userId).then(async enabled => {
@@ -95,8 +102,8 @@ export async function GET(req: NextRequest) {
     }
 
     const finalSystemPrompt = homeworkNagActive
-      ? buildSystemPrompt(user, daysSince, unpracticedWords, true, homeworkSummary.remainingReps)
-      : buildSystemPrompt(user, daysSince, unpracticedWords, false, homeworkSummary.remainingReps);
+      ? buildSystemPrompt(user, daysSince, unpracticedWords, true, homeworkSummary.remainingReps, practiceScenario)
+      : buildSystemPrompt(user, daysSince, unpracticedWords, false, homeworkSummary.remainingReps, practiceScenario);
 
     return NextResponse.json({
       opening: finalOpening,

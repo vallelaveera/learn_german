@@ -13,6 +13,7 @@ function CallPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const paramMode = searchParams.get("mode");
+  const scenarioId = searchParams.get("scenario");
   const [mode, setMode] = useState<CallMode>(paramMode === "tippen" ? "tippen" : "freisprechen");
   const [report, setReport] = useState<{ messages: Message[]; durationSec: number } | null>(null);
   const [reportMeta, setReportMeta] = useState<{ currentLevel: string; completedCalls: number; userName?: string } | null>(null);
@@ -98,9 +99,9 @@ function CallPageInner() {
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         {mode === "freisprechen" ? (
-          <FreisprechenCall key="freisprechen" embedded onCallEnded={handleCallEnded} />
+          <FreisprechenCall key="freisprechen" embedded scenarioId={scenarioId} onCallEnded={handleCallEnded} />
         ) : (
-          <TippenCall key="tippen" embedded onCallEnded={handleCallEnded} />
+          <TippenCall key="tippen" embedded scenarioId={scenarioId} onCallEnded={handleCallEnded} />
         )}
       </div>
 

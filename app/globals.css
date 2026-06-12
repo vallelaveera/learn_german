@@ -272,3 +272,20 @@ input, textarea, select {
 
 .animate-fade-in { animation: fade-in 0.35s ease forwards; }
 .animate-pop-in { animation: pop-in 0.3s ease forwards; }
+.animate-slide-up { animation: slide-up 0.28s ease forwards; }
+
+.ui-phone-shell {
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255, 107, 53, 0.1),
+    0 20px 56px rgba(45, 32, 24, 0.12);
+}
+
+@media (min-width: 420px) {
+  .ui-phone-shell {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    min-height: calc(100dvh - 24px);
+  }
+}

@@ -17,7 +17,7 @@ function WordsPageInner() {
       </ExerciseShell>
     );
   }
-  return <WordsPractice category={parseWordCategory(category)} />;
+  return <WordsPractice category={parseWordCategory(category)} scenarioId={params.get("scenario")} />;
 }
 
 export default function WordsPracticePage() {

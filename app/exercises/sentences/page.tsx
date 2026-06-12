@@ -55,15 +55,23 @@ function SentencesInner() {
   }
 
   const category = parseSentenceCategory(rawCategory);
-  return <SentencesPractice category={category} sessionId={params.get("session")} />;
+  return (
+    <SentencesPractice
+      category={category}
+      sessionId={params.get("session")}
+      scenarioId={params.get("scenario")}
+    />
+  );
 }
 
 function SentencesPractice({
   category,
   sessionId,
+  scenarioId,
 }: {
   category: SentenceExerciseCategory;
   sessionId: string | null;
+  scenarioId: string | null;
 }) {
   const router = useRouter();
   const meta = getSentenceCategoryMeta(category);
@@ -88,7 +96,7 @@ function SentencesPractice({
 
   const exercisesUrl = fromCall
     ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
-    : `/api/exercises/sentences?category=${category}`;
+    : `/api/exercises/sentences?category=${category}${scenarioId ? `&scenario=${encodeURIComponent(scenarioId)}` : ""}`;
 
   const loadExercises = useCallback(async (isMore = false) => {
     if (isMore) setLoadingMore(true);

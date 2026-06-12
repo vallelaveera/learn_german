@@ -3,10 +3,9 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Phone } from "lucide-react";
-import Link from "next/link";
-import { TrendingUp } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelChip } from "@/components/level/LevelChip";
+import { PracticeJourneyMap } from "@/components/home/PracticeJourneyMap";
 import { MayaAvatar } from "@/components/ui/MayaAvatar";
 import { ActivityCard } from "@/components/ui/ActivityCard";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
@@ -111,6 +110,8 @@ function ModePageInner() {
             onClick={() => router.push("/exercises/words")}
           />
         </div>
+
+        <PracticeJourneyMap />
       </div>
     </PageShell>
   );

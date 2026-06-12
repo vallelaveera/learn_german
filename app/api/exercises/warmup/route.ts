@@ -12,7 +12,8 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const category = parseWordCategory(req.nextUrl.searchParams.get("category"));
-    const cards = await selectWarmupCards(user.userId, user, 5, category);
+    const scenario = req.nextUrl.searchParams.get("scenario");
+    const cards = await selectWarmupCards(user.userId, user, 5, category, scenario);
     return NextResponse.json({ cards });
   } catch (e) {
     console.error(e);

@@ -7,6 +7,7 @@ import { toBinaryCards } from "./cards";
 import { isExerciseEntryExcluded } from "./exclusion";
 import type { WordExerciseCategory } from "./categories";
 import type { BinaryCard, FlashCardEntry } from "./types";
+import { getScenario, matchesScenario } from "./scenarios";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
@@ -19,6 +20,7 @@ export async function selectWarmupCards(
   profile: UserProfile,
   limit = 5,
   category: WordExerciseCategory = "mixed",
+  scenarioId?: string | null,
 ): Promise<BinaryCard[]> {
   await preloadCorpusWords();
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
@@ -86,6 +88,22 @@ export async function selectWarmupCards(
       if (entries.length >= limit) break;
       if (isExcluded(entry, excluded)) continue;
       if (!entries.some(e => e.id === entry.id)) entries.push(entry);
+    }
+  }
+
+  const scenario = getScenario(scenarioId);
+  if (scenario) {
+    const matching = entries.filter(e => matchesScenario(e.german, scenario));
+    const rest = entries.filter(e => !matching.some(m => m.id === e.id));
+    entries = [...matching, ...rest];
+    if (entries.length < limit) {
+      const pool = await getWarmupPoolAsync(userLevel, limit * 16);
+      for (const entry of pool) {
+        if (entries.length >= limit) break;
+        if (!matchesScenario(entry.german, scenario)) continue;
+        if (isExcluded(entry, excluded)) continue;
+        if (!entries.some(e => e.id === entry.id)) entries.push(entry);
+      }
     }
   }
 

@@ -530,7 +530,8 @@ export function buildSystemPrompt(
   daysSinceLastCall: number,
   unpracticedWords: string[],
   homeworkNagActive = false,
-  pendingHomeworkReps = 0
+  pendingHomeworkReps = 0,
+  practiceScenario?: { label: string; prompt: string },
 ): string {
   const facts = profile.facts;
   const level = profile.germanLevel ?? facts.germanLevel;
@@ -555,6 +556,10 @@ export function buildSystemPrompt(
     : "";
   const askedQuestionsBlock = formatAskedQuestionsBlock(askedQuestions);
 
+  const scenarioBlock = practiceScenario
+    ? `PRACTICE SCENARIO — "${practiceScenario.label}": ${practiceScenario.prompt} Stay in this setting for the whole call. Use vocabulary natural to this situation.`
+    : "";
+
   const spokenOutput = speechBlock
     ? `SPOKEN OUTPUT (this is read aloud — brevity is critical):${speechBlock}`
     : `SPOKEN OUTPUT (this is read aloud — brevity is critical):
@@ -576,6 +581,7 @@ Sessions together: ${profile.totalSessions}
 ${unpracticedWords.length > 0 ? `Words to practice naturally: ${unpracticedWords.join(", ")}` : ""}
 ${askedTopicsBlock}
 ${askedQuestionsBlock}
+${scenarioBlock ? `\n${scenarioBlock}\n` : ""}
 
 ${spokenOutput}
 

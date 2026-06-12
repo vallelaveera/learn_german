@@ -580,6 +580,20 @@ export async function getPendingHomeworkList(userId: string): Promise<HomeworkAs
   return records.filter((a): a is HomeworkAssignment => a !== null && a.status === "pending");
 }
 
+export async function getHomeworkHistoryList(
+  userId: string,
+  limit = 30,
+): Promise<HomeworkAssignment[]> {
+  const ids = await redis.zrange<string[]>(`homework:history:${userId}`, 0, -1, { rev: true });
+  if (!ids?.length) return [];
+
+  const records = await Promise.all(ids.slice(0, limit).map(id => getHomework(id)));
+  return records.filter(
+    (a): a is HomeworkAssignment =>
+      a !== null && (a.status === "completed" || a.status === "skipped"),
+  );
+}
+
 export async function getActiveHomework(userId: string): Promise<HomeworkAssignment | null> {
   const list = await getPendingHomeworkList(userId);
   return list[0] ?? null;

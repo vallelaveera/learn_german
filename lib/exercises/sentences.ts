@@ -4,6 +4,7 @@ import { loadCorpusSentences } from "@/lib/vocab/load";
 import { isExerciseEntryExcluded } from "./exclusion";
 import { isLevelAppropriate } from "./levels";
 import { matchesSentenceCategory, type SentenceExerciseCategory } from "./categories";
+import { getScenario, matchesScenario } from "./scenarios";
 import type { UserProfile } from "@/lib/types";
 
 export interface SentenceEntry {
@@ -59,6 +60,7 @@ export async function selectSentenceExercises(
   profile: UserProfile,
   limit = 5,
   category: SentenceExerciseCategory = "everyday",
+  scenarioId?: string | null,
 ): Promise<SentenceExercise[]> {
   const userLevel = profile.germanLevel ?? profile.facts.germanLevel ?? "A2";
   const excluded = await getExerciseExcludedKeys(userId, "sentence");
@@ -78,6 +80,13 @@ export async function selectSentenceExercises(
         !isExerciseEntryExcluded(e.id, e.german, excluded)
     );
     pool = [...pool, ...fallback.filter(e => !pool.some(p => p.id === e.id))];
+  }
+
+  const scenario = getScenario(scenarioId);
+  if (scenario) {
+    const matching = pool.filter(e => matchesScenario(e.german, scenario));
+    const rest = pool.filter(e => !matching.some(m => m.id === e.id));
+    pool = [...matching, ...rest];
   }
 
   return shuffle(pool)

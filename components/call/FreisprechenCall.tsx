@@ -57,9 +57,10 @@ type CallState = "listening" | "thinking" | "speaking";
 export interface FreisprechenCallProps {
   onCallEnded?: (messages: Message[], durationSec: number) => void;
   embedded?: boolean;
+  scenarioId?: string | null;
 }
 
-export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProps = {}) {
+export function FreisprechenCall({ onCallEnded, embedded, scenarioId }: FreisprechenCallProps = {}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [callState, setCallState] = useState<CallState>("listening");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -129,7 +130,11 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
       if (!limitHit) setContextReady(true);
     }, 8000);
 
-    fetch("/api/context")
+    const contextUrl = scenarioId
+      ? `/api/context?scenario=${encodeURIComponent(scenarioId)}`
+      : "/api/context";
+
+    fetch(contextUrl)
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
         if (!data || data.error) return;
@@ -165,7 +170,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
         clearTimeout(timeout);
         setContextReady(true);
       });
-  }, []);
+  }, [router, scenarioId]);
 
   // ── Audio playback ─────────────────────────────────────
   const getAudioCtx = () => {
@@ -669,7 +674,9 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
       : (openingRef.current ?? cachedOpening);
     if (!opening) {
       try {
-        const r = await fetch("/api/context");
+        const r = await fetch(
+          scenarioId ? `/api/context?scenario=${encodeURIComponent(scenarioId)}` : "/api/context",
+        );
         const data = await r.json();
         if (data?.opening) {
           openingRef.current = data.opening;

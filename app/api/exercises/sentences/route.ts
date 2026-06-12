@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
       user,
       5,
       parseSentenceCategory(req.nextUrl.searchParams.get("category")),
+      req.nextUrl.searchParams.get("scenario"),
     );
     const exercises = sentences.map(s => ({
       ...s,
