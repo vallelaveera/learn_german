@@ -22,7 +22,7 @@ const TABS: { id: ArticleTrainerTab; label: string }[] = [
   { id: "practice", label: "Üben" },
 ];
 
-export function ArticleTrainer({ scope, title, initialTab = "quiz" }: ArticleTrainerProps) {
+export function ArticleTrainer({ scope, title, initialTab = "learn" }: ArticleTrainerProps) {
   const level = getGrammarLevel(scope.levelId);
   const levelColor = level?.color ?? "var(--accent)";
   const levelLightColor = level?.lightColor ?? "var(--accent-soft)";
