@@ -117,6 +117,7 @@ export function HomeIllustration({
   const bubbleX = 160 - bubbleWidth / 2;
   const bubbleTextY1 = twoLines ? 66 : 69;
   const bubbleTextY2 = 82;
+  const userBubbleOffsetY = bubbleHeight + 10;
 
   const dePillWidth = Math.max(52, vocabPair.de.length * 5.5 + 24);
   const enPillWidth = Math.max(52, vocabPair.en.length * 5.5 + 16);
@@ -326,13 +327,15 @@ export function HomeIllustration({
         ) : null}
       </g>
 
-      {/* User reply bubble with typing dots */}
-      <g className="bub2" style={{ transform: "translateY(48px)" }}>
-        <rect x="116" y="55" width="88" height="30" rx="10" fill="#7F77DD" />
-        <path d="M204 65 L212 60 L204 70Z" fill="#7F77DD" />
-        <circle cx="142" cy="70" r="3" fill="white" className="d1" />
-        <circle cx="154" cy="70" r="3" fill="white" className="d2" />
-        <circle cx="166" cy="70" r="3" fill="white" className="d3" />
+      {/* User reply bubble — below Maya (outer group positions; inner animates scale only) */}
+      <g transform={`translate(0, ${userBubbleOffsetY})`}>
+        <g className="bub2">
+          <rect x="116" y="55" width="88" height="30" rx="10" fill="#7F77DD" />
+          <path d="M204 65 L212 60 L204 70Z" fill="#7F77DD" />
+          <circle cx="142" cy="70" r="3" fill="white" className="d1" />
+          <circle cx="154" cy="70" r="3" fill="white" className="d2" />
+          <circle cx="166" cy="70" r="3" fill="white" className="d3" />
+        </g>
       </g>
 
       {/* Floating vocab pills */}

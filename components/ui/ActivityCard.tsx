@@ -18,6 +18,7 @@ interface ActivityCardProps {
   subtext: string;
   onClick: () => void;
   tone?: ActivityTone;
+  compact?: boolean;
 }
 
 export function ActivityCard({
@@ -27,6 +28,7 @@ export function ActivityCard({
   subtext,
   onClick,
   tone = "neutral",
+  compact = false,
 }: ActivityCardProps) {
   const t = TONES[tone];
 
@@ -37,18 +39,20 @@ export function ActivityCard({
       className="animate-fade-in"
       style={{
         width: "100%",
-        minHeight: 84,
-        padding: "14px 16px",
-        borderRadius: 22,
+        minHeight: compact ? 62 : 84,
+        padding: compact ? "10px 12px" : "14px 16px",
+        borderRadius: compact ? 18 : 22,
         border: "none",
         background: "#fff",
         boxShadow: `0 8px 28px ${t.shadow}, 0 2px 8px rgba(0,0,0,0.04)`,
         display: "flex",
         alignItems: "center",
-        gap: 14,
+        gap: compact ? 10 : 14,
         textAlign: "left",
         cursor: "pointer",
         transition: "transform 0.12s ease",
+        flex: compact ? "1 1 0" : undefined,
+        minWidth: 0,
       }}
       onMouseDown={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
       onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -56,8 +60,8 @@ export function ActivityCard({
     >
       <span
         style={{
-          width: 56,
-          height: 56,
+          width: compact ? 44 : 56,
+          height: compact ? 44 : 56,
           borderRadius: 8,
           background: t.bg,
           color: t.color,
@@ -65,17 +69,17 @@ export function ActivityCard({
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
-          fontSize: emoji ? 28 : undefined,
+          fontSize: emoji ? (compact ? 22 : 28) : undefined,
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.6)",
         }}
       >
         {emoji ?? icon}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: "var(--text)" }}>{label}</span>
-        <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 3 }}>{subtext}</span>
+        <span style={{ display: "block", fontSize: compact ? 14 : 16, fontWeight: 700, color: "var(--text)" }}>{label}</span>
+        <span style={{ display: "block", fontSize: compact ? 11 : 13, color: "var(--text-muted)", marginTop: compact ? 2 : 3, lineHeight: 1.35 }}>{subtext}</span>
       </span>
-      <span style={{ fontSize: 20, color: "var(--text-dim)" }}>›</span>
+      <span style={{ fontSize: compact ? 18 : 20, color: "var(--text-dim)" }}>›</span>
     </button>
   );
 }

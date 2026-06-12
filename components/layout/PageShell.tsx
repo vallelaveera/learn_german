@@ -9,9 +9,11 @@ interface PageShellProps {
   headerRight?: React.ReactNode;
   /** Top bar with only headerRight (e.g. level chip on home) */
   minimalHeader?: boolean;
+  /** Lock main area height so content fits one screen (no scroll). */
+  fitViewport?: boolean;
 }
 
-export function PageShell({ children, title, showTabBar = true, headerRight, minimalHeader = false }: PageShellProps) {
+export function PageShell({ children, title, showTabBar = true, headerRight, minimalHeader = false, fitViewport = false }: PageShellProps) {
   return (
     <div
       className="ui-phone-shell"
@@ -76,9 +78,16 @@ export function PageShell({ children, title, showTabBar = true, headerRight, min
           position: "relative",
           zIndex: 1,
           flex: 1,
-          overflowY: "auto",
+          overflowY: fitViewport ? "hidden" : "auto",
           overflowX: "hidden",
-          paddingBottom: showTabBar ? "calc(96px + env(safe-area-inset-bottom, 0px))" : undefined,
+          display: fitViewport ? "flex" : undefined,
+          flexDirection: fitViewport ? "column" : undefined,
+          minHeight: fitViewport ? 0 : undefined,
+          paddingBottom: showTabBar
+            ? fitViewport
+              ? "calc(82px + env(safe-area-inset-bottom, 0px))"
+              : "calc(96px + env(safe-area-inset-bottom, 0px))"
+            : undefined,
         }}
       >
         {children}
