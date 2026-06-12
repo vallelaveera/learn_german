@@ -74,7 +74,8 @@ export function pickRandomQuestion(
   const pool = getQuestionsForLevel(level).filter(q => !excludeRecent.includes(q.de));
 
   if (pool.length === 0) {
-    return MAYA_QUESTIONS[Math.floor(Math.random() * MAYA_QUESTIONS.length)];
+    const fallback = getQuestionsForLevel(level);
+    return fallback[Math.floor(Math.random() * fallback.length)] ?? MAYA_QUESTIONS[0];
   }
 
   return pool[Math.floor(Math.random() * pool.length)];

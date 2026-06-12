@@ -1,5 +1,7 @@
 import curriculumData from "@/public/data/german_grammar_curriculum.json";
 
+import { normalizeGermanLevel } from "@/lib/levels";
+
 export type GrammarLevelId = "A1" | "A2" | "B1" | "B2" | "C1";
 
 export interface GrammarExample {
@@ -68,6 +70,20 @@ export const PRACTICE_TYPE_LABELS: Record<string, string> = {
 
 export function getGrammarLevel(id: GrammarLevelId): GrammarLevel | undefined {
   return GRAMMAR_LEVELS.find(l => l.id === id);
+}
+
+/** Map profile CEFR level to the grammar curriculum tab (C2 → C1). */
+export function defaultGrammarLevelId(profileLevel?: string): GrammarLevelId {
+  const level = normalizeGermanLevel(profileLevel);
+  if (level === "C2") return "C1";
+  if (GRAMMAR_LEVEL_IDS.includes(level as GrammarLevelId)) {
+    return level as GrammarLevelId;
+  }
+  return "A1";
+}
+
+export function visiblePracticeTypes(types: string[]): string[] {
+  return types.filter(type => type !== "call-practice");
 }
 
 export function getGrammarPoint(id: string): GrammarPointWithLevel | null {

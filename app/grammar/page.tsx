@@ -1,22 +1,44 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarDetailSheet } from "@/components/grammar/GrammarDetailSheet";
 import {
+  defaultGrammarLevelId,
   getGrammarLevel,
   GRAMMAR_LEVEL_IDS,
   practiceTypeLabel,
+  visiblePracticeTypes,
   type GrammarLevelId,
   type GrammarPoint,
 } from "@/lib/grammar/curriculum";
 
 export default function GrammarPage() {
+  const router = useRouter();
   const [levelId, setLevelId] = useState<GrammarLevelId>("A1");
+  const [levelReady, setLevelReady] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<GrammarPoint | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(r => {
+        if (r.status === 401) {
+          router.push("/login");
+          return null;
+        }
+        return r.json();
+      })
+      .then(data => {
+        if (data?.user?.germanLevel) {
+          setLevelId(defaultGrammarLevelId(data.user.germanLevel));
+        }
+      })
+      .finally(() => setLevelReady(true));
+  }, [router]);
 
   const level = getGrammarLevel(levelId);
   const points = useMemo(() => level?.points ?? [], [level]);
@@ -26,11 +48,12 @@ export default function GrammarPage() {
       <div className="ui-page" style={{ paddingTop: 8 }}>
         <div style={{ marginBottom: 16 }}>
           <p className="ui-muted" style={{ margin: "0 0 4px", fontSize: 13, lineHeight: 1.5 }}>
-            Wähle dein Level — tippe ein Thema für Erklärung und Übung mit Maya.
+            Wähle dein Level — tippe ein Thema für Erklärung und Übung.
           </p>
           {level && (
             <p style={{ fontSize: 12, color: level.color, margin: 0, fontWeight: 600 }}>
               {level.label}
+              {!levelReady ? " · lädt..." : ""}
             </p>
           )}
         </div>
@@ -76,7 +99,7 @@ export default function GrammarPage() {
                   style={{
                     width: 36,
                     height: 36,
-                    borderRadius: 12,
+                    borderRadius: 8,
                     background: level?.lightColor ?? "var(--accent-soft)",
                     color: level?.color ?? "var(--accent)",
                     display: "flex",
@@ -102,7 +125,7 @@ export default function GrammarPage() {
               </p>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {point.practiceTypes.slice(0, 4).map(type => (
+                {visiblePracticeTypes(point.practiceTypes).slice(0, 4).map(type => (
                   <span
                     key={type}
                     style={{
@@ -118,9 +141,9 @@ export default function GrammarPage() {
                     {practiceTypeLabel(type)}
                   </span>
                 ))}
-                {point.practiceTypes.length > 4 && (
+                {visiblePracticeTypes(point.practiceTypes).length > 4 && (
                   <span style={{ fontSize: 10, color: "var(--text-dim)", alignSelf: "center" }}>
-                    +{point.practiceTypes.length - 4}
+                    +{visiblePracticeTypes(point.practiceTypes).length - 4}
                   </span>
                 )}
               </div>

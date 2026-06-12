@@ -2,12 +2,10 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Phone, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
-  buildGrammarCallContext,
-  GRAMMAR_CALL_STORAGE_KEY,
   practiceTypeLabel,
+  visiblePracticeTypes,
   type GrammarLevel,
   type GrammarPoint,
 } from "@/lib/grammar/curriculum";
@@ -19,7 +17,6 @@ interface GrammarDetailSheetProps {
 }
 
 export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheetProps) {
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -31,17 +28,9 @@ export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheet
     };
   }, []);
 
-  const practiceWithMaya = () => {
-    sessionStorage.setItem(
-      GRAMMAR_CALL_STORAGE_KEY,
-      JSON.stringify(buildGrammarCallContext(point, level.id)),
-    );
-    sessionStorage.setItem("maya_grammar_focus", point.id);
-    localStorage.setItem("maya_voice", "soniox");
-    router.push(`/call?grammar=${encodeURIComponent(point.id)}`);
-  };
-
   if (!mounted) return null;
+
+  const practiceTypes = visiblePracticeTypes(point.practiceTypes);
 
   return createPortal(
     <>
@@ -125,61 +114,31 @@ export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheet
           </p>
         </div>
 
-        <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 10px" }}>
-          Übungstypen
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-          {point.practiceTypes.map(type => (
-            <span
-              key={type}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: "var(--surface)",
-                border: "1px solid var(--border-light)",
-                color: "var(--text-muted)",
-              }}
-            >
-              {practiceTypeLabel(type)}
-            </span>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button
-            type="button"
-            onClick={practiceWithMaya}
-            className="ui-btn-primary"
-            style={{ width: "100%", minHeight: 48, justifyContent: "center", gap: 8 }}
-          >
-            <Phone size={18} />
-            Mit Maya üben
-          </button>
-          {point.practiceTypes
-            .filter(type => type !== "call-practice")
-            .map(type => (
-              <button
-                key={type}
-                type="button"
-                disabled
-                style={{
-                  width: "100%",
-                  minHeight: 44,
-                  borderRadius: 12,
-                  border: "1px solid var(--border-light)",
-                  background: "var(--surface)",
-                  color: "var(--text-dim)",
-                  fontSize: 13,
-                  cursor: "not-allowed",
-                  opacity: 0.75,
-                }}
-              >
-                {practiceTypeLabel(type)} — bald verfügbar
-              </button>
-            ))}
-        </div>
+        {practiceTypes.length > 0 && (
+          <>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 10px" }}>
+              Übungstypen
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {practiceTypes.map(type => (
+                <span
+                  key={type}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "8px 12px",
+                    borderRadius: 999,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border-light)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {practiceTypeLabel(type)}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </>,
     document.body,

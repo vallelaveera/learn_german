@@ -1,4 +1,4 @@
-export type CEFRLevel = "A1" | "A2" | "B1" | "B2";
+export type CEFRLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 
 const BASIC_PHRASES = new Set([
   "hallo",
@@ -23,13 +23,22 @@ export function normalizeLevel(level?: string): CEFRLevel {
   const u = level.toUpperCase();
   if (u.startsWith("A1")) return "A1";
   if (u.startsWith("A2")) return "A2";
-  if (u.startsWith("B2") || u.startsWith("C")) return "B2";
   if (u.startsWith("B1")) return "B1";
+  if (u.startsWith("B2")) return "B2";
+  if (u.startsWith("C1")) return "C1";
+  if (u.startsWith("C2")) return "C2";
   return "A2";
 }
 
 export function levelRank(level?: string): number {
-  const map: Record<CEFRLevel, number> = { A1: 1, A2: 2, B1: 3, B2: 4 };
+  const map: Record<CEFRLevel, number> = {
+    A1: 1,
+    A2: 2,
+    B1: 3,
+    B2: 4,
+    C1: 5,
+    C2: 6,
+  };
   return map[normalizeLevel(level)];
 }
 
@@ -44,10 +53,12 @@ export function isTooBasic(german: string, userLevel?: string): boolean {
   return BASIC_PHRASES.has(german.toLowerCase().trim());
 }
 
-/** Entry is appropriate if at user's level or up to one step above (stretch). */
+/** Entry at user's level, one step below, and optionally one step above (not above profile for B2+). */
 export function isLevelAppropriate(entryLevel: string | undefined, userLevel?: string): boolean {
   const user = levelRank(userLevel);
   const entry = entryLevelRank(entryLevel);
   if (user <= 1) return entry <= 2;
-  return entry >= user - 1 && entry <= user + 1;
+  const minEntry = Math.max(1, user - 1);
+  const maxEntry = user >= 4 ? user : user + 1;
+  return entry >= minEntry && entry <= maxEntry;
 }

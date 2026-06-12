@@ -17,7 +17,7 @@ function WarmupInner() {
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(false);
-  const [direction, setDirection] = useState<ExerciseDirection>("en-de");
+  const [direction, setDirection] = useState<ExerciseDirection>("de-en");
 
   useEffect(() => {
     fetch("/api/exercises/warmup")
@@ -92,6 +92,7 @@ function WarmupInner() {
         onChoose={handleChoose}
         direction={direction}
         onDirectionChange={setDirection}
+        showWordExamples
       />
 
       <button
