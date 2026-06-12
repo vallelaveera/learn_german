@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen } from "lucide-react";
@@ -8,20 +8,34 @@ import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarDetailSheet } from "@/components/grammar/GrammarDetailSheet";
 import {
+  GrammarExplainerCollapsedBar,
+  GrammarLevelExplainer,
+} from "@/components/grammar/GrammarLevelExplainer";
+import {
   defaultGrammarLevelId,
   getGrammarLevel,
+  GRAMMAR_CALL_STORAGE_KEY,
   GRAMMAR_LEVEL_IDS,
   practiceTypeLabel,
   visiblePracticeTypes,
   type GrammarLevelId,
   type GrammarPoint,
 } from "@/lib/grammar/curriculum";
+import {
+  getExplainerForLevel,
+  isExplainerCollapsed,
+  loadGrammarExplainers,
+  setExplainerCollapsed,
+  type GrammarExplainersFile,
+} from "@/lib/grammar/explainers";
 
 export default function GrammarPage() {
   const router = useRouter();
   const [levelId, setLevelId] = useState<GrammarLevelId>("A1");
   const [levelReady, setLevelReady] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<GrammarPoint | null>(null);
+  const [explainers, setExplainers] = useState<GrammarExplainersFile | null>(null);
+  const [explainerCollapsed, setExplainerCollapsedState] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -38,10 +52,46 @@ export default function GrammarPage() {
         }
       })
       .finally(() => setLevelReady(true));
+
+    void loadGrammarExplainers().then(setExplainers);
   }, [router]);
+
+  useEffect(() => {
+    setExplainerCollapsedState(isExplainerCollapsed(levelId));
+  }, [levelId]);
 
   const level = getGrammarLevel(levelId);
   const points = useMemo(() => level?.points ?? [], [level]);
+  const explainer = useMemo(
+    () => getExplainerForLevel(explainers, levelId),
+    [explainers, levelId],
+  );
+
+  const collapseExplainer = useCallback(() => {
+    setExplainerCollapsed(levelId, true);
+    setExplainerCollapsedState(true);
+  }, [levelId]);
+
+  const expandExplainer = useCallback(() => {
+    setExplainerCollapsed(levelId, false);
+    setExplainerCollapsedState(false);
+  }, [levelId]);
+
+  const practiceExplainerWithMaya = useCallback(() => {
+    if (!explainer) return;
+    sessionStorage.setItem(
+      GRAMMAR_CALL_STORAGE_KEY,
+      JSON.stringify({
+        id: `explainer-${levelId}`,
+        level: levelId,
+        title: explainer.title,
+        prompt: explainer.callContext,
+      }),
+    );
+    sessionStorage.setItem("maya_grammar_focus", `explainer-${levelId}`);
+    localStorage.setItem("maya_voice", "soniox");
+    router.push(`/call?grammar=${encodeURIComponent(`explainer-${levelId}`)}`);
+  }, [explainer, levelId, router]);
 
   return (
     <PageShell showTabBar title="Grammatik">
@@ -63,6 +113,25 @@ export default function GrammarPage() {
           value={levelId}
           onChange={setLevelId}
         />
+
+        {explainer && level && !explainerCollapsed && (
+          <GrammarLevelExplainer
+            explainer={explainer}
+            levelId={levelId}
+            levelColor={level.color}
+            levelLightColor={level.lightColor}
+            onCollapse={collapseExplainer}
+            onPracticeWithMaya={practiceExplainerWithMaya}
+          />
+        )}
+
+        {explainer && level && explainerCollapsed && (
+          <GrammarExplainerCollapsedBar
+            title={explainer.title}
+            levelColor={level.color}
+            onExpand={expandExplainer}
+          />
+        )}
 
         <div
           style={{
