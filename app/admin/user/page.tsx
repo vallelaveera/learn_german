@@ -322,7 +322,7 @@ function AdminUserContent() {
               </div>
             )}
             <p style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 10 }}>
-              Requires HOMEWORK_ENABLED=true globally + Vercel Blob (OIDC or BLOB_READ_WRITE_TOKEN)
+              Hausaufgaben sind standardmäßig für alle Nutzer an. Hier nur pro Nutzer deaktivieren. Audio braucht Vercel Blob (OIDC oder BLOB_READ_WRITE_TOKEN).
             </p>
           </div>
 

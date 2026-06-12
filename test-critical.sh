@@ -419,6 +419,10 @@ grep -q 'Artikel-Tabelle' app/grammar/page.tsx \
   && check "grammar page: Artikel-Tabelle link" "ok" \
   || check "grammar page: Artikel-Tabelle link" "fail"
 
+grep -q 'homeworkEnabled === false' lib/homework.ts \
+  && check "homework: enabled for all users by default" "ok" \
+  || check "homework: enabled for all users by default" "fail"
+
 echo ""
 echo "── middleware.ts ───────────────────────"
 
