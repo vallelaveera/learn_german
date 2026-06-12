@@ -2,12 +2,16 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Phone } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelChip } from "@/components/level/LevelChip";
 import { HomeIllustration } from "@/components/illustrations/HomeIllustration";
-import { PracticeJourneyMap } from "@/components/home/PracticeJourneyMap";
 import { ActivityCard } from "@/components/ui/ActivityCard";
+import {
+  CallActivityIcon,
+  GrammarActivityIcon,
+  SentencesActivityIcon,
+  WordsActivityIcon,
+} from "@/components/ui/ActivityIcons";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
 
 export default function ModePage() {
@@ -109,40 +113,41 @@ function ModePageInner() {
               userName={user?.name}
             />
           </div>
-
-          <ActivityCard
-            primary
-            tone="orange"
-            emoji="📞"
-            icon={<Phone size={22} color="#fff" strokeWidth={2} />}
-            label="Mit Maya sprechen"
-            subtext="Freisprechen — wie ein echtes Gespräch"
-            onClick={() => {
-              localStorage.setItem("maya_voice", "soniox");
-              // After warmup flashcards: router.push("/call")
-              router.push("/exercises/warmup?next=/call");
-            }}
-          />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <ActivityCard
+            tone="orange"
+            icon={<CallActivityIcon color="#FF6B35" />}
+            label="Mit Maya sprechen"
+            subtext="Freisprechen — wie ein echtes Gespräch"
+            onClick={() => {
+              localStorage.setItem("maya_voice", "soniox");
+              router.push("/exercises/warmup?next=/call");
+            }}
+          />
+          <ActivityCard
             tone="purple"
-            emoji="🧩"
+            icon={<SentencesActivityIcon color="#805AD5" />}
             label="Sätze üben"
             subtext="Themen wählen · Satzbau mit Maya"
             onClick={() => router.push("/exercises/sentences")}
           />
           <ActivityCard
             tone="blue"
-            emoji="📚"
+            icon={<WordsActivityIcon color="#4A90E2" />}
             label="Wörter üben"
             subtext="Kategorien · Flashcards mit Maya"
             onClick={() => router.push("/exercises/words")}
           />
+          <ActivityCard
+            tone="green"
+            icon={<GrammarActivityIcon color="#38A169" />}
+            label="Grammatik üben"
+            subtext="Themen nach Level · Mit Maya sprechen"
+            onClick={() => router.push("/grammar")}
+          />
         </div>
-
-        <PracticeJourneyMap />
       </div>
     </PageShell>
   );

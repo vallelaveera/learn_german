@@ -83,7 +83,7 @@ export function VocabIcon({
         position: "relative",
         width: size,
         height: size,
-        borderRadius: 10,
+        borderRadius: 8,
         background: colors.bg,
         padding: 4,
         display: "flex",

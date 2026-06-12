@@ -43,7 +43,7 @@ export function SentenceIllustration({ sentenceId, height = 140 }: SentenceIllus
         position: "relative",
         width: "100%",
         height,
-        borderRadius: 10,
+        borderRadius: 8,
         overflow: "hidden",
         background: "#F1EFE8",
         marginBottom: 12,

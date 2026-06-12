@@ -6,6 +6,7 @@ import { Message } from "@/lib/types";
 import { computeCallReportStats } from "@/lib/call-report-stats";
 import { useRouter } from "next/navigation";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
+import { buildCallContextUrl } from "@/lib/grammar/context-url";
 import styles from "@/app/call/call.module.css";
 
 type CallState = "idle" | "listening" | "thinking" | "speaking";
@@ -14,6 +15,7 @@ export interface TippenCallProps {
   onCallEnded?: (messages: Message[], durationSec: number) => void;
   embedded?: boolean;
   scenarioId?: string | null;
+  grammarId?: string | null;
 }
 
 // ── Module-level guards — never stale ──────────────────────
@@ -29,7 +31,7 @@ function useWakeLock() {
   return { acquire, release };
 }
 
-export function TippenCall({ onCallEnded, embedded, scenarioId }: TippenCallProps = {}) {
+export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: TippenCallProps = {}) {
   // ── State ────────────────────────────────────────────────
   const [callState, setCallState] = useState<CallState>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -73,9 +75,7 @@ export function TippenCall({ onCallEnded, embedded, scenarioId }: TippenCallProp
 
   // ── Load context on mount ────────────────────────────────
   useEffect(() => {
-    const contextUrl = scenarioId
-      ? `/api/context?scenario=${encodeURIComponent(scenarioId)}`
-      : "/api/context";
+    const contextUrl = buildCallContextUrl({ scenarioId, grammarId });
 
     fetch(contextUrl)
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
@@ -107,7 +107,7 @@ export function TippenCall({ onCallEnded, embedded, scenarioId }: TippenCallProp
         }
       })
       .catch(console.error);
-  }, [router, scenarioId]);
+  }, [router, scenarioId, grammarId]);
 
   // ── Audio ────────────────────────────────────────────────
   const getAudioCtx = () => {

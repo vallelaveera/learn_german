@@ -1,0 +1,761 @@
+{
+  "meta": {
+    "version": 1,
+    "language": "de",
+    "title": "German Grammar Curriculum",
+    "description": "Complete grammar points by CEFR level with practice types and SVG icons",
+    "totalPoints": 72,
+    "generatedAt": "2026-06-12"
+  },
+  "levels": [
+    {
+      "id": "A1",
+      "label": "A1 — Anfänger",
+      "color": "#1D9E75",
+      "lightColor": "#EAF3DE",
+      "description": "Absolute beginner. Basic survival German.",
+      "points": [
+        {
+          "id": "a1-001",
+          "title": "Persönliche Pronomen",
+          "subtitle": "ich, du, er, sie, es, wir, ihr, Sie",
+          "english": "Personal pronouns",
+          "explanation": "The basic subject pronouns used for all verbs.",
+          "example": { "de": "Ich bin müde. Du bist nett.", "en": "I am tired. You are nice." },
+          "practiceTypes": ["flashcard", "fill-in-blank", "match"],
+          "svgIcon": "pronoun",
+          "priority": "high",
+          "order": 1
+        },
+        {
+          "id": "a1-002",
+          "title": "Verb 'sein' — Präsens",
+          "subtitle": "bin, bist, ist, sind, seid, sind",
+          "english": "To be — present tense",
+          "explanation": "The most important verb. Used for identity, origin, profession.",
+          "example": { "de": "Ich bin Lehrerin. Er ist müde.", "en": "I am a teacher. He is tired." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "call-practice"],
+          "svgIcon": "verb-sein",
+          "priority": "high",
+          "order": 2
+        },
+        {
+          "id": "a1-003",
+          "title": "Verb 'haben' — Präsens",
+          "subtitle": "habe, hast, hat, haben, habt, haben",
+          "english": "To have — present tense",
+          "explanation": "Used for possession and as auxiliary for past tense later.",
+          "example": { "de": "Ich habe ein Auto. Sie hat Hunger.", "en": "I have a car. She is hungry." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "call-practice"],
+          "svgIcon": "verb-haben",
+          "priority": "high",
+          "order": 3
+        },
+        {
+          "id": "a1-004",
+          "title": "Artikel — Nominativ",
+          "subtitle": "der, die, das / ein, eine, ein",
+          "english": "Definite and indefinite articles",
+          "explanation": "Every German noun has a gender. The article changes with gender.",
+          "example": { "de": "Der Mann. Die Frau. Das Kind. Ein Hund.", "en": "The man. The woman. The child. A dog." },
+          "practiceTypes": ["flashcard", "article-picker", "sentence-builder"],
+          "svgIcon": "articles",
+          "priority": "high",
+          "order": 4
+        },
+        {
+          "id": "a1-005",
+          "title": "Regelmäßige Verben — Präsens",
+          "subtitle": "spielen, wohnen, lernen, arbeiten",
+          "english": "Regular verbs present tense",
+          "explanation": "Standard verb endings: -e, -st, -t, -en, -t, -en",
+          "example": { "de": "Ich spiele Tennis. Du lernst Deutsch.", "en": "I play tennis. You learn German." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "regular-verbs",
+          "priority": "high",
+          "order": 5
+        },
+        {
+          "id": "a1-006",
+          "title": "Satzstellung — Hauptsatz",
+          "subtitle": "Subjekt + Verb + Objekt",
+          "english": "Basic sentence word order",
+          "explanation": "The verb always comes second in a German statement.",
+          "example": { "de": "Ich trinke Kaffee. Sie kauft Brot.", "en": "I drink coffee. She buys bread." },
+          "practiceTypes": ["sentence-builder", "word-order-drag", "call-practice"],
+          "svgIcon": "word-order",
+          "priority": "high",
+          "order": 6
+        },
+        {
+          "id": "a1-007",
+          "title": "Verneinung mit 'nicht' und 'kein'",
+          "subtitle": "nicht, kein, keine",
+          "english": "Negation",
+          "explanation": "kein negates nouns, nicht negates verbs and adjectives.",
+          "example": { "de": "Ich habe kein Auto. Er kommt nicht.", "en": "I have no car. He is not coming." },
+          "practiceTypes": ["fill-in-blank", "true-false", "sentence-builder"],
+          "svgIcon": "negation",
+          "priority": "high",
+          "order": 7
+        },
+        {
+          "id": "a1-008",
+          "title": "Fragewörter",
+          "subtitle": "wer, was, wo, wann, wie, warum",
+          "english": "Question words",
+          "explanation": "Question words always start the sentence, verb comes second.",
+          "example": { "de": "Wo wohnst du? Wie heißt du?", "en": "Where do you live? What is your name?" },
+          "practiceTypes": ["flashcard", "match", "fill-in-blank"],
+          "svgIcon": "questions",
+          "priority": "high",
+          "order": 8
+        },
+        {
+          "id": "a1-009",
+          "title": "Zahlen und Uhrzeiten",
+          "subtitle": "1–100, Wie spät ist es?",
+          "english": "Numbers and telling time",
+          "explanation": "Essential for daily life — shopping, schedules, introductions.",
+          "example": { "de": "Es ist halb drei. Ich bin 28 Jahre alt.", "en": "It is half past two. I am 28 years old." },
+          "practiceTypes": ["flashcard", "listening", "fill-in-blank"],
+          "svgIcon": "numbers",
+          "priority": "medium",
+          "order": 9
+        },
+        {
+          "id": "a1-010",
+          "title": "Possessivartikel",
+          "subtitle": "mein, dein, sein, ihr, unser",
+          "english": "Possessive articles",
+          "explanation": "Show ownership. They follow the same endings as ein/kein.",
+          "example": { "de": "Das ist mein Buch. Wo ist deine Tasche?", "en": "That is my book. Where is your bag?" },
+          "practiceTypes": ["fill-in-blank", "flashcard", "sentence-builder"],
+          "svgIcon": "possessives",
+          "priority": "medium",
+          "order": 10
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "label": "A2 — Grundstufe",
+      "color": "#378ADD",
+      "lightColor": "#EAF4FB",
+      "description": "Elementary. Can handle familiar situations.",
+      "points": [
+        {
+          "id": "a2-001",
+          "title": "Perfekt — Vergangenheit",
+          "subtitle": "haben/sein + Partizip II",
+          "english": "Perfect tense — past",
+          "explanation": "Most common past tense in spoken German. Formed with haben or sein + past participle.",
+          "example": { "de": "Ich habe gegessen. Er ist gefahren.", "en": "I have eaten. He drove." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "perfect-tense",
+          "priority": "high",
+          "order": 1
+        },
+        {
+          "id": "a2-002",
+          "title": "Modalverben",
+          "subtitle": "können, müssen, wollen, dürfen, sollen, mögen",
+          "english": "Modal verbs",
+          "explanation": "Modal verbs modify the main verb. The main verb goes to the end in infinitive form.",
+          "example": { "de": "Ich kann schwimmen. Du musst lernen.", "en": "I can swim. You must study." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "modal-verbs",
+          "priority": "high",
+          "order": 2
+        },
+        {
+          "id": "a2-003",
+          "title": "Akkusativ",
+          "subtitle": "den, die, das / einen, eine, ein",
+          "english": "Accusative case — direct object",
+          "explanation": "The accusative marks the direct object. Only der changes to den.",
+          "example": { "de": "Ich sehe den Mann. Sie kauft einen Apfel.", "en": "I see the man. She buys an apple." },
+          "practiceTypes": ["article-picker", "fill-in-blank", "case-identifier"],
+          "svgIcon": "accusative",
+          "priority": "high",
+          "order": 3
+        },
+        {
+          "id": "a2-004",
+          "title": "Dativ",
+          "subtitle": "dem, der, dem / einem, einer, einem",
+          "english": "Dative case — indirect object",
+          "explanation": "The dative marks the indirect object (to whom). Used after mit, von, aus, bei, nach, seit, von, zu.",
+          "example": { "de": "Ich gebe dem Mann das Buch. Ich fahre mit dem Bus.", "en": "I give the man the book. I travel by bus." },
+          "practiceTypes": ["article-picker", "fill-in-blank", "case-identifier", "preposition-match"],
+          "svgIcon": "dative",
+          "priority": "high",
+          "order": 4
+        },
+        {
+          "id": "a2-005",
+          "title": "Trennbare Verben",
+          "subtitle": "aufmachen, anrufen, einladen, abholen",
+          "english": "Separable verbs",
+          "explanation": "The prefix separates and goes to the end of the sentence.",
+          "example": { "de": "Ich rufe dich an. Er macht die Tür auf.", "en": "I will call you. He opens the door." },
+          "practiceTypes": ["sentence-builder", "word-order-drag", "fill-in-blank"],
+          "svgIcon": "separable-verbs",
+          "priority": "high",
+          "order": 5
+        },
+        {
+          "id": "a2-006",
+          "title": "Präpositionen + Akkusativ",
+          "subtitle": "durch, für, gegen, ohne, um",
+          "english": "Prepositions with accusative",
+          "explanation": "These prepositions always take the accusative case.",
+          "example": { "de": "Ich kaufe das für dich. Wir gehen durch den Park.", "en": "I buy this for you. We walk through the park." },
+          "practiceTypes": ["preposition-match", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "prep-accusative",
+          "priority": "high",
+          "order": 6
+        },
+        {
+          "id": "a2-007",
+          "title": "Präpositionen + Dativ",
+          "subtitle": "aus, bei, mit, nach, seit, von, zu, gegenüber",
+          "english": "Prepositions with dative",
+          "explanation": "These prepositions always take the dative case.",
+          "example": { "de": "Ich komme aus der Türkei. Er wohnt bei seiner Mutter.", "en": "I come from Turkey. He lives with his mother." },
+          "practiceTypes": ["preposition-match", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "prep-dative",
+          "priority": "high",
+          "order": 7
+        },
+        {
+          "id": "a2-008",
+          "title": "Adjektivkomparation",
+          "subtitle": "groß → größer → am größten",
+          "english": "Adjective comparison",
+          "explanation": "Comparative adds -er, superlative uses am + -sten or -esten.",
+          "example": { "de": "Berlin ist größer als München. Das ist das beste Essen.", "en": "Berlin is bigger than Munich. That is the best food." },
+          "practiceTypes": ["flashcard", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "comparison",
+          "priority": "medium",
+          "order": 8
+        },
+        {
+          "id": "a2-009",
+          "title": "Nebensätze mit 'weil' und 'dass'",
+          "subtitle": "Verb geht ans Ende",
+          "english": "Subordinate clauses — because / that",
+          "explanation": "In subordinate clauses the verb always goes to the very end.",
+          "example": { "de": "Ich lerne Deutsch, weil ich in Berlin wohne.", "en": "I learn German because I live in Berlin." },
+          "practiceTypes": ["sentence-builder", "word-order-drag", "fill-in-blank"],
+          "svgIcon": "subordinate",
+          "priority": "high",
+          "order": 9
+        },
+        {
+          "id": "a2-010",
+          "title": "Imperativ",
+          "subtitle": "Komm! Geh! Sprechen Sie!",
+          "english": "Imperative — giving commands",
+          "explanation": "Used for commands and instructions. Different forms for du, ihr and Sie.",
+          "example": { "de": "Komm her! Setz dich! Sprechen Sie bitte langsamer.", "en": "Come here! Sit down! Please speak more slowly." },
+          "practiceTypes": ["fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "imperative",
+          "priority": "medium",
+          "order": 10
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "label": "B1 — Mittelstufe",
+      "color": "#7F77DD",
+      "lightColor": "#EEEDFE",
+      "description": "Intermediate. Can handle most everyday situations.",
+      "points": [
+        {
+          "id": "b1-001",
+          "title": "Präteritum",
+          "subtitle": "war, hatte, ging, kam, machte",
+          "english": "Simple past — narrative tense",
+          "explanation": "Used in written German and for sein/haben in speech. war = was, hatte = had.",
+          "example": { "de": "Er war müde. Sie hatte Hunger. Ich machte die Tür zu.", "en": "He was tired. She was hungry. I closed the door." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "preterite",
+          "priority": "high",
+          "order": 1
+        },
+        {
+          "id": "b1-002",
+          "title": "Genitiv",
+          "subtitle": "des Mannes, der Frau, des Kindes",
+          "english": "Genitive case — possession",
+          "explanation": "Shows belonging or relationship. Common in written German and fixed expressions.",
+          "example": { "de": "Das ist das Auto meines Vaters. Wegen des Wetters blieb ich zuhause.", "en": "That is my father's car. Because of the weather I stayed home." },
+          "practiceTypes": ["case-identifier", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "genitive",
+          "priority": "high",
+          "order": 2
+        },
+        {
+          "id": "b1-003",
+          "title": "Wechselpräpositionen",
+          "subtitle": "an, auf, hinter, in, neben, über, unter, vor, zwischen",
+          "english": "Two-way prepositions",
+          "explanation": "These take accusative for movement (wohin?) and dative for location (wo?).",
+          "example": { "de": "Ich lege das Buch auf den Tisch. Das Buch liegt auf dem Tisch.", "en": "I put the book on the table. The book is on the table." },
+          "practiceTypes": ["case-identifier", "fill-in-blank", "image-match", "call-practice"],
+          "svgIcon": "two-way-preps",
+          "priority": "high",
+          "order": 3
+        },
+        {
+          "id": "b1-004",
+          "title": "Relativsätze",
+          "subtitle": "der/die/das + Verb am Ende",
+          "english": "Relative clauses",
+          "explanation": "Relative pronouns agree with the noun they refer to in gender and number.",
+          "example": { "de": "Das ist der Mann, der Deutsch spricht. Die Frau, die ich kenne, wohnt hier.", "en": "That is the man who speaks German. The woman I know lives here." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "word-order-drag"],
+          "svgIcon": "relative-clauses",
+          "priority": "high",
+          "order": 4
+        },
+        {
+          "id": "b1-005",
+          "title": "Reflexive Verben",
+          "subtitle": "sich freuen, sich waschen, sich erinnern",
+          "english": "Reflexive verbs",
+          "explanation": "The action reflects back on the subject. The reflexive pronoun changes with person.",
+          "example": { "de": "Ich freue mich. Du wäschst dich. Er erinnert sich.", "en": "I am happy. You wash yourself. He remembers." },
+          "practiceTypes": ["conjugation-table", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "reflexive",
+          "priority": "high",
+          "order": 5
+        },
+        {
+          "id": "b1-006",
+          "title": "Konjunktionen",
+          "subtitle": "obwohl, damit, wenn, falls, während",
+          "english": "Conjunctions — complex sentences",
+          "explanation": "These conjunctions send the verb to the end of the clause.",
+          "example": { "de": "Obwohl es regnet, gehe ich spazieren. Wenn ich Zeit habe, rufe ich an.", "en": "Although it is raining I go for a walk. When I have time I will call." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "word-order-drag", "call-practice"],
+          "svgIcon": "conjunctions",
+          "priority": "high",
+          "order": 6
+        },
+        {
+          "id": "b1-007",
+          "title": "Futur I",
+          "subtitle": "werden + Infinitiv",
+          "english": "Future tense",
+          "explanation": "Formed with werden + infinitive. Also used to express assumptions.",
+          "example": { "de": "Ich werde morgen anrufen. Es wird regnen.", "en": "I will call tomorrow. It will rain." },
+          "practiceTypes": ["fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "future",
+          "priority": "medium",
+          "order": 7
+        },
+        {
+          "id": "b1-008",
+          "title": "Adjektivdeklination",
+          "subtitle": "der große Mann / ein großer Mann",
+          "english": "Adjective endings",
+          "explanation": "Adjective endings change based on case, gender and whether the article is definite or indefinite.",
+          "example": { "de": "Der alte Mann. Ein alter Mann. Mit dem alten Mann.", "en": "The old man. An old man. With the old man." },
+          "practiceTypes": ["fill-in-blank", "flashcard", "sentence-builder"],
+          "svgIcon": "adjective-endings",
+          "priority": "high",
+          "order": 8
+        },
+        {
+          "id": "b1-009",
+          "title": "Passiv — Präsens",
+          "subtitle": "werden + Partizip II",
+          "english": "Passive voice — present",
+          "explanation": "The focus shifts from who does the action to the action itself.",
+          "example": { "de": "Das Buch wird gelesen. Die Tür wird geöffnet.", "en": "The book is being read. The door is being opened." },
+          "practiceTypes": ["sentence-builder", "active-passive-switch", "fill-in-blank"],
+          "svgIcon": "passive",
+          "priority": "medium",
+          "order": 9
+        },
+        {
+          "id": "b1-010",
+          "title": "Indirekte Fragen",
+          "subtitle": "Ich weiß nicht, ob / wann / wie",
+          "english": "Indirect questions",
+          "explanation": "In indirect questions the verb moves to the end and ob replaces yes/no questions.",
+          "example": { "de": "Ich weiß nicht, ob er kommt. Kannst du mir sagen, wo der Bahnhof ist?", "en": "I do not know if he is coming. Can you tell me where the station is?" },
+          "practiceTypes": ["word-order-drag", "sentence-builder", "fill-in-blank"],
+          "svgIcon": "indirect-questions",
+          "priority": "high",
+          "order": 10
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "label": "B2 — Obere Mittelstufe",
+      "color": "#EF9F27",
+      "lightColor": "#FAEEDA",
+      "description": "Upper intermediate. Can communicate fluently and spontaneously.",
+      "points": [
+        {
+          "id": "b2-001",
+          "title": "Konjunktiv II — Gegenwart",
+          "subtitle": "würde, wäre, hätte, könnte, müsste",
+          "english": "Subjunctive II — present",
+          "explanation": "Used for hypothetical situations, polite requests and unreal conditions.",
+          "example": { "de": "Wenn ich Zeit hätte, würde ich reisen. Könnten Sie mir helfen?", "en": "If I had time I would travel. Could you help me?" },
+          "practiceTypes": ["fill-in-blank", "sentence-builder", "call-practice", "conjugation-table"],
+          "svgIcon": "konjunktiv2",
+          "priority": "high",
+          "order": 1
+        },
+        {
+          "id": "b2-002",
+          "title": "Konjunktiv II — Vergangenheit",
+          "subtitle": "hätte gemacht, wäre gegangen",
+          "english": "Subjunctive II — past",
+          "explanation": "Used for regrets and unreal past situations. Formed with hätte/wäre + Partizip II.",
+          "example": { "de": "Wenn ich das gewusst hätte, wäre ich nicht gegangen.", "en": "If I had known that I would not have gone." },
+          "practiceTypes": ["fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "konjunktiv2-past",
+          "priority": "high",
+          "order": 2
+        },
+        {
+          "id": "b2-003",
+          "title": "Passiv — alle Zeiten",
+          "subtitle": "Präsens / Präteritum / Perfekt Passiv",
+          "english": "Passive voice — all tenses",
+          "explanation": "Passive across all tenses. Zustandspassiv with sein shows a state rather than action.",
+          "example": { "de": "Das wurde gemacht. Das ist erledigt. Das wird erledigt werden.", "en": "That was done. That is done. That will be done." },
+          "practiceTypes": ["tense-identifier", "active-passive-switch", "sentence-builder"],
+          "svgIcon": "passive-all",
+          "priority": "high",
+          "order": 3
+        },
+        {
+          "id": "b2-004",
+          "title": "Nominalisierung",
+          "subtitle": "arbeiten → die Arbeit, fahren → die Fahrt",
+          "english": "Nominalization — verbs to nouns",
+          "explanation": "Very common in formal German. Verbs and adjectives become nouns.",
+          "example": { "de": "Das schnelle Fahren ist gefährlich. Die Verbesserung der Situation ist nötig.", "en": "Driving fast is dangerous. Improving the situation is necessary." },
+          "practiceTypes": ["word-formation", "fill-in-blank", "flashcard"],
+          "svgIcon": "nominalization",
+          "priority": "high",
+          "order": 4
+        },
+        {
+          "id": "b2-005",
+          "title": "Partizipialkonstruktionen",
+          "subtitle": "der schlafende Mann / das gelesene Buch",
+          "english": "Participial constructions",
+          "explanation": "Extended participial phrases replace relative clauses in written German.",
+          "example": { "de": "Der auf dem Sofa schlafende Mann ist mein Bruder.", "en": "The man sleeping on the sofa is my brother." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "relative-to-participial"],
+          "svgIcon": "participial",
+          "priority": "medium",
+          "order": 5
+        },
+        {
+          "id": "b2-006",
+          "title": "Präpositionen mit Genitiv",
+          "subtitle": "wegen, trotz, während, innerhalb, außerhalb",
+          "english": "Prepositions with genitive",
+          "explanation": "These prepositions require the genitive case. Very common in formal writing.",
+          "example": { "de": "Wegen des Regens blieben wir zuhause. Trotz der Kälte ging sie spazieren.", "en": "Because of the rain we stayed home. Despite the cold she went for a walk." },
+          "practiceTypes": ["preposition-match", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "prep-genitive",
+          "priority": "medium",
+          "order": 6
+        },
+        {
+          "id": "b2-007",
+          "title": "Konzessivsätze",
+          "subtitle": "obwohl, obgleich, auch wenn, selbst wenn",
+          "english": "Concessive clauses — although / even if",
+          "explanation": "Expressing contrast or concession. The verb goes to the end.",
+          "example": { "de": "Obwohl er krank ist, geht er zur Arbeit. Auch wenn es regnet, laufe ich.", "en": "Although he is sick he goes to work. Even if it rains I will run." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "call-practice"],
+          "svgIcon": "concessive",
+          "priority": "medium",
+          "order": 7
+        },
+        {
+          "id": "b2-008",
+          "title": "Infinitivkonstruktionen",
+          "subtitle": "um zu, ohne zu, anstatt zu",
+          "english": "Infinitive constructions",
+          "explanation": "These replace subordinate clauses when the subject is the same in both clauses.",
+          "example": { "de": "Ich lerne Deutsch, um in Berlin zu arbeiten. Er ging, ohne sich zu verabschieden.", "en": "I learn German in order to work in Berlin. He left without saying goodbye." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "clause-conversion"],
+          "svgIcon": "infinitive-constructions",
+          "priority": "high",
+          "order": 8
+        },
+        {
+          "id": "b2-009",
+          "title": "Modalpartikeln",
+          "subtitle": "doch, mal, ja, eigentlich, halt, eben",
+          "english": "Modal particles — flavoring words",
+          "explanation": "These small words add nuance, emotion and attitude. Very important for sounding natural.",
+          "example": { "de": "Komm doch mal vorbei! Das ist ja interessant. Das ist halt so.", "en": "Do come by sometime! That is indeed interesting. That is just how it is." },
+          "practiceTypes": ["context-choice", "call-practice", "flashcard"],
+          "svgIcon": "modal-particles",
+          "priority": "high",
+          "order": 9
+        },
+        {
+          "id": "b2-010",
+          "title": "Kausale und konsekutive Sätze",
+          "subtitle": "da, weil, so dass, deshalb, daher",
+          "english": "Causal and consecutive clauses",
+          "explanation": "Expressing cause and consequence. Word order changes depending on connector type.",
+          "example": { "de": "Da er krank war, kam er nicht. Er war krank, deshalb kam er nicht.", "en": "Since he was sick he did not come. He was sick therefore he did not come." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "connector-choice"],
+          "svgIcon": "causal-consecutive",
+          "priority": "medium",
+          "order": 10
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "label": "C1 — Fortgeschritten",
+      "color": "#E24B4A",
+      "lightColor": "#FCEBEB",
+      "description": "Advanced. Can express ideas fluently and spontaneously.",
+      "points": [
+        {
+          "id": "c1-001",
+          "title": "Konjunktiv I — Indirekte Rede",
+          "subtitle": "er sage, sie habe, es gebe",
+          "english": "Subjunctive I — reported speech",
+          "explanation": "Used in journalism and formal contexts to report what someone said without confirming it is true.",
+          "example": { "de": "Er sagte, er sei krank. Die Zeitung berichtet, das Wetter werde besser.", "en": "He said he was sick. The newspaper reports the weather will improve." },
+          "practiceTypes": ["direct-to-indirect", "fill-in-blank", "sentence-builder"],
+          "svgIcon": "konjunktiv1",
+          "priority": "high",
+          "order": 1
+        },
+        {
+          "id": "c1-002",
+          "title": "Erweiterte Nominalphrasen",
+          "subtitle": "das von der Regierung beschlossene Gesetz",
+          "english": "Extended noun phrases",
+          "explanation": "Long attributive phrases placed before the noun. Very typical of academic and journalistic German.",
+          "example": { "de": "Das von allen erwartete Ergebnis blieb aus.", "en": "The result expected by everyone did not materialise." },
+          "practiceTypes": ["sentence-builder", "parsing", "rewrite-exercise"],
+          "svgIcon": "extended-nouns",
+          "priority": "high",
+          "order": 2
+        },
+        {
+          "id": "c1-003",
+          "title": "Funktionsverbgefüge",
+          "subtitle": "zur Verfügung stellen, in Frage kommen",
+          "english": "Verb-noun collocations",
+          "explanation": "Fixed combinations of verb + noun that function as a single meaning unit. Very common in formal German.",
+          "example": { "de": "Das kommt nicht in Frage. Wir stellen Mittel zur Verfügung.", "en": "That is out of the question. We are providing resources." },
+          "practiceTypes": ["match", "fill-in-blank", "flashcard", "call-practice"],
+          "svgIcon": "verb-noun-collocations",
+          "priority": "high",
+          "order": 3
+        },
+        {
+          "id": "c1-004",
+          "title": "Modalitätsadverbien",
+          "subtitle": "angeblich, bekanntlich, vermeintlich, tatsächlich",
+          "english": "Modality adverbs — stance markers",
+          "explanation": "These adverbs express the speaker's attitude toward the truth of a statement.",
+          "example": { "de": "Angeblich hat er das gesagt. Tatsächlich war es anders.", "en": "Allegedly he said that. In fact it was different." },
+          "practiceTypes": ["context-choice", "flashcard", "call-practice"],
+          "svgIcon": "modality-adverbs",
+          "priority": "medium",
+          "order": 4
+        },
+        {
+          "id": "c1-005",
+          "title": "Komplexe Konnektoren",
+          "subtitle": "insofern als, vorausgesetzt dass, es sei denn",
+          "english": "Complex connectors",
+          "explanation": "Advanced connectors for complex argumentation. Used in academic and professional writing.",
+          "example": { "de": "Insofern als das stimmt, müssen wir handeln. Es sei denn, es gibt eine bessere Lösung.", "en": "Insofar as that is true we must act. Unless there is a better solution." },
+          "practiceTypes": ["sentence-builder", "connector-choice", "fill-in-blank"],
+          "svgIcon": "complex-connectors",
+          "priority": "medium",
+          "order": 5
+        },
+        {
+          "id": "c1-006",
+          "title": "Register und Stilebenen",
+          "subtitle": "formell vs. umgangssprachlich",
+          "english": "Register — formal vs informal",
+          "explanation": "Knowing when to use formal structures and when colloquial forms are appropriate.",
+          "example": { "de": "Formal: Ich möchte Sie bitten... / Umgangs: Könntest du mal...", "en": "Formal: I would like to ask you... / Informal: Could you just..." },
+          "practiceTypes": ["register-sort", "rewrite-exercise", "call-practice"],
+          "svgIcon": "register",
+          "priority": "high",
+          "order": 6
+        },
+        {
+          "id": "c1-007",
+          "title": "Präpositionaladverbien",
+          "subtitle": "darauf, dafür, dabei, worüber, womit",
+          "english": "Prepositional adverbs — da- and wo-compounds",
+          "explanation": "Replace prepositional phrases referring to things or ideas, not people.",
+          "example": { "de": "Worüber sprichst du? Ich spreche darüber. Wofür ist das?", "en": "What are you talking about? I am talking about that. What is that for?" },
+          "practiceTypes": ["fill-in-blank", "sentence-builder", "call-practice"],
+          "svgIcon": "prep-adverbs",
+          "priority": "high",
+          "order": 7
+        },
+        {
+          "id": "c1-008",
+          "title": "Konzessive und adversative Strukturen",
+          "subtitle": "wenngleich, gleichwohl, nichtsdestotrotz",
+          "english": "Advanced concessive structures",
+          "explanation": "Sophisticated ways to express contrast and concession in formal writing and speech.",
+          "example": { "de": "Wenngleich das stimmt, bleibt die Frage offen. Gleichwohl muss man bedenken...", "en": "Even though that is true the question remains open. Nevertheless one must consider..." },
+          "practiceTypes": ["sentence-builder", "fill-in-blank", "call-practice"],
+          "svgIcon": "advanced-concessive",
+          "priority": "medium",
+          "order": 8
+        },
+        {
+          "id": "c1-009",
+          "title": "Idiome und Redewendungen",
+          "subtitle": "auf den Punkt bringen, unter die Lupe nehmen",
+          "english": "Idioms and fixed expressions",
+          "explanation": "Fixed phrases whose meaning cannot be deduced from individual words. Essential for sounding native.",
+          "example": { "de": "Lass uns das auf den Punkt bringen. Das nehme ich genau unter die Lupe.", "en": "Let us get to the point. I will look at that very closely." },
+          "practiceTypes": ["flashcard", "match", "context-choice", "call-practice"],
+          "svgIcon": "idioms",
+          "priority": "high",
+          "order": 9
+        },
+        {
+          "id": "c1-010",
+          "title": "Wissenschaftlicher Schreibstil",
+          "subtitle": "Nominalisierung, Passiv, unpersönliche Konstruktionen",
+          "english": "Academic writing style",
+          "explanation": "Combining nominalization, passive voice and impersonal constructions typical of academic German.",
+          "example": { "de": "Es lässt sich feststellen, dass... Die Ergebnisse legen nahe, dass...", "en": "It can be established that... The results suggest that..." },
+          "practiceTypes": ["rewrite-exercise", "sentence-builder", "register-sort"],
+          "svgIcon": "academic-style",
+          "priority": "medium",
+          "order": 10
+        }
+      ]
+    }
+  ],
+  "practiceTypes": {
+    "flashcard": {
+      "label": "Flashcard",
+      "description": "Front/back card with German and English",
+      "icon": "cards",
+      "duration": "30 seconds per card"
+    },
+    "fill-in-blank": {
+      "label": "Lückentext",
+      "description": "Fill in the missing word or ending",
+      "icon": "blank",
+      "duration": "1 minute per exercise"
+    },
+    "sentence-builder": {
+      "label": "Satz bauen",
+      "description": "Arrange words in the correct order",
+      "icon": "builder",
+      "duration": "1-2 minutes"
+    },
+    "conjugation-table": {
+      "label": "Konjugationstabelle",
+      "description": "Fill in all forms of a verb",
+      "icon": "table",
+      "duration": "2 minutes"
+    },
+    "call-practice": {
+      "label": "Mit Maya üben",
+      "description": "Practice this grammar point in a live call",
+      "icon": "phone",
+      "duration": "5-10 minutes"
+    },
+    "article-picker": {
+      "label": "Artikel wählen",
+      "description": "Pick the correct article for each noun",
+      "icon": "picker",
+      "duration": "30 seconds per item"
+    },
+    "case-identifier": {
+      "label": "Fall bestimmen",
+      "description": "Identify the grammatical case",
+      "icon": "identify",
+      "duration": "1 minute"
+    },
+    "word-order-drag": {
+      "label": "Wörter sortieren",
+      "description": "Drag and drop words into correct order",
+      "icon": "drag",
+      "duration": "1-2 minutes"
+    },
+    "preposition-match": {
+      "label": "Präposition zuordnen",
+      "description": "Match prepositions to their case or context",
+      "icon": "match",
+      "duration": "1 minute"
+    },
+    "active-passive-switch": {
+      "label": "Aktiv ↔ Passiv",
+      "description": "Convert between active and passive voice",
+      "icon": "switch",
+      "duration": "2 minutes"
+    },
+    "match": {
+      "label": "Zuordnen",
+      "description": "Match German to English or concept to example",
+      "icon": "match",
+      "duration": "1 minute"
+    },
+    "context-choice": {
+      "label": "Kontext wählen",
+      "description": "Choose the right form based on context",
+      "icon": "context",
+      "duration": "1-2 minutes"
+    },
+    "direct-to-indirect": {
+      "label": "Direkte → Indirekte Rede",
+      "description": "Convert direct speech to reported speech",
+      "icon": "convert",
+      "duration": "2 minutes"
+    },
+    "rewrite-exercise": {
+      "label": "Umschreiben",
+      "description": "Rewrite a sentence using the target structure",
+      "icon": "rewrite",
+      "duration": "2-3 minutes"
+    },
+    "register-sort": {
+      "label": "Register sortieren",
+      "description": "Sort sentences by formal or informal register",
+      "icon": "sort",
+      "duration": "1-2 minutes"
+    },
+    "word-formation": {
+      "label": "Wortbildung",
+      "description": "Form new words from given roots",
+      "icon": "formation",
+      "duration": "1-2 minutes"
+    },
+    "connector-choice": {
+      "label": "Konnektor wählen",
+      "description": "Choose the right connecting word",
+      "icon": "connector",
+      "duration": "1 minute"
+    }
+  }
+}

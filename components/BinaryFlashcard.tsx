@@ -5,6 +5,7 @@ import { Volume2 } from "lucide-react";
 import type { BinaryCard } from "@/lib/exercises/types";
 import { DirectionToggle, type ExerciseDirection } from "@/components/DirectionToggle";
 import { WordExamplesPanel } from "@/components/exercises/WordExamplesPanel";
+import { VocabIcon } from "@/components/vocab/VocabIcon";
 import { speakExercisePrompt, stopExerciseSpeech } from "@/lib/exercise-speech";
 
 interface Props {
@@ -80,6 +81,12 @@ export function BinaryFlashcard({
           <div className="ui-progress-fill" style={{ width: `${Math.min(100, progress)}%` }} />
         </div>
       </div>
+
+      {showWordExamples && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <VocabIcon word={card.german} size={80} status="new" />
+        </div>
+      )}
 
       <div
         className="ui-card"

@@ -1,11 +1,14 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BookOpen } from "lucide-react";
 import { FreisprechenCall } from "@/components/call/FreisprechenCall";
 import { TippenCall } from "@/components/call/TippenCall";
 import { CallReport } from "@/components/call/CallReport";
 import { TabBar } from "@/components/layout/TabBar";
 import { computeCallReportStats } from "@/lib/call-report-stats";
+import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import type { GrammarPointWithLevel } from "@/lib/grammar/curriculum";
 import { Message } from "@/lib/types";
 
 type CallMode = "freisprechen" | "tippen";
@@ -15,6 +18,10 @@ function CallPageInner() {
   const router = useRouter();
   const paramMode = searchParams.get("mode");
   const scenarioId = searchParams.get("scenario");
+  const grammarFromUrl = searchParams.get("grammar");
+  const [grammarId, setGrammarId] = useState<string | null>(grammarFromUrl);
+  const [grammarFocus, setGrammarFocus] = useState<GrammarPointWithLevel | null>(null);
+  const [pillDismissed, setPillDismissed] = useState(false);
   const [mode, setMode] = useState<CallMode>(paramMode === "tippen" ? "tippen" : "freisprechen");
   const [report, setReport] = useState<{ messages: Message[]; durationSec: number } | null>(null);
   const [reportMeta, setReportMeta] = useState<{ currentLevel: string; completedCalls: number; userName?: string } | null>(null);
@@ -22,6 +29,25 @@ function CallPageInner() {
   const handleCallEnded = useCallback((messages: Message[], durationSec: number) => {
     setReport({ messages, durationSec });
   }, []);
+
+  useEffect(() => {
+    if (grammarFromUrl) {
+      setGrammarId(grammarFromUrl);
+      return;
+    }
+    const stored = sessionStorage.getItem("maya_grammar_focus");
+    if (stored) setGrammarId(stored);
+  }, [grammarFromUrl]);
+
+  useEffect(() => {
+    if (!grammarId) return;
+    fetch(buildCallContextUrl({ scenarioId, grammarId }))
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (data?.grammarFocus) setGrammarFocus(data.grammarFocus);
+      })
+      .catch(() => {});
+  }, [grammarId, scenarioId]);
 
   useEffect(() => {
     if (!report) {
@@ -100,11 +126,60 @@ function CallPageInner() {
         </div>
       )}
 
+      {!report && grammarFocus && !pillDismissed && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "#EEEDFE",
+            border: "0.5px solid #AFA9EC",
+            borderRadius: 8,
+            padding: "4px 10px 4px 8px",
+            fontSize: 11,
+            color: "#534AB7",
+            alignSelf: "center",
+            marginBottom: 8,
+            marginTop: 8,
+          }}
+        >
+          <BookOpen size={12} />
+          <span>Fokus: {grammarFocus.title}</span>
+          <button
+            type="button"
+            onClick={() => setPillDismissed(true)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#AFA9EC",
+              cursor: "pointer",
+              padding: "0 0 0 4px",
+              fontSize: 14,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         {mode === "freisprechen" ? (
-          <FreisprechenCall key="freisprechen" embedded scenarioId={scenarioId} onCallEnded={handleCallEnded} />
+          <FreisprechenCall
+            key="freisprechen"
+            embedded
+            scenarioId={scenarioId}
+            grammarId={grammarId}
+            onCallEnded={handleCallEnded}
+          />
         ) : (
-          <TippenCall key="tippen" embedded scenarioId={scenarioId} onCallEnded={handleCallEnded} />
+          <TippenCall
+            key="tippen"
+            embedded
+            scenarioId={scenarioId}
+            grammarId={grammarId}
+            onCallEnded={handleCallEnded}
+          />
         )}
       </div>
 

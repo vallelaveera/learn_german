@@ -18,7 +18,6 @@ interface ActivityCardProps {
   subtext: string;
   onClick: () => void;
   tone?: ActivityTone;
-  primary?: boolean;
 }
 
 export function ActivityCard({
@@ -28,37 +27,8 @@ export function ActivityCard({
   subtext,
   onClick,
   tone = "neutral",
-  primary = false,
 }: ActivityCardProps) {
   const t = TONES[tone];
-
-  if (primary) {
-    return (
-      <button type="button" onClick={onClick} className="ui-btn-primary animate-pop-in">
-        <span
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 16,
-            background: "rgba(255,255,255,0.28)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            fontSize: emoji ? 26 : undefined,
-          }}
-        >
-          {emoji ?? icon}
-        </span>
-        <span style={{ textAlign: "left", flex: 1 }}>
-          <span style={{ display: "block", fontSize: 17, fontWeight: 700 }}>{label}</span>
-          <span style={{ display: "block", fontSize: 13, opacity: 0.92, fontWeight: 400, marginTop: 2 }}>
-            {subtext}
-          </span>
-        </span>
-      </button>
-    );
-  }
 
   return (
     <button
@@ -88,7 +58,7 @@ export function ActivityCard({
         style={{
           width: 56,
           height: 56,
-          borderRadius: 18,
+          borderRadius: 8,
           background: t.bg,
           color: t.color,
           display: "flex",
@@ -96,7 +66,7 @@ export function ActivityCard({
           justifyContent: "center",
           flexShrink: 0,
           fontSize: emoji ? 28 : undefined,
-          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.6)`,
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.6)",
         }}
       >
         {emoji ?? icon}

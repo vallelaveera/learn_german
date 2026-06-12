@@ -150,9 +150,9 @@ grep -q 'localStorage.setItem("maya_voice", "soniox")' app/mode/page.tsx \
   && check "mode page: call sets soniox" "ok" \
   || check "mode page: call sets soniox" "fail"
 
-grep -q 'router.push("/call")' app/mode/page.tsx \
-  && check "mode page: Jetzt anrufen direct to /call" "ok" \
-  || check "mode page: Jetzt anrufen direct to /call" "fail"
+grep -qE 'router\.push\("/call"\)|router\.push\("/exercises/warmup\?next=/call"\)' app/mode/page.tsx \
+  && check "mode page: call routes to /call (direct or warmup)" "ok" \
+  || check "mode page: call routes to /call (direct or warmup)" "fail"
 
 grep -q 'ttsProviderRef.current = "soniox"' components/call/FreisprechenCall.tsx \
   && check "callmode: Maya B disabled, forces soniox" "ok" \
