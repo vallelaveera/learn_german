@@ -415,6 +415,10 @@ grep -q 'homeworkSentencesFromMessages' lib/corrections.ts \
 
 check_absent "homework: no Maya phrase padding" "lib/memory-agent.ts" "mayaLines"
 
+grep -q 'Artikel-Tabelle' app/grammar/page.tsx \
+  && check "grammar page: Artikel-Tabelle link" "ok" \
+  || check "grammar page: Artikel-Tabelle link" "fail"
+
 echo ""
 echo "── middleware.ts ───────────────────────"
 

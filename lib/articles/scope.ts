@@ -72,3 +72,17 @@ export function resolveArticleTrainerPoint(pointId: string | null | undefined): 
   if (isArticleTrainerPoint(pointId)) return pointId;
   return null;
 }
+
+/** Default article table entry when opening from the Grammatik page header link. */
+export function getDefaultArticleTrainerPointForLevel(
+  levelId: GrammarLevelId,
+): ArticleTrainerPointId | null {
+  if (levelId === "A1") return "a1-004";
+  if (levelId === "A2") return "a2-003";
+  return null;
+}
+
+export function getArticleTrainerHref(pointId: string): string | null {
+  if (!isArticleTrainerPoint(pointId)) return null;
+  return `/grammar/articles?point=${encodeURIComponent(pointId)}`;
+}
