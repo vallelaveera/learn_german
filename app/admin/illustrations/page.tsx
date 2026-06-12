@@ -9,7 +9,6 @@ import type {
   IllustrationBatchResult,
   SentenceIllustrationRow,
 } from "@/lib/content/illustration-batch";
-import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 import { ILLUSTRATION_BATCH_LIMIT } from "@/lib/content/illustration-lookup";
 
 const PURPLE = "#7F77DD";
@@ -35,7 +34,6 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
 
 export default function AdminIllustrationsPage() {
   const router = useRouter();
-  const isDev = isDevAdminFeaturesEnabled();
 
   const [categories, setCategories] = useState<CategoryStats[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("transport");
@@ -76,9 +74,8 @@ export default function AdminIllustrationsPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!isDev) return;
     void loadCategory(selectedCategory);
-  }, [isDev, selectedCategory, loadCategory]);
+  }, [selectedCategory, loadCategory]);
 
   async function runGeneration() {
     setRunning(true);
@@ -181,16 +178,6 @@ export default function AdminIllustrationsPage() {
 
   function stopGenerationAll() {
     abortAllRef.current = true;
-  }
-
-  if (!isDev) {
-    return (
-      <AdminCard>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          Sentence illustration generation is only available in development.
-        </p>
-      </AdminCard>
-    );
   }
 
   return (

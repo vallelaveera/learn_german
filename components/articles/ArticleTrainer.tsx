@@ -109,6 +109,7 @@ export function ArticleTrainer({ scope, title, initialTab = "learn" }: ArticleTr
         {tab === "quiz" && (
           <ArticleQuizPanel
             questions={quizQuestions}
+            scopedCases={scope.cases}
             accentColor={levelColor}
             onAnswer={handleAnswer}
             onProgress={handleProgress}
@@ -117,6 +118,7 @@ export function ArticleTrainer({ scope, title, initialTab = "learn" }: ArticleTr
         {tab === "practice" && (
           <ArticlePracticePanel
             questions={practiceQuestions}
+            scopedCases={scope.cases}
             accentColor={levelColor}
             accentSoft={levelLightColor}
             onAnswer={handleAnswer}

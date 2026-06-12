@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArticleTrainer } from "@/components/articles/ArticleTrainer";
 import { getArticleTrainerScope, resolveArticleTrainerPoint } from "@/lib/articles/scope";
-import { getGrammarPoint } from "@/lib/grammar/curriculum";
+import { getGrammarPoint, GRAMMAR_LEVEL_IDS, type GrammarLevelId } from "@/lib/grammar/curriculum";
 import type { ArticleTrainerTab } from "@/lib/articles/types";
 
 function parseTab(value: string | null): ArticleTrainerTab {
@@ -12,10 +12,18 @@ function parseTab(value: string | null): ArticleTrainerTab {
   return "learn";
 }
 
+function parseLevel(value: string | null): GrammarLevelId | undefined {
+  if (!value) return undefined;
+  return (GRAMMAR_LEVEL_IDS as readonly string[]).includes(value)
+    ? (value as GrammarLevelId)
+    : undefined;
+}
+
 function ArticlesPageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const pointId = resolveArticleTrainerPoint(params.get("point"));
+  const levelOverride = parseLevel(params.get("level"));
   const initialTab = parseTab(params.get("tab"));
 
   useEffect(() => {
@@ -31,12 +39,17 @@ function ArticlesPageInner() {
   }
 
   const point = getGrammarPoint(pointId);
-  const scope = useMemo(() => getArticleTrainerScope(pointId), [pointId]);
+  const scope = useMemo(
+    () => getArticleTrainerScope(pointId, levelOverride),
+    [pointId, levelOverride],
+  );
+  const title =
+    pointId === "articles-full" ? "Artikel — alle Fälle" : point?.title ?? "Artikel";
 
   return (
     <ArticleTrainer
       scope={scope}
-      title={point?.title ?? "Artikel"}
+      title={title}
       initialTab={initialTab}
     />
   );

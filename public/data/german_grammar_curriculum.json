@@ -292,7 +292,7 @@
           "english": "Genitive case — possession",
           "explanation": "Shows belonging or relationship. Common in written German and fixed expressions.",
           "example": { "de": "Das ist das Auto meines Vaters. Wegen des Wetters blieb ich zuhause.", "en": "That is my father's car. Because of the weather I stayed home." },
-          "practiceTypes": ["case-identifier", "fill-in-blank", "sentence-builder"],
+          "practiceTypes": ["case-identifier", "fill-in-blank", "sentence-builder", "article-picker"],
           "svgIcon": "genitive",
           "priority": "high",
           "order": 2

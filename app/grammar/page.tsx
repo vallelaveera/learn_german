@@ -77,7 +77,7 @@ export default function GrammarPage() {
     [levelId],
   );
   const articleTableHref = articleTablePointId
-    ? getArticleTrainerHref(articleTablePointId)
+    ? getArticleTrainerHref(articleTablePointId, levelId)
     : null;
 
   const collapseExplainer = useCallback(() => {
@@ -173,7 +173,9 @@ export default function GrammarPage() {
               <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
                 {levelId === "A1"
                   ? "der · die · das — Nominativ"
-                  : "Nom · Akk · Dat — interaktive Übersicht"}
+                  : levelId === "A2"
+                    ? "Nom · Akk · Dat — interaktive Übersicht"
+                    : "Alle Fälle inkl. Genitiv — interaktive Übersicht"}
               </span>
             </span>
             <span style={{ fontSize: 12, fontWeight: 600, color: level.color, flexShrink: 0 }}>
