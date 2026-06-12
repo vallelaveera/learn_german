@@ -1,0 +1,96 @@
+<svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes planeLand {
+        0% {
+          transform: translate(0, -30px) rotate(-15deg);
+        }
+        50% {
+          transform: translate(40px, 0px) rotate(-5deg);
+        }
+        100% {
+          transform: translate(80px, 30px) rotate(0deg);
+        }
+      }
+      
+      @keyframes mayaWave {
+        0%, 100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+      
+      .plane {
+        animation: planeLand 4s ease-in-out infinite;
+        transform-origin: center;
+      }
+      
+      .maya {
+        animation: mayaWave 2s ease-in-out infinite;
+      }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="200" height="160" fill="#F1EFE8"/>
+  
+  <!-- Sky indicator -->
+  <rect width="200" height="80" fill="#B5D4F4"/>
+  
+  <!-- Ground -->
+  <rect y="80" width="200" height="80" fill="#C0DD97"/>
+  
+  <!-- Runway lines -->
+  <line x1="0" y1="100" x2="200" y2="100" stroke="#888780" stroke-width="2" stroke-dasharray="10,10"/>
+  <line x1="0" y1="110" x2="200" y2="110" stroke="#888780" stroke-width="2" stroke-dasharray="10,10"/>
+  
+  <!-- Plane body group -->
+  <g class="plane">
+    <!-- Fuselage -->
+    <ellipse cx="100" cy="40" rx="20" ry="12" fill="#378ADD"/>
+    
+    <!-- Cockpit -->
+    <circle cx="108" cy="37" r="4" fill="#2C2C2A"/>
+    
+    <!-- Wings -->
+    <rect x="60" y="38" width="80" height="6" fill="#378ADD"/>
+    
+    <!-- Tail wing -->
+    <polygon points="75,48 85,48 80,54" fill="#378ADD"/>
+    
+    <!-- Windows -->
+    <circle cx="95" cy="37" r="2" fill="#EEEDFE"/>
+    <circle cx="100" cy="37" r="2" fill="#EEEDFE"/>
+  </g>
+  
+  <!-- Maya character -->
+  <g class="maya">
+    <!-- Head -->
+    <circle cx="30" cy="115" r="11" fill="#FAC775"/>
+    
+    <!-- Hair -->
+    <path d="M 22 107 Q 30 102 38 107" fill="#534AB7"/>
+    
+    <!-- Eyes -->
+    <circle cx="26" cy="113" r="1.5" fill="#2C2C2A"/>
+    <circle cx="34" cy="113" r="1.5" fill="#2C2C2A"/>
+    
+    <!-- Body -->
+    <rect x="22" y="126" width="16" height="20" fill="#7F77DD" rx="2"/>
+    
+    <!-- Arms -->
+    <rect x="12" y="130" width="10" height="6" fill="#FAC775" rx="3"/>
+    <rect x="38" y="130" width="10" height="6" fill="#FAC775" rx="3"/>
+    
+    <!-- Legs -->
+    <rect x="24" y="146" width="4" height="10" fill="#FAC775"/>
+    <rect x="32" y="146" width="4" height="10" fill="#FAC775"/>
+  </g>
+  
+  <!-- Clock symbol for "in one hour" -->
+  <circle cx="160" cy="130" r="12" fill="none" stroke="#534AB7" stroke-width="1.5"/>
+  <line x1="160" y1="120" x2="160" y2="125" stroke="#534AB7" stroke-width="1.5"/>
+  <line x1="160" y1="130" x2="166" y2="130" stroke="#534AB7" stroke-width="1.5"/>
+</svg>

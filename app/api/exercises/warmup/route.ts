@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { saveExerciseResults } from "@/lib/kv";
 import { selectWarmupCards } from "@/lib/exercises/select";
+import { parseWordCategory } from "@/lib/exercises/categories";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,9 @@ export async function GET(req: NextRequest) {
     const user = await getAuthUser(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const cards = await selectWarmupCards(user.userId, user, 5);
+    const category = parseWordCategory(req.nextUrl.searchParams.get("category"));
+    const scenario = req.nextUrl.searchParams.get("scenario");
+    const cards = await selectWarmupCards(user.userId, user, 5, category, scenario);
     return NextResponse.json({ cards });
   } catch (e) {
     console.error(e);

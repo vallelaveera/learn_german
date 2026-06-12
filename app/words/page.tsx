@@ -2,8 +2,13 @@
 import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { BookOpen, Briefcase, Languages, Sparkles, CheckCircle2 } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { HomeworkPractice } from "@/components/homework/HomeworkPractice";
+import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
+import { StatTile } from "@/components/ui/StatTile";
+import { VocabIcon } from "@/components/vocab/VocabIcon";
+import { getStatusFromScore } from "@/lib/vocab/iconColors";
 
 interface VocabWord {
   word: string;
@@ -11,6 +16,7 @@ interface VocabWord {
   timesSeen: number;
   lastSeen: number;
   usedByUser?: boolean;
+  correctCount?: number;
 }
 
 interface CareerEntry {
@@ -25,10 +31,18 @@ type WordView = "vocab" | "homework" | "karriere";
 
 export default function WordsPage() {
   return (
-    <PageShell title="Üben">
-      <Suspense fallback={<p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
-        <WordsPageInner />
-      </Suspense>
+    <Suspense fallback={<p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
+      <WordsPageShell />
+    </Suspense>
+  );
+}
+
+function WordsPageShell() {
+  const searchParams = useSearchParams();
+  const isHomework = searchParams.get("view") === "homework";
+  return (
+    <PageShell title={isHomework ? "Hausaufgaben" : "Üben"}>
+      <WordsPageInner />
     </PageShell>
   );
 }
@@ -53,6 +67,13 @@ function WordsPageInner() {
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerAvailable, setCareerAvailable] = useState(true);
+
+  useEffect(() => {
+    const v = searchParams.get("view");
+    if (v === "homework") setView("homework");
+    else if (v === "karriere") setView("karriere");
+    else if (v !== "homework") setView("vocab");
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -130,66 +151,40 @@ function WordsPageInner() {
 
   const careerStatusColor = (status: CareerEntry["status"]) => {
     if (status === "used") return "var(--green)";
-    if (status === "exposed") return "#7F77DD";
+    if (status === "exposed") return "var(--accent)";
     return "var(--text-dim)";
   };
 
   return (
       <div style={{ padding: "16px 18px" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          {(
-            [
-              ["vocab", "Vokabeln"],
-              ["homework", "Hausaufgaben"],
-              ["karriere", "Karriere"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setView(key)}
-              style={{
-                flex: 1,
-                minHeight: 44,
-                borderRadius: 10,
-                border: "0.5px solid var(--border)",
-                background: view === key ? "var(--accent-glow)" : "var(--surface)",
-                color: view === key ? "var(--accent)" : "var(--text-muted)",
-                fontSize: 12,
-                fontFamily: "var(--font-mono)",
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {view === "homework" && <HomeworkPractice />}
+        {view === "homework" ? (
+          <HomeworkPractice />
+        ) : (
+          <>
+        <SegmentedTabs
+          tabs={[
+            { id: "vocab", label: "Vokabeln", icon: <BookOpen size={16} /> },
+            { id: "karriere", label: "Karriere", icon: <Briefcase size={16} /> },
+          ]}
+          value={view === "karriere" ? "karriere" : "vocab"}
+          onChange={id => setView(id as WordView)}
+        />
 
         {view === "vocab" && (
           <>
-      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-        {[
-          { label: "Gesamt", value: vocab.length, color: "var(--text)" },
-          { label: "Gelernt", value: vocab.filter(w => w.usedByUser).length, color: "var(--green)" },
-          { label: "Neu", value: newWords, color: "var(--accent)" },
-        ].map(s => (
-          <div key={s.label} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: "12px" }}>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 500, color: s.color }}>{s.value}</div>
-          </div>
-        ))}
+        <StatTile label="Gesamt" value={vocab.length} icon={<Languages size={18} />} />
+        <StatTile label="Gelernt" value={vocab.filter(w => w.usedByUser).length} icon={<CheckCircle2 size={18} />} accent="var(--green)" />
+        <StatTile label="Neu" value={newWords} icon={<Sparkles size={18} />} />
       </div>
 
-      {/* Search */}
       <div style={{ marginBottom: 12 }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Wort suchen..."
-          style={{ width: "100%", padding: "10px 14px", background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
+          className="ui-card"
+          style={{ width: "100%", padding: "12px 14px", border: "1px solid var(--border-light)", color: "var(--text)", fontSize: 15, fontFamily: "var(--font-sans)", outline: "none" }}
         />
       </div>
 
@@ -230,9 +225,17 @@ function WordsPageInner() {
             <Link href="/mode" style={{ color: "var(--accent)", fontSize: 13, marginTop: 8, display: "block" }}>Jetzt mit Maya sprechen →</Link>
           </div>
         )}
-        {filtered.map(w => (
-          <div key={w.word} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderLeft: w.usedByUser ? "2px solid var(--green)" : "2px solid var(--accent)", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ flex: 1 }}>
+        {filtered.map(w => {
+          const status = getStatusFromScore(w.timesSeen, w.correctCount ?? 0);
+          return (
+          <div key={w.word} className="ui-card" style={{ borderLeft: w.usedByUser ? "3px solid var(--green)" : "3px solid var(--accent)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+            <VocabIcon
+              word={w.word}
+              status={status}
+              size={44}
+              showBadge={false}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 16, fontFamily: "var(--font-serif)", color: "var(--text)", marginBottom: 3 }}>{w.word}</div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
                 {w.timesSeen}× gehört · zuletzt {new Date(w.lastSeen).toLocaleDateString("de-DE")}
@@ -282,7 +285,8 @@ function WordsPageInner() {
               {w.usedByUser ? "Gelernt ✓" : "Neu"}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
           </>
         )}
@@ -294,7 +298,8 @@ function WordsPageInner() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Berufsvokabel suchen..."
-                style={{ width: "100%", padding: "10px 14px", background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
+                className="ui-card"
+                style={{ width: "100%", padding: "12px 14px", border: "1px solid var(--border-light)", color: "var(--text)", fontSize: 15, fontFamily: "var(--font-sans)", outline: "none" }}
               />
             </div>
             {careerLoading && <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>Lädt...</p>}
@@ -309,13 +314,8 @@ function WordsPageInner() {
             {!careerLoading && filteredCareer.map(entry => (
               <div
                 key={entry.id}
-                style={{
-                  background: "var(--surface)",
-                  border: "0.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "12px 14px",
-                  marginBottom: 8,
-                }}
+                className="ui-card ui-card-padded"
+                style={{ marginBottom: 8 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
                   <span style={{ fontSize: 16, fontFamily: "var(--font-serif)", color: "var(--text)" }}>{entry.text}</span>
@@ -336,6 +336,8 @@ function WordsPageInner() {
                 <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{entry.category}</span>
               </div>
             ))}
+          </>
+        )}
           </>
         )}
       </div>

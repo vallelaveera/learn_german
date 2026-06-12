@@ -1,17 +1,20 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { Home, BookOpen, User, ClipboardList } from "lucide-react";
 
 const TABS = [
-  { href: "/mode", label: "Home", icon: "🏠" },
-  { href: "/progress", label: "Fortschritt", icon: "📈" },
-  { href: "/words", label: "Üben", icon: "📚" },
-  { href: "/profile", label: "Profil", icon: "👤" },
+  { href: "/mode", label: "Home", Icon: Home, matchHomework: false },
+  { href: "/words?view=homework", label: "Hausaufg.", Icon: ClipboardList, matchHomework: true },
+  { href: "/words", label: "Üben", Icon: BookOpen, matchHomework: false },
+  { href: "/profile", label: "Profil", Icon: User, matchHomework: false },
 ] as const;
 
-export function TabBar() {
+function TabBarInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view = searchParams.get("view");
   const [homeworkRemaining, setHomeworkRemaining] = useState(0);
 
   useEffect(() => {
@@ -25,77 +28,47 @@ export function TabBar() {
         }
       })
       .catch(() => setHomeworkRemaining(0));
-  }, [pathname]);
+  }, [pathname, view]);
 
   return (
-    <nav
-      style={{
-        position: "fixed",
-        bottom: 0,
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "100%",
-        maxWidth: 390,
-        display: "flex",
-        gap: 4,
-        padding: "8px 18px calc(env(safe-area-inset-bottom, 0px) + 8px)",
-        background: "var(--bg)",
-        borderTop: "0.5px solid var(--border)",
-        zIndex: 100,
-      }}
-    >
-      {TABS.map(tab => {
-        const active = pathname === tab.href || (tab.href === "/mode" && pathname === "/");
-        const showBadge = tab.href === "/words" && homeworkRemaining > 0;
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2,
-              minHeight: 44,
-              textDecoration: "none",
-              color: active ? "#7F77DD" : "var(--text-muted)",
-              position: "relative",
-            }}
-          >
-            <span style={{ fontSize: 22, lineHeight: 1, position: "relative" }}>
-              {tab.icon}
-              {showBadge && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -4,
-                    right: -10,
-                    minWidth: 16,
-                    height: 16,
-                    padding: "0 4px",
-                    borderRadius: 8,
-                    background: "#E74C3C",
-                    color: "#fff",
-                    fontSize: 9,
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {homeworkRemaining > 99 ? "99+" : homeworkRemaining}
-                </span>
-              )}
-            </span>
-            <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
-              {tab.label}
-            </span>
-          </Link>
-        );
-      })}
+    <nav className="ui-tab-bar" aria-label="Hauptnavigation">
+      <div className="ui-tab-bar-bubble">
+        {TABS.map(tab => {
+          const isHomeworkTab = tab.matchHomework;
+          const active = isHomeworkTab
+            ? pathname === "/words" && view === "homework"
+            : tab.href === "/words"
+              ? pathname === "/words" && view !== "homework"
+              : pathname === tab.href || (tab.href === "/mode" && pathname === "/");
+          const showBadge = isHomeworkTab && homeworkRemaining > 0;
+          const Icon = tab.Icon;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`ui-tab-item${active ? " ui-tab-item-active" : ""}`}
+            >
+              <span className="ui-tab-icon-bubble">
+                <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+                {showBadge && (
+                  <span className="ui-tab-badge">
+                    {homeworkRemaining > 99 ? "99+" : homeworkRemaining}
+                  </span>
+                )}
+              </span>
+              <span className="ui-tab-label">{tab.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
+  );
+}
+
+export function TabBar() {
+  return (
+    <Suspense fallback={null}>
+      <TabBarInner />
+    </Suspense>
   );
 }

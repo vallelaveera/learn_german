@@ -5,6 +5,11 @@ import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboard
 import { resolveNativeLanguage } from "@/lib/native-languages";
 import { getUsageStats } from "@/lib/kv";
 import { isHomeworkEnabledForUser, summarizeHomeworkList } from "@/lib/homework";
+import { getScenario, parseScenarioId } from "@/lib/exercises/scenarios";
+import {
+  buildGrammarSystemPromptAppendix,
+  getGrammarPoint,
+} from "@/lib/grammar/curriculum";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,9 +75,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const scenarioId = parseScenarioId(req.nextUrl.searchParams.get("scenario"));
+    const scenario = getScenario(scenarioId);
+    const practiceScenario = scenario
+      ? { label: scenario.label, prompt: scenario.callPrompt }
+      : undefined;
+
+    const grammarId =
+      req.nextUrl.searchParams.get("grammar")
+      ?? req.headers.get("x-grammar-id")
+      ?? null;
+    const grammarPoint = grammarId ? getGrammarPoint(grammarId) : null;
+    const grammarContext = grammarPoint
+      ? buildGrammarSystemPromptAppendix(grammarPoint)
+      : "";
+
     const [opening, systemPrompt, topics, homeworkEnabled, pendingList] = await Promise.all([
       generateOpening(user, daysSince, unpracticedWords, recentTopics),
-      Promise.resolve(buildSystemPrompt(user, daysSince, unpracticedWords)),
+      Promise.resolve(buildSystemPrompt(user, daysSince, unpracticedWords, false, 0, practiceScenario)),
       generateTopicSuggestions(user),
       isHomeworkEnabledForUser(user.userId),
       isHomeworkEnabledForUser(user.userId).then(async enabled => {
@@ -94,9 +114,11 @@ export async function GET(req: NextRequest) {
       normalOpening = opening;
     }
 
-    const finalSystemPrompt = homeworkNagActive
-      ? buildSystemPrompt(user, daysSince, unpracticedWords, true, homeworkSummary.remainingReps)
-      : buildSystemPrompt(user, daysSince, unpracticedWords, false, homeworkSummary.remainingReps);
+    const finalSystemPrompt = (
+      homeworkNagActive
+        ? buildSystemPrompt(user, daysSince, unpracticedWords, true, homeworkSummary.remainingReps, practiceScenario)
+        : buildSystemPrompt(user, daysSince, unpracticedWords, false, homeworkSummary.remainingReps, practiceScenario)
+    ) + grammarContext;
 
     return NextResponse.json({
       opening: finalOpening,
@@ -111,6 +133,7 @@ export async function GET(req: NextRequest) {
       usage,
       homeworkEnabled,
       homeworkNagActive,
+      grammarFocus: grammarPoint ?? null,
       pendingHomework: pendingHomework ? {
         id: pendingHomework.id,
         sentences: pendingHomework.sentences,

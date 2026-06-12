@@ -7,6 +7,7 @@ import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
 import { computeCallReportStats } from "@/lib/call-report-stats";
 import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
+import { buildCallContextUrl } from "@/lib/grammar/context-url";
 
 // ── Module-level flags ─────────────────────────────────────
 let _cm_sending = false;
@@ -51,15 +52,34 @@ const fallbackOpening = (name?: string) =>
     ? `Hallo ${name}! Schön, dass du da bist. Wie geht's dir?`
     : "Hallo! Schön, dass du da bist. Wie geht's dir?";
 
+async function ensureMicPermission(): Promise<boolean> {
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+      },
+    });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type Phase = "idle" | "active";
 type CallState = "listening" | "thinking" | "speaking";
 
 export interface FreisprechenCallProps {
   onCallEnded?: (messages: Message[], durationSec: number) => void;
   embedded?: boolean;
+  scenarioId?: string | null;
+  grammarId?: string | null;
 }
 
-export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProps = {}) {
+export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId }: FreisprechenCallProps = {}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [callState, setCallState] = useState<CallState>("listening");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -70,8 +90,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
   const [user, setUser] = useState<{ name: string } | null>(null);
   const ttsProviderRef = useRef<"soniox" | "fish">("soniox");
   useEffect(() => {
-    const voice = (localStorage.getItem("maya_voice") ?? "soniox") as "soniox" | "fish";
-    ttsProviderRef.current = voice;
+    ttsProviderRef.current = "soniox";
   }, []);
 
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
@@ -129,7 +148,9 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
       if (!limitHit) setContextReady(true);
     }, 8000);
 
-    fetch("/api/context")
+    const contextUrl = buildCallContextUrl({ scenarioId, grammarId });
+
+    fetch(contextUrl)
       .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
       .then(data => {
         if (!data || data.error) return;
@@ -165,7 +186,7 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
         clearTimeout(timeout);
         setContextReady(true);
       });
-  }, []);
+  }, [router, scenarioId, grammarId]);
 
   // ── Audio playback ─────────────────────────────────────
   const getAudioCtx = () => {
@@ -664,12 +685,25 @@ export function FreisprechenCall({ onCallEnded, embedded }: FreisprechenCallProp
     durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
     setPhase("active");
 
+    const micOk = await ensureMicPermission();
+    if (!micOk) {
+      _cm_active = false;
+      _cm_sending = false;
+      setPhase("idle");
+      if (durationRef.current) {
+        clearInterval(durationRef.current);
+        durationRef.current = null;
+      }
+      setError("Mikrofon-Zugriff nötig — bitte erlauben und erneut starten.");
+      return;
+    }
+
     let opening = skipNag
       ? (normalOpeningRef.current ?? openingRef.current ?? cachedOpening)
       : (openingRef.current ?? cachedOpening);
     if (!opening) {
       try {
-        const r = await fetch("/api/context");
+        const r = await fetch(buildCallContextUrl({ scenarioId, grammarId }));
         const data = await r.json();
         if (data?.opening) {
           openingRef.current = data.opening;

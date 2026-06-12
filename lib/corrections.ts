@@ -74,6 +74,12 @@ export function extractCorrectionsFromMessages(
   return out;
 }
 
+export function truncateForDisplay(text: string, max = 100): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
 export function countSatzbauEligible(corrections: CallCorrection[]): number {
   return corrections.filter(c => isSatzbauEligible(c.correct)).length;
 }

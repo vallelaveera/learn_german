@@ -1,0 +1,74 @@
+<svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes wait {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-3px); }
+      }
+      @keyframes sway {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(-2deg); }
+        75% { transform: rotate(2deg); }
+      }
+      .maya { animation: wait 2s ease-in-out infinite; }
+      .train { animation: sway 3s ease-in-out infinite; }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="200" height="160" fill="#F1EFE8"/>
+  
+  <!-- Platform/ground -->
+  <rect y="130" width="200" height="30" fill="#888780"/>
+  
+  <!-- Clock showing late time -->
+  <circle cx="30" cy="30" r="15" fill="white" stroke="#5F5E5A" stroke-width="1.5"/>
+  <circle cx="30" cy="30" r="2" fill="#2C2C2A"/>
+  <!-- Hour hand -->
+  <line x1="30" y1="30" x2="30" y2="20" stroke="#2C2C2A" stroke-width="1.5"/>
+  <!-- Minute hand pointing to 4 -->
+  <line x1="30" y1="30" x2="38" y2="32" stroke="#2C2C2A" stroke-width="1.5"/>
+  
+  <!-- Maya waiting -->
+  <g class="maya">
+    <!-- Head -->
+    <circle cx="70" cy="50" r="11" fill="#7F77DD"/>
+    <!-- Hair -->
+    <path d="M 62 45 Q 70 40 78 45" fill="#534AB7"/>
+    <!-- Eyes -->
+    <circle cx="67" cy="48" r="1.5" fill="#2C2C2A"/>
+    <circle cx="73" cy="48" r="1.5" fill="#2C2C2A"/>
+    <!-- Body -->
+    <rect x="63" y="62" width="14" height="18" fill="#7F77DD" rx="2"/>
+    <!-- Arms -->
+    <rect x="55" y="66" width="8" height="3" fill="#7F77DD" rx="1.5"/>
+    <rect x="77" y="66" width="8" height="3" fill="#7F77DD" rx="1.5"/>
+    <!-- Legs -->
+    <rect x="66" y="80" width="3" height="8" fill="#5F5E5A"/>
+    <rect x="71" y="80" width="3" height="8" fill="#5F5E5A"/>
+  </g>
+  
+  <!-- Train tracks -->
+  <line x1="110" y1="115" x2="200" y2="115" stroke="#5F5E5A" stroke-width="2"/>
+  <line x1="110" y1="125" x2="200" y2="125" stroke="#5F5E5A" stroke-width="2"/>
+  <!-- Crossties -->
+  <line x1="120" y1="115" x2="120" y2="125" stroke="#888780" stroke-width="1"/>
+  <line x1="135" y1="115" x2="135" y2="125" stroke="#888780" stroke-width="1"/>
+  <line x1="150" y1="115" x2="150" y2="125" stroke="#888780" stroke-width="1"/>
+  <line x1="165" y1="115" x2="165" y2="125" stroke="#888780" stroke-width="1"/>
+  
+  <!-- Train delayed, far away -->
+  <g class="train">
+    <!-- Train body -->
+    <rect x="140" y="90" width="35" height="20" fill="#378ADD" rx="2"/>
+    <!-- Windows -->
+    <rect x="148" y="96" width="6" height="6" fill="#B5D4F4"/>
+    <rect x="160" y="96" width="6" height="6" fill="#B5D4F4"/>
+    <!-- Wheels -->
+    <circle cx="150" cy="115" r="3" fill="#2C2C2A"/>
+    <circle cx="165" cy="115" r="3" fill="#2C2C2A"/>
+  </g>
+  
+  <!-- Sad/waiting expression indicator -->
+  <circle cx="95" cy="50" r="12" fill="none" stroke="#FAC775" stroke-width="1.5" opacity="0.6"/>
+</svg>

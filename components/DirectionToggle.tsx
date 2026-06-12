@@ -9,20 +9,22 @@ interface Props {
 
 const pill = (active: boolean): CSSProperties => ({
   flex: 1,
-  padding: "7px 10px",
-  borderRadius: 8,
-  fontSize: 10,
-  fontFamily: "var(--font-mono)",
-  letterSpacing: "0.05em",
+  padding: "10px 12px",
+  borderRadius: 12,
+  fontSize: 12,
+  fontFamily: "var(--font-sans)",
+  fontWeight: active ? 600 : 500,
   cursor: "pointer",
-  border: active ? "0.5px solid var(--accent-dim)" : "0.5px solid var(--border)",
-  background: active ? "var(--accent-glow)" : "var(--surface)",
+  border: active ? "2px solid var(--accent-dim)" : "1px solid var(--border)",
+  background: active ? "var(--accent-soft)" : "var(--surface)",
   color: active ? "var(--accent)" : "var(--text-muted)",
+  boxShadow: active ? "var(--shadow-sm)" : "none",
+  transition: "all 0.15s ease",
 });
 
 export function DirectionToggle({ value, onChange }: Props) {
   return (
-    <div style={{ display: "flex", gap: 6, width: "100%", maxWidth: 300 }}>
+    <div className="ui-card" style={{ display: "flex", gap: 6, width: "100%", maxWidth: 320, padding: 4 }}>
       <button type="button" onClick={() => onChange("en-de")} style={pill(value === "en-de")}>
         EN → DE
       </button>

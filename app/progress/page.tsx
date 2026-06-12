@@ -1,7 +1,11 @@
 "use client";
-import Link from "next/link";
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { MessageSquare, Clock, BookOpen, MessagesSquare, Flame, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
+import { StatTile } from "@/components/ui/StatTile";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ProgressIllustration } from "@/components/illustrations/ProgressIllustration";
 import { Session, Message } from "@/lib/types";
 
 interface VocabWord {
@@ -86,154 +90,90 @@ export default function ProgressPage() {
   });
 
   return (
-    <PageShell title="Fortschritt">
+    <PageShell
+      title="Fortschritt"
+      showTabBar
+      headerRight={
+        <Link href="/profile" style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}>
+          Profil
+        </Link>
+      }
+    >
       <div style={{ padding: "16px 18px" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          <ProgressIllustration width={220} height={174} />
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-          {[
-            { label: "Gespräche", value: totalSessions },
-            { label: "Minuten", value: totalMinutes },
-            { label: "Neue Wörter", value: totalWords },
-            { label: "Nachrichten", value: totalMessages },
-          ].map(s => (
-            <div
-              key={s.label}
-              style={{
-                background: "var(--surface)",
-                border: "0.5px solid var(--border)",
-                borderRadius: 12,
-                padding: "14px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "var(--text-muted)",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  marginBottom: 4,
-                }}
-              >
-                {s.label}
-              </div>
-              <div style={{ fontSize: 26, fontWeight: 500, color: "var(--accent)" }}>{s.value}</div>
-            </div>
-          ))}
+          <StatTile label="Gespräche" value={totalSessions} icon={<MessageSquare size={18} />} />
+          <StatTile label="Minuten" value={totalMinutes} icon={<Clock size={18} />} />
+          <StatTile label="Neue Wörter" value={totalWords} icon={<BookOpen size={18} />} accent="var(--green)" />
+          <StatTile label="Nachrichten" value={totalMessages} icon={<MessagesSquare size={18} />} />
         </div>
 
-        <div
-          style={{
-            marginBottom: 16,
-            background: "var(--surface)",
-            border: "0.5px solid var(--border)",
-            borderRadius: 12,
-            padding: "14px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              marginBottom: 12,
-            }}
-          >
-            Letzte 7 Tage
-          </div>
+        <div className="ui-card ui-card-padded" style={{ marginBottom: 16 }}>
+          <div className="ui-label" style={{ marginBottom: 12 }}>Letzte 7 Tage</div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             {days.map((d, i) => (
               <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                 <div
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: d.active ? "var(--accent)" : "var(--border)",
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: d.active ? "var(--gradient)" : "var(--border-light)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    boxShadow: d.active ? "var(--shadow-sm)" : "none",
                   }}
                 >
-                  {d.active && <span style={{ fontSize: 14 }}>🔥</span>}
+                  {d.active && <Flame size={16} color="#fff" />}
                 </div>
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{d.label}</span>
+                <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500 }}>{d.label}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              marginBottom: 12,
-            }}
-          >
-            Wöchentlich
-          </div>
+          <div className="ui-label" style={{ marginBottom: 12 }}>Wöchentlich</div>
           {weeks.map((w, i) => (
-            <div
-              key={i}
-              style={{
-                background: "var(--surface)",
-                border: "0.5px solid var(--border)",
-                borderRadius: 12,
-                padding: "12px 14px",
-                marginBottom: 8,
-              }}
-            >
+            <div key={i} className="ui-card ui-card-padded" style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: "var(--text)" }}>{w.label}</span>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{w.sessions} Gespräche</span>
               </div>
               <div style={{ display: "flex", gap: 16 }}>
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>⏱ {w.minutes} min</span>
-                <span style={{ fontSize: 12, color: "var(--accent)" }}>+{w.words} Wörter</span>
+                <span style={{ fontSize: 12, color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Clock size={13} /> {w.minutes} min
+                </span>
+                <span style={{ fontSize: 12, color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <BookOpen size={13} /> +{w.words} Wörter
+                </span>
               </div>
             </div>
           ))}
         </div>
 
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--text-muted)",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            marginBottom: 12,
-          }}
-        >
-          Verlauf
-        </div>
+        <div className="ui-label" style={{ marginBottom: 12 }}>Verlauf</div>
 
         {loading && <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>Lädt...</p>}
 
         {!loading && sessions.length === 0 && (
-          <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }}>Noch keine Gespräche gespeichert.</p>
-            <Link href="/call" style={{ color: "#7F77DD", fontSize: 13 }}>
-              Jetzt üben →
-            </Link>
-          </div>
+          <EmptyState
+            icon={<MessageSquare size={28} />}
+            title="Noch keine Gespräche"
+            description="Starte ein Gespräch mit Maya — dein Verlauf erscheint hier."
+            actionLabel="Jetzt üben"
+            actionHref="/call"
+          />
         )}
 
         {!loading &&
           sessions.map(s => {
             const open = expandedId === s.id;
             return (
-              <div
-                key={s.id}
-                style={{
-                  background: "var(--surface)",
-                  border: "0.5px solid var(--border)",
-                  borderRadius: 12,
-                  marginBottom: 8,
-                  overflow: "hidden",
-                }}
-              >
+              <div key={s.id} className="ui-card" style={{ marginBottom: 8, overflow: "hidden" }}>
                 <button
                   type="button"
                   onClick={() => setExpandedId(open ? null : s.id)}
@@ -250,7 +190,7 @@ export default function ProgressPage() {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{formatDate(s.startedAt)}</span>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{open ? "▲" : "▼"}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
                   </div>
                   <div style={{ fontSize: 14, fontFamily: "var(--font-serif)", marginBottom: 6 }}>
                     {s.title ?? "Gespräch"}
@@ -296,18 +236,10 @@ export default function ProgressPage() {
                     <button
                       type="button"
                       onClick={() => deleteSession(s.id)}
-                      style={{
-                        minHeight: 44,
-                        padding: "10px 16px",
-                        borderRadius: 8,
-                        border: "0.5px solid rgba(192,57,43,0.35)",
-                        background: "rgba(192,57,43,0.08)",
-                        color: "var(--red)",
-                        fontSize: 12,
-                        cursor: "pointer",
-                        fontFamily: "var(--font-mono)",
-                      }}
+                      className="ui-btn-ghost"
+                      style={{ width: "100%", color: "var(--red)", borderColor: "rgba(192,57,43,0.25)", background: "rgba(192,57,43,0.06)" }}
                     >
+                      <Trash2 size={14} />
                       Löschen
                     </button>
                   </div>

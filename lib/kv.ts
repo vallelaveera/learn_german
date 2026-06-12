@@ -4,6 +4,7 @@ import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssig
 import type { CareerVocabUserProgress } from "./career-vocab/types";
 import { normalizeGermanLevel } from "./levels";
 import { v4 as uuidv4 } from "uuid";
+import { getOrGenerateIcon } from "./vocab/icons";
 
 function isAssignmentComplete(assignment: HomeworkAssignment): boolean {
   const totalReps = assignment.sentences.length * 3;
@@ -71,6 +72,9 @@ export async function saveVocabWords(userId: string, words: string[]): Promise<v
       vocab[k].lastSeen = now;
     } else {
       vocab[k] = { word, firstSeen: now, timesSeen: 1, lastSeen: now };
+      void getOrGenerateIcon(word).catch(err =>
+        console.error("Icon gen failed:", err),
+      );
     }
   }
   await redis.set(key, JSON.stringify(vocab));
@@ -109,6 +113,47 @@ export async function markWordsUsedByUser(userId: string, words: string[]): Prom
     }
     await redis.set(key, JSON.stringify(vocab));
   } catch {}
+}
+
+export async function updateVocabStatus(
+  userId: string,
+  wordId: string,
+  correct: boolean,
+): Promise<VocabWord | null> {
+  const k = wordId.toLowerCase().trim();
+  if (!k) return null;
+
+  const redisKey = `vocab:${userId}`;
+  const now = Date.now();
+  let vocab: Record<string, VocabWord> = {};
+
+  try {
+    const data = await redis.get<string>(redisKey);
+    if (data) {
+      vocab = typeof data === "string" ? JSON.parse(data) : data;
+    }
+  } catch {
+    return null;
+  }
+
+  if (!vocab[k]) {
+    vocab[k] = {
+      word: wordId.trim(),
+      firstSeen: now,
+      timesSeen: 0,
+      lastSeen: now,
+      correctCount: 0,
+    };
+  }
+
+  vocab[k].timesSeen += 1;
+  if (correct) {
+    vocab[k].correctCount = (vocab[k].correctCount ?? 0) + 1;
+  }
+  vocab[k].lastSeen = now;
+
+  await redis.set(redisKey, JSON.stringify(vocab));
+  return vocab[k];
 }
 
 export async function getNewWordsForSession(userId: string, sessionMessages: import("./types").Message[]): Promise<string[]> {
@@ -577,7 +622,44 @@ export async function getPendingHomeworkList(userId: string): Promise<HomeworkAs
   if (!ids?.length) return [];
 
   const records = await Promise.all(ids.map(id => getHomework(id)));
-  return records.filter((a): a is HomeworkAssignment => a !== null && a.status === "pending");
+  const pending: HomeworkAssignment[] = [];
+
+  for (const assignment of records) {
+    if (!assignment) continue;
+    if (isAssignmentComplete(assignment)) {
+      assignment.status = "completed";
+      await redis.zrem(`homework:pending:${userId}`, assignment.id);
+      await redis.zadd(`homework:history:${userId}`, {
+        score: Date.now(),
+        member: assignment.id,
+      });
+      await saveHomeworkRecord(assignment);
+      continue;
+    }
+    if (assignment.status === "pending") {
+      pending.push(assignment);
+    }
+  }
+
+  return pending;
+}
+
+export async function getHomeworkHistoryList(
+  userId: string,
+  limit = 30,
+): Promise<HomeworkAssignment[]> {
+  const ids = await redis.zrange<string[]>(`homework:history:${userId}`, 0, -1, { rev: true });
+  if (!ids?.length) return [];
+
+  const records = await Promise.all(ids.slice(0, limit).map(id => getHomework(id)));
+  return records
+    .filter((a): a is HomeworkAssignment => a !== null)
+    .sort((a, b) => {
+      const aDone = a.status === "completed" ? 1 : 0;
+      const bDone = b.status === "completed" ? 1 : 0;
+      if (aDone !== bDone) return bDone - aDone;
+      return b.createdAt - a.createdAt;
+    });
 }
 
 export async function getActiveHomework(userId: string): Promise<HomeworkAssignment | null> {

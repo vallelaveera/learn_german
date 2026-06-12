@@ -9,7 +9,7 @@ interface Props {
 
 export function CallCorrectionsPanel({ corrections, sessionId }: Props) {
   const practiceCount = countSatzbauEligible(corrections);
-  const practiceHref = `/exercises/sentences?source=call&session=${encodeURIComponent(sessionId)}`;
+  const practiceHref = `/exercises/sentences?category=call&session=${encodeURIComponent(sessionId)}`;
 
   return (
     <div style={{ marginBottom: 24 }}>

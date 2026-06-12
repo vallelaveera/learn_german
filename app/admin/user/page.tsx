@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { VocabIcon } from "@/components/vocab/VocabIcon";
+import { getStatusFromScore } from "@/lib/vocab/iconColors";
 
 interface Session {
   id: string;
@@ -48,10 +50,26 @@ interface Profile {
   facts: Record<string, unknown>;
 }
 
+interface VocabWordRow {
+  word: string;
+  timesSeen: number;
+  correctCount: number;
+  usedByUser: boolean;
+}
+
+interface VocabSummary {
+  total: number;
+  learned: number;
+  new: number;
+  words?: VocabWordRow[];
+}
+
 function AdminUserContent() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [vocab, setVocab] = useState<{ total: number; learned: number; new: number } | null>(null);
+  const [vocab, setVocab] = useState<VocabSummary | null>(null);
+  const [iconRefreshKeys, setIconRefreshKeys] = useState<Record<string, number>>({});
+  const [regeneratingWord, setRegeneratingWord] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -95,6 +113,16 @@ function AdminUserContent() {
     return mins < 1 ? "<1 min" : `${mins} min`;
   };
 
+  const regenerateIcon = async (word: string) => {
+    setRegeneratingWord(word);
+    try {
+      await fetch(`/api/icons/${encodeURIComponent(word)}`, { method: "DELETE" });
+      setIconRefreshKeys(prev => ({ ...prev, [word]: (prev[word] ?? 0) + 1 }));
+    } finally {
+      setRegeneratingWord(null);
+    }
+  };
+
   return (
     <>
       {loading && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}
@@ -129,6 +157,72 @@ function AdminUserContent() {
               </div>
             ))}
           </div>
+
+          {/* Vocab words + icon regenerate */}
+          {vocab?.words && vocab.words.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                Vokabeln ({vocab.words.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                {vocab.words.map(w => {
+                  const status = getStatusFromScore(w.timesSeen, w.correctCount);
+                  return (
+                    <div
+                      key={w.word}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "8px 10px",
+                        background: "var(--surface)",
+                        border: "0.5px solid var(--border)",
+                        borderRadius: 10,
+                      }}
+                    >
+                      <VocabIcon
+                        word={w.word}
+                        status={status}
+                        size={36}
+                        refreshKey={iconRefreshKeys[w.word] ?? 0}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {w.word}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                          {w.timesSeen}× · {w.correctCount} richtig
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void regenerateIcon(w.word)}
+                        disabled={regeneratingWord === w.word}
+                        title="Icon neu generieren"
+                        style={{
+                          minWidth: 32,
+                          minHeight: 32,
+                          padding: 0,
+                          borderRadius: 8,
+                          border: "0.5px solid var(--border)",
+                          background: "var(--bg)",
+                          color: "var(--text-muted)",
+                          fontSize: 14,
+                          cursor: regeneratingWord === w.word ? "wait" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {regeneratingWord === w.word ? "…" : "↻"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* What Maya knows */}
           {Object.keys(profile.facts).length > 0 && (

@@ -1,13 +1,28 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
+import { LoginIllustration } from "@/components/login/LoginIllustration";
+import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
+import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
-const PURPLE = "#7F77DD";
-
 type Step = "email" | "name" | "level" | "native";
+
+const LOGIN_NAMES_KEY = "cmd_login_names";
+
+function readSavedNames(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LOGIN_NAMES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,7 +32,28 @@ export default function LoginPage() {
   const [nativeLanguage, setNativeLanguage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [savedNames, setSavedNames] = useState<Record<string, string>>({});
   const router = useRouter();
+
+  useEffect(() => {
+    setSavedNames(readSavedNames());
+  }, []);
+
+  const illustrationName =
+    name.trim() ||
+    savedNames[email.toLowerCase().trim()] ||
+    undefined;
+
+  const rememberName = (userEmail: string, userName: string) => {
+    const key = userEmail.toLowerCase().trim();
+    const trimmed = userName.trim();
+    if (!key || !trimmed) return;
+    setSavedNames(prev => {
+      const next = { ...prev, [key]: trimmed };
+      localStorage.setItem(LOGIN_NAMES_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const handleEmail = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,11 +68,13 @@ export default function LoginPage() {
     if (nativeLang?.trim()) payload.nativeLanguage = nativeLang.trim();
 
     if (Object.keys(payload).length > 0) {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
+      if (!res.ok) throw new Error("Profile update failed");
     }
     router.push("/mode");
   };
@@ -50,17 +88,22 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name }),
+        credentials: "include",
+        body: JSON.stringify({ email, name: name.trim() }),
       });
-      if (!res.ok) throw new Error("Login failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Login failed");
+      if (!data?.user) throw new Error("Invalid login response");
+
+      rememberName(email, name.trim());
+
       if (shouldSkipLevelOnLogin(data.user)) {
         await completeLogin();
       } else {
         setStep("level");
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -105,7 +148,7 @@ export default function LoginPage() {
 
   const subtitle =
     step === "email"
-      ? "Your German tutor is waiting."
+      ? "Lerne Deutsch — überall und jederzeit"
       : step === "name"
         ? "What should Maya call you?"
         : step === "level"
@@ -114,10 +157,22 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center",
-      justifyContent: "center", background: "var(--bg)", padding: "24px",
+      position: "relative",
+      minHeight: "100dvh",
+      overflowY: "auto",
+      overflowX: "hidden",
     }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
+      <DecorativeBackground />
+      <div style={{
+        position: "relative",
+        zIndex: 1,
+        width: "100%",
+        maxWidth: 400,
+        margin: "0 auto",
+        padding: "24px",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)",
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)",
+      }}>
 
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -136,29 +191,26 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
+        {(step === "email" || step === "name") && (
           <div style={{
-            width: 80, height: 80, borderRadius: "50%",
-            background: "var(--surface)", border: "2px solid var(--border)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative",
+            width: "100%",
+            height: 200,
+            overflow: "hidden",
+            background: "#EEEDFE",
+            borderRadius: 0,
+            margin: "16px 0",
           }}>
-            <span style={{
-              fontFamily: "var(--font-serif)", fontSize: 32,
-              fontWeight: 300, color: "var(--accent)"
-            }}>M</span>
-            <div style={{
-              position: "absolute", bottom: -2, right: -2,
-              width: 20, height: 20, borderRadius: "50%",
-              background: "var(--green)", border: "2px solid var(--bg)",
-            }}/>
+            <LoginIllustration userName={illustrationName} />
           </div>
-        </div>
+        )}
 
-        <div style={{
-          background: "var(--surface)", border: "1px solid var(--border)",
-          borderRadius: 12, padding: "28px 24px",
-        }}>
+        {step === "level" && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+            <LearningIllustration width={220} height={170} />
+          </div>
+        )}
+
+        <div className="ui-card" style={{ padding: "28px 24px" }}>
           {step === "email" ? (
             <form onSubmit={handleEmail}>
               <label style={{
@@ -182,13 +234,7 @@ export default function LoginPage() {
                 }}
               />
               {error && <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 12 }}>{error}</p>}
-              <button type="submit" style={{
-                width: "100%", minHeight: 44, padding: "12px",
-                background: "var(--accent)", border: "none",
-                borderRadius: 8, color: "var(--bg)", fontSize: 14,
-                fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-mono)",
-                letterSpacing: "0.04em",
-              }}>
+              <button type="submit" className="ui-btn-primary" style={{ fontSize: 14 }}>
                 Weiter →
               </button>
             </form>
@@ -225,14 +271,7 @@ export default function LoginPage() {
                 }}
               />
               {error && <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 12 }}>{error}</p>}
-              <button type="submit" disabled={loading} style={{
-                width: "100%", minHeight: 44, padding: "12px",
-                background: "var(--accent)", border: "none",
-                borderRadius: 8, color: "var(--bg)", fontSize: 14,
-                fontWeight: 500, cursor: loading ? "wait" : "pointer",
-                fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-                opacity: loading ? 0.7 : 1,
-              }}>
+              <button type="submit" disabled={loading} className="ui-btn-primary" style={{ fontSize: 14, opacity: loading ? 0.7 : 1, cursor: loading ? "wait" : "pointer" }}>
                 {loading ? "Wird geladen..." : "Weiter →"}
               </button>
             </form>
@@ -254,14 +293,8 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!selectedLevel || loading}
-                style={{
-                  width: "100%", minHeight: 44, marginTop: 20, padding: "12px",
-                  background: PURPLE, border: "none",
-                  borderRadius: 8, color: "#fff", fontSize: 15,
-                  fontWeight: 500, cursor: selectedLevel && !loading ? "pointer" : "not-allowed",
-                  fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-                  opacity: selectedLevel && !loading ? 1 : 0.5,
-                }}
+                className="ui-btn-primary"
+                style={{ marginTop: 20, fontSize: 15, opacity: selectedLevel && !loading ? 1 : 0.5, cursor: selectedLevel && !loading ? "pointer" : "not-allowed" }}
               >
                 {loading ? "Wird geladen..." : "Weiter"}
               </button>
@@ -294,14 +327,8 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!nativeLanguage.trim() || loading}
-                style={{
-                  width: "100%", minHeight: 44, marginTop: 20, padding: "12px",
-                  background: PURPLE, border: "none",
-                  borderRadius: 8, color: "#fff", fontSize: 15,
-                  fontWeight: 500, cursor: nativeLanguage.trim() && !loading ? "pointer" : "not-allowed",
-                  fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-                  opacity: nativeLanguage.trim() && !loading ? 1 : 0.5,
-                }}
+                className="ui-btn-primary"
+                style={{ marginTop: 20, fontSize: 15, opacity: nativeLanguage.trim() && !loading ? 1 : 0.5, cursor: nativeLanguage.trim() && !loading ? "pointer" : "not-allowed" }}
               >
                 {loading ? "Wird geladen..." : "Los geht's"}
               </button>

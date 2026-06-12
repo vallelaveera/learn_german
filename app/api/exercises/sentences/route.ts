@@ -7,7 +7,9 @@ import {
   saveExerciseResults,
 } from "@/lib/kv";
 import { buildCallSentenceExercises } from "@/lib/exercises/call-sentences";
-import { selectSentenceExercises, shuffleWords } from "@/lib/exercises/sentences";
+import { selectSentenceExercises } from "@/lib/exercises/sentences-select";
+import { shuffleWords } from "@/lib/exercises/sentences";
+import { parseSentenceCategory } from "@/lib/exercises/categories";
 
 export const runtime = "nodejs";
 
@@ -17,16 +19,28 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const source = req.nextUrl.searchParams.get("source");
+    // Call corrections: GET ?source=call&session={id}
     if (source === "call") {
       const sessionId = req.nextUrl.searchParams.get("session");
-      const corrections = sessionId
+      let corrections = sessionId
         ? (await getSessionCorrections(user.userId, sessionId)).filter(c => !c.practiced)
-        : await getUnpracticedCorrections(user.userId, 5);
+        : await getUnpracticedCorrections(user.userId, 20);
+      if (!sessionId && corrections.length) {
+        const latestSession = corrections[corrections.length - 1].sessionId;
+        corrections = corrections.filter(c => c.sessionId === latestSession);
+      }
+      corrections = corrections.slice(-5);
       const exercises = buildCallSentenceExercises(corrections);
       return NextResponse.json({ exercises, source: "call" });
     }
 
-    const sentences = await selectSentenceExercises(user.userId, user, 5);
+    const sentences = await selectSentenceExercises(
+      user.userId,
+      user,
+      5,
+      parseSentenceCategory(req.nextUrl.searchParams.get("category")),
+      req.nextUrl.searchParams.get("scenario"),
+    );
     const exercises = sentences.map(s => ({
       ...s,
       chips: shuffleWords(s.words),

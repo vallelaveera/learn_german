@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
+import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
+import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
 import type { BinaryCard, PlacementLevel } from "@/lib/exercises/types";
+import { TabBar } from "@/components/layout/TabBar";
 import { normalizeGermanLevel } from "@/lib/levels";
+import { reportVocabAnswer } from "@/lib/vocab/reportAnswer";
 
 export default function PlacementPage() {
   const router = useRouter();
@@ -71,6 +76,7 @@ export default function PlacementPage() {
     if (!card || feedback) return;
     const correct = card.correctOption === option;
     setFeedback(correct ? "correct" : "wrong");
+    reportVocabAnswer(card.german, correct);
     const updated = [...roundResults, { itemId: card.id, german: card.german, correct }];
     setRoundResults(updated);
     setTimeout(() => {
@@ -90,53 +96,67 @@ export default function PlacementPage() {
 
   if (finished) {
     return (
-      <div style={{
-        minHeight: "100dvh", background: "var(--bg)", padding: 24,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
-      }}>
-        <p style={{ fontSize: 40, marginBottom: 16 }}>🎯</p>
-        <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>Level: {finished.level}</h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28, lineHeight: 1.6 }}>
-          Maya passt ihre Sprache an dein Niveau an.
-          {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
-        </p>
-        <button
-          onClick={() => router.push(`/mode?level=${finished.level}`)}
-          style={{ padding: "14px 28px", borderRadius: 10, background: "var(--accent)", color: "var(--bg)", border: "none", fontSize: 14, cursor: "pointer", fontFamily: "var(--font-mono)" }}
-        >
-          Weiter →
-        </button>
-      </div>
+      <>
+        <div style={{
+          minHeight: "100dvh", background: "var(--bg)", padding: 24,
+          paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+        }}>
+          <SuccessIllustration width={180} height={180} />
+          <h1 className="ui-title-serif" style={{ fontSize: 28, marginBottom: 8, marginTop: 16 }}>Level: {finished.level}</h1>
+          <p className="ui-muted" style={{ marginBottom: 28, maxWidth: 300 }}>
+            Maya passt ihre Sprache an dein Niveau an.
+            {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/mode?level=${finished.level}`)}
+            className="ui-btn-primary"
+            style={{ width: "auto", minWidth: 200, fontSize: 14 }}
+          >
+            Weiter →
+          </button>
+        </div>
+        <TabBar />
+      </>
     );
   }
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Level-Check wird vorbereitet...</p>
-      </div>
+      <>
+        <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))" }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Level-Check wird vorbereitet...</p>
+        </div>
+        <TabBar />
+      </>
     );
   }
 
   return (
+    <>
     <div style={{
       minHeight: "100dvh", background: "var(--bg)",
       paddingTop: "calc(env(safe-area-inset-top,0px) + 20px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)",
+      paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
       paddingLeft: 20, paddingRight: 20,
       display: "flex", flexDirection: "column", alignItems: "center",
     }}>
-      <header style={{ width: "100%", maxWidth: 360, marginBottom: 28 }}>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, color: "var(--text)", marginBottom: 6 }}>
+      <WelcomeIllustration width={200} height={160} />
+      <header style={{ width: "100%", maxWidth: 360, marginBottom: 20, marginTop: 16, textAlign: "center" }}>
+        <p className="ui-title-serif" style={{ fontSize: 22, marginBottom: 6 }}>
           {betaShort ? "Kurzer Level-Check" : "Dein Deutsch-Level"}
         </p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+        <p className="ui-muted">
           {betaShort
-            ? `${cards.length} kurze Fragen — wähle die richtige englische Bedeutung.`
+            ? `${cards.length} kurze Fragen — dauert etwa 2 Minuten.`
             : `Kurzer Check — wähle die richtige englische Bedeutung. Stufe ${level}.`}
         </p>
       </header>
 
+      <LearningIllustration width={200} height={154} />
+
+      <div style={{ width: "100%", maxWidth: 360, marginTop: 16 }}>
       {cards[index] && (
         <BinaryFlashcard
           card={cards[index]}
@@ -148,18 +168,18 @@ export default function PlacementPage() {
           showDirectionToggle={false}
         />
       )}
+      </div>
 
       <button
+        type="button"
         onClick={skipAll}
-        style={{
-          marginTop: 32, fontSize: 12, color: "var(--text-muted)",
-          background: "none", border: "0.5px solid var(--border)",
-          padding: "10px 20px", borderRadius: 8, cursor: "pointer",
-          fontFamily: "var(--font-mono)",
-        }}
+        className="ui-btn-ghost"
+        style={{ marginTop: 32 }}
       >
         {betaShort ? "Später — ich starte mit A1" : "Überspringen (A1 annehmen)"}
       </button>
     </div>
+    <TabBar />
+    </>
   );
 }

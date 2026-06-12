@@ -41,17 +41,17 @@ export function NativeLanguageSelect({ value, onChange }: Props) {
                 borderRadius: 8,
                 border: isOther
                   ? active ? "1px dashed #9ca3af" : "1px dashed var(--border)"
-                  : active ? "1px solid #7F77DD" : "1px solid var(--border)",
+                  : active ? "1px solid var(--accent)" : "1px solid var(--border)",
                 background: isOther
                   ? active ? "rgba(156, 163, 175, 0.14)" : "transparent"
-                  : active ? "rgba(127, 119, 221, 0.12)" : "var(--bg)",
+                  : active ? "var(--accent-soft)" : "var(--surface)",
                 color: isOther
                   ? "var(--text-muted)"
-                  : active ? "#7F77DD" : "var(--text)",
+                  : active ? "var(--accent)" : "var(--text)",
                 fontSize: 13,
                 fontStyle: isOther ? "italic" : "normal",
                 cursor: "pointer",
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
               }}
             >
               {label}

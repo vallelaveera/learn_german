@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
 import type { ExerciseDirection } from "@/components/DirectionToggle";
 import type { BinaryCard } from "@/lib/exercises/types";
+import { reportVocabAnswer } from "@/lib/vocab/reportAnswer";
 
 function WarmupInner() {
   const router = useRouter();
@@ -16,7 +17,7 @@ function WarmupInner() {
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(false);
-  const [direction, setDirection] = useState<ExerciseDirection>("en-de");
+  const [direction, setDirection] = useState<ExerciseDirection>("de-en");
 
   useEffect(() => {
     fetch("/api/exercises/warmup")
@@ -31,6 +32,7 @@ function WarmupInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ results: [result] }),
     });
+    reportVocabAnswer(result.german, result.correct);
   };
 
   const finish = async () => {
@@ -90,6 +92,7 @@ function WarmupInner() {
         onChoose={handleChoose}
         direction={direction}
         onDirectionChange={setDirection}
+        showWordExamples
       />
 
       <button

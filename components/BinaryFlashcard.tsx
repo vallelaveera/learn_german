@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
+import { Volume2 } from "lucide-react";
 import type { BinaryCard } from "@/lib/exercises/types";
 import { DirectionToggle, type ExerciseDirection } from "@/components/DirectionToggle";
 import { WordExamplesPanel } from "@/components/exercises/WordExamplesPanel";
+import { VocabIcon } from "@/components/vocab/VocabIcon";
 import { speakExercisePrompt, stopExerciseSpeech } from "@/lib/exercise-speech";
 
 interface Props {
@@ -41,6 +43,7 @@ export function BinaryFlashcard({
   const optionB = isEnDe ? card.deOptionB : card.optionB;
   const correctOption = isEnDe ? card.deCorrectOption : card.correctOption;
   const chooseLabel = isEnDe ? "Welches Deutsch?" : "Englische Bedeutung?";
+  const progress = ((index + (feedback ? 1 : 0)) / total) * 100;
 
   const playPrompt = useCallback(() => {
     speakExercisePrompt(prompt, promptSpeechLang).catch(() => {});
@@ -58,40 +61,66 @@ export function BinaryFlashcard({
   };
 
   return (
-    <div style={{ width: "100%", maxWidth: 300 }}>
+    <div style={{ width: "100%", maxWidth: 320 }} className="animate-fade-in">
       {showDirectionToggle && onDirectionChange && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 16 }}>
           <DirectionToggle value={direction} onChange={onDirectionChange} />
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
-        <span>{index + 1} / {total}</span>
-        {card.level && <span style={{ color: "var(--accent)" }}>{card.level}</span>}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span className="ui-label">Frage {index + 1} / {total}</span>
+          {card.level && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", background: "var(--accent-soft)", padding: "3px 8px", borderRadius: 8 }}>
+              {card.level}
+            </span>
+          )}
+        </div>
+        <div className="ui-progress-track">
+          <div className="ui-progress-fill" style={{ width: `${Math.min(100, progress)}%` }} />
+        </div>
       </div>
 
-      <div style={{
-        textAlign: "center", padding: "16px 14px", marginBottom: 14,
-        background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", borderRadius: 10,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
-          <p style={{ fontSize: 9, color: "var(--accent)", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-            {promptLang}
-          </p>
+      {showWordExamples && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <VocabIcon word={card.german} size={80} status="new" />
+        </div>
+      )}
+
+      <div
+        className="ui-card"
+        style={{
+          textAlign: "center",
+          padding: "22px 18px",
+          marginBottom: 16,
+          background: "var(--gradient-soft)",
+          border: "1px solid var(--accent-dim)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 }}>
+          <span className="ui-label" style={{ color: "var(--accent)", margin: 0 }}>{promptLang}</span>
           <button
             type="button"
             onClick={playPrompt}
-            style={{
-              fontSize: 10, padding: "2px 8px", borderRadius: 4,
-              border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
-              color: "var(--accent)", cursor: "pointer",
-            }}
             aria-label="Nochmal anhören"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              border: "1px solid var(--accent-dim)",
+              background: "var(--surface)",
+              color: "var(--accent)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            🔊
+            <Volume2 size={16} />
           </button>
         </div>
-        <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 400, color: "var(--text)", lineHeight: 1.35, margin: 0 }}>
+        <p className="ui-title-serif" style={{ fontSize: 22, margin: 0, lineHeight: 1.35 }}>
           {prompt}
         </p>
       </div>
@@ -100,9 +129,9 @@ export function BinaryFlashcard({
         <WordExamplesPanel word={card.german} disabled={!!feedback} />
       )}
 
-      <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginBottom: 10 }}>{chooseLabel}</p>
+      <p className="ui-muted" style={{ textAlign: "center", marginBottom: 12, fontSize: 12 }}>{chooseLabel}</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {(["A", "B"] as const).map(opt => {
           const label = opt === "A" ? optionA : optionB;
           const isCorrect = feedback && correctOption === opt;
@@ -114,21 +143,29 @@ export function BinaryFlashcard({
               onClick={() => handleChoose(opt)}
               disabled={disabled || !!feedback}
               style={{
-                padding: "11px 8px", borderRadius: 8, cursor: disabled || feedback ? "default" : "pointer",
-                fontSize: 12, lineHeight: 1.35, fontFamily: "var(--font-serif)",
+                padding: "14px 10px",
+                minHeight: 56,
+                borderRadius: 14,
+                cursor: disabled || feedback ? "default" : "pointer",
+                fontSize: 13,
+                lineHeight: 1.35,
+                fontFamily: "var(--font-serif)",
+                fontWeight: 500,
                 background: isCorrect
-                  ? "rgba(39,174,96,0.12)"
+                  ? "var(--brand-green-soft)"
                   : isWrong
-                    ? "rgba(192,57,43,0.1)"
-                    : "rgba(255,255,255,0.03)",
+                    ? "rgba(220,74,58,0.1)"
+                    : "var(--surface)",
                 border: isCorrect
-                  ? "1px solid var(--green)"
+                  ? "2px solid var(--green)"
                   : isWrong
-                    ? "1px solid rgba(192,57,43,0.5)"
-                    : "0.5px solid var(--border)",
-                color: idle ? "var(--text-muted)" : "var(--text)",
+                    ? "2px solid rgba(220,74,58,0.45)"
+                    : "1px solid var(--border)",
+                color: idle ? "var(--text)" : "var(--text)",
+                boxShadow: idle ? "var(--shadow-sm)" : "none",
                 WebkitTapHighlightColor: "transparent",
                 transition: "all 0.15s",
+                transform: idle ? "scale(1)" : isCorrect ? "scale(1.02)" : "scale(0.98)",
               }}
             >
               {label}
@@ -138,10 +175,10 @@ export function BinaryFlashcard({
       </div>
 
       {feedback === "correct" && (
-        <p style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: "var(--green)" }}>Richtig!</p>
+        <p style={{ textAlign: "center", marginTop: 14, fontSize: 14, fontWeight: 600, color: "var(--green)" }}>Richtig!</p>
       )}
       {feedback === "wrong" && (
-        <p style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: "var(--red)", lineHeight: 1.4 }}>
+        <p style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "var(--red)", lineHeight: 1.45 }}>
           Richtig: {correctOption === "A" ? optionA : optionB}
         </p>
       )}

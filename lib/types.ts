@@ -49,6 +49,7 @@ export interface VocabWord {
   timesSeen: number;
   lastSeen: number;
   usedByUser?: boolean;
+  correctCount?: number;
 }
 
 export interface UserProfile {

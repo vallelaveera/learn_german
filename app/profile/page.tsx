@@ -1,7 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { LogOut, Check, Flame, MessageSquare, TrendingUp, ChevronRight } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
+import { StatTile } from "@/components/ui/StatTile";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -19,7 +22,7 @@ export default function ProfilePage() {
         setName(d.user.name);
         setLoading(false);
       });
-  }, []);
+  }, [router]);
 
   const save = async () => {
     await fetch("/api/profile", {
@@ -38,35 +41,59 @@ export default function ProfilePage() {
       {loading ? <p style={{ padding: 24, color: "var(--text-muted)" }}>Lädt...</p> : (
         <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* Avatar */}
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg, #7c4daa, #e8643a)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontFamily: "var(--font-serif)", fontSize: 24, color: "#fff" }}>{name[0]?.toUpperCase()}</span>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "var(--gradient)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "var(--shadow-md)",
+              }}
+            >
+              <span style={{ fontFamily: "var(--font-serif)", fontSize: 26, color: "#fff" }}>
+                {name[0]?.toUpperCase()}
+              </span>
             </div>
             <div>
-              <p style={{ fontSize: 16, fontWeight: 500, color: "var(--text)" }}>{user.name}</p>
-              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{user.email}</p>
+              <p style={{ fontSize: 18, fontWeight: 600, color: "var(--text)" }}>{user.name}</p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{user.email}</p>
             </div>
           </div>
 
-          {/* Edit name */}
-          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14 }}>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Name</p>
+          <div className="ui-card ui-card-padded">
+            <p className="ui-label" style={{ marginBottom: 10 }}>Name</p>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                style={{ flex: 1, padding: "8px 12px", background: "var(--bg)", border: "0.5px solid var(--border)", borderRadius: 6, color: "var(--text)", fontSize: 16, fontFamily: "var(--font-mono)" }}
+                className="ui-card"
+                style={{
+                  flex: 1,
+                  padding: "10px 12px",
+                  border: "1px solid var(--border-light)",
+                  color: "var(--text)",
+                  fontSize: 15,
+                  fontFamily: "var(--font-sans)",
+                  outline: "none",
+                }}
               />
-              <button onClick={save} style={{ padding: "8px 16px", background: "linear-gradient(135deg, #7c4daa, #e8643a)", borderRadius: 6, color: "#fff", fontSize: 13, fontFamily: "var(--font-mono)", cursor: "pointer" }}>
-                {saved ? "✓" : "Speichern"}
+              <button
+                type="button"
+                onClick={save}
+                className="ui-btn-primary"
+                style={{ width: "auto", minHeight: 44, padding: "10px 18px", fontSize: 14 }}
+              >
+                {saved ? <Check size={16} /> : "Speichern"}
               </button>
             </div>
           </div>
 
-          {/* What Maya knows — only safe fields */}
-          <div style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 14 }}>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Dein Lernprofil</p>
+          <div className="ui-card ui-card-padded">
+            <p className="ui-label" style={{ marginBottom: 12 }}>Dein Lernprofil</p>
             {[
               { key: "nativeLanguage", label: "Muttersprache" },
               { key: "germanWhy", label: "Warum Deutsch" },
@@ -75,30 +102,61 @@ export default function ProfilePage() {
             ]
               .filter(({ key }) => facts[key])
               .map(({ key, label }) => (
-                <div key={key} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", minWidth: 110 }}>{label}</span>
-                  <span style={{ fontSize: 13, color: "var(--text)" }}>
+                <div key={key} style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                  <span className="ui-label" style={{ minWidth: 110, marginBottom: 0 }}>{label}</span>
+                  <span style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.4 }}>
                     {Array.isArray(facts[key]) ? (facts[key] as string[]).join(", ") : String(facts[key])}
                   </span>
                 </div>
               ))}
           </div>
 
-          {/* Stats */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {[
-              { label: "Sessions", value: user.totalSessions ?? 0 },
-              { label: "Streak", value: `🔥 ${user.streak ?? 0}` },
-            ].map(s => (
-              <div key={s.label} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 10, padding: 14, textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{s.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 500, color: "#7c4daa" }}>{s.value}</div>
-              </div>
-            ))}
+            <StatTile label="Sessions" value={user.totalSessions ?? 0} icon={<MessageSquare size={18} />} />
+            <StatTile label="Streak" value={user.streak ?? 0} icon={<Flame size={18} />} accent="var(--green)" />
           </div>
 
-          <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
-            style={{ padding: "12px", borderRadius: 10, border: "0.5px solid var(--border)", background: "none", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", fontFamily: "var(--font-mono)" }}>
+          <Link
+            href="/progress"
+            className="ui-card ui-card-padded"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "var(--accent-soft)",
+                color: "var(--accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <TrendingUp size={20} />
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Fortschritt</span>
+              <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+                Gespräche, Streak & Verlauf
+              </span>
+            </span>
+            <ChevronRight size={18} color="var(--text-dim)" />
+          </Link>
+
+          <button
+            type="button"
+            onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}
+            className="ui-btn-ghost"
+            style={{ width: "100%", minHeight: 48, justifyContent: "center" }}
+          >
+            <LogOut size={16} />
             Logout
           </button>
         </div>

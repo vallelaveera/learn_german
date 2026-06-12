@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import type { CEFRLevel, SavedSentence, SavedWord } from "./types";
+import type { CEFRLevel, SavedSentence, SavedWord, UnifiedWord } from "./types";
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -80,4 +80,47 @@ export async function loadCorpusWords(): Promise<SavedWord[]> {
     console.error("[vocab/load] failed to load corpus words:", e);
     return [];
   }
+}
+
+function parseUnifiedWordRecord(raw: unknown): UnifiedWord | null {
+  if (!raw) return null;
+  try {
+    const record = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!record?.id || !record?.text || !record?.translation) return null;
+    return record as UnifiedWord;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadUnifiedWords(): Promise<UnifiedWord[]> {
+  try {
+    const ids = await redis.zrange<string[]>("uv:words:all", 0, -1, { rev: true });
+    if (!ids?.length) return [];
+
+    const records = await Promise.all(
+      ids.map(id => redis.get<string>(`uv:word:${id}`)),
+    );
+
+    return records
+      .map(parseUnifiedWordRecord)
+      .filter((w): w is UnifiedWord => w !== null);
+  } catch (e) {
+    console.error("[vocab/load] failed to load unified words:", e);
+    return [];
+  }
+}
+
+export async function filterUnifiedWords(params: {
+  level?: CEFRLevel;
+  category?: string;
+}): Promise<UnifiedWord[]> {
+  let words = await loadUnifiedWords();
+  if (params.level) {
+    words = words.filter(w => w.level === params.level);
+  }
+  if (params.category) {
+    words = words.filter(w => w.category === params.category);
+  }
+  return words;
 }

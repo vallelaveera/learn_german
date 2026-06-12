@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useCallback, useState } from "react";
+import { Mic, Square } from "lucide-react";
 
 interface HomeworkRecorderProps {
   onRecorded: (blob: Blob, transcript?: string) => void;
@@ -63,23 +64,30 @@ export function HomeworkRecorder({ onRecorded, onError, disabled }: HomeworkReco
       type="button"
       onClick={toggle}
       disabled={disabled}
+      aria-label={recording ? "Aufnahme stoppen" : "Aufnahme starten"}
       style={{
-        width: 64,
-        height: 64,
+        width: 72,
+        height: 72,
         borderRadius: "50%",
         border: "none",
-        background: recording ? "var(--red)" : "var(--green)",
+        background: recording ? "var(--red)" : "var(--gradient)",
         color: "white",
-        fontSize: 24,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         boxShadow: recording
-          ? "0 0 0 8px rgba(192,57,43,0.2)"
-          : "0 0 0 8px rgba(39,174,96,0.15)",
+          ? "0 0 0 10px rgba(220,74,58,0.15), var(--shadow-md)"
+          : "var(--shadow-lg)",
         WebkitTapHighlightColor: "transparent",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "transform 0.12s ease, box-shadow 0.12s ease",
       }}
+      onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = "scale(0.96)"; }}
+      onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
     >
-      {recording ? "■" : "🎙"}
+      {recording ? <Square size={26} fill="currentColor" /> : <Mic size={28} strokeWidth={2} />}
     </button>
   );
 }

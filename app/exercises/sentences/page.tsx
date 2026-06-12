@@ -3,6 +3,21 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Volume2 } from "lucide-react";
+import { ExerciseCategoryPicker } from "@/components/exercises/ExerciseCategoryPicker";
+import { SentencePreviewDurationSetting } from "@/components/exercises/SentencePreviewDurationSetting";
+import { SentenceSelfRecorder, playRecordingUrls } from "@/components/exercises/SentenceSelfRecorder";
+import { ExerciseShell } from "@/components/layout/ExerciseShell";
+import { truncateForDisplay } from "@/lib/corrections";
+import {
+  getSentenceCategoryMeta,
+  parseSentenceCategory,
+  type SentenceExerciseCategory,
+} from "@/lib/exercises/categories";
+import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { SentenceIllustration } from "@/components/illustrations/SentenceIllustration";
+import { resolveIllustrationId } from "@/lib/content/illustration-lookup";
+import { loadPreviewDurationSetting, resolvePreviewSeconds } from "@/lib/exercises/sentence-preview-duration";
 import {
   prefetchExerciseGerman,
   revokeExerciseSpeechPrefetch,
@@ -24,17 +39,46 @@ interface SentenceExercise {
   words: string[];
   chips: Chip[];
   said?: string;
+  note?: string;
 }
 
 type Phase = "preview" | "build" | "complete" | "done";
 
-const PREVIEW_MS = 5000;
-
 function SentencesInner() {
-  const router = useRouter();
   const params = useSearchParams();
-  const fromCall = params.get("source") === "call";
-  const sessionId = params.get("session");
+  const rawCategory = params.get("category");
+  if (!rawCategory) {
+    return (
+      <ExerciseShell>
+        <div style={{ padding: "0 18px" }}>
+          <ExerciseCategoryPicker type="sentences" />
+        </div>
+      </ExerciseShell>
+    );
+  }
+
+  const category = parseSentenceCategory(rawCategory);
+  return (
+    <SentencesPractice
+      category={category}
+      sessionId={params.get("session")}
+      scenarioId={params.get("scenario")}
+    />
+  );
+}
+
+function SentencesPractice({
+  category,
+  sessionId,
+  scenarioId,
+}: {
+  category: SentenceExerciseCategory;
+  sessionId: string | null;
+  scenarioId: string | null;
+}) {
+  const router = useRouter();
+  const meta = getSentenceCategoryMeta(category);
+  const fromCall = category === "call";
 
   const [exercises, setExercises] = useState<SentenceExercise[]>([]);
   const [index, setIndex] = useState(0);
@@ -46,12 +90,22 @@ function SentencesInner() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [noMore, setNoMore] = useState(false);
   const [showEnHint, setShowEnHint] = useState(false);
+  const [skipMaya, setSkipMaya] = useState(false);
+  const [userRecordings, setUserRecordings] = useState<Record<number, string>>({});
+  const [playingAll, setPlayingAll] = useState(false);
+  const [previewSeconds, setPreviewSeconds] = useState(() =>
+    typeof window === "undefined" ? 5 : resolvePreviewSeconds(loadPreviewDurationSetting()),
+  );
 
   const current = exercises[index];
+  const illustrationId = current
+    ? resolveIllustrationId(current.id, current.german)
+    : null;
+  const currentRecording = userRecordings[index] ?? null;
 
   const exercisesUrl = fromCall
     ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
-    : "/api/exercises/sentences";
+    : `/api/exercises/sentences?category=${category}${scenarioId ? `&scenario=${encodeURIComponent(scenarioId)}` : ""}`;
 
   const loadExercises = useCallback(async (isMore = false) => {
     if (isMore) setLoadingMore(true);
@@ -82,9 +136,15 @@ function SentencesInner() {
 
   const playGerman = useCallback(() => {
     if (!current) return;
+    if (skipMaya && currentRecording) {
+      const audio = new Audio(currentRecording);
+      void audio.play();
+      return;
+    }
+    if (skipMaya) return;
     unlockExerciseAudio();
     speakExercisePrompt(current.german, "de").catch(() => {});
-  }, [current]);
+  }, [current, skipMaya, currentRecording]);
 
   useEffect(() => {
     if (!current) return;
@@ -98,19 +158,51 @@ function SentencesInner() {
 
   useEffect(() => {
     if (phase !== "preview" || !current) return;
+
     let cancelled = false;
-    const run = async () => {
-      await prefetchExerciseGerman(current.german);
-      if (!cancelled) await speakExercisePrompt(current.german, "de");
+    let postAudioTimer: number | undefined;
+
+    /** Keep sentence on screen for previewSeconds after Maya / audio finishes. */
+    const finishPreview = () => {
+      postAudioTimer = window.setTimeout(() => {
+        if (!cancelled) setPhase("build");
+      }, previewSeconds * 1000);
     };
-    void run();
-    const t = setTimeout(() => setPhase("build"), PREVIEW_MS);
+
+    if (skipMaya && currentRecording) {
+      const audio = new Audio(currentRecording);
+      audio.onended = () => finishPreview();
+      audio.onerror = () => finishPreview();
+      void audio.play().catch(() => finishPreview());
+      return () => {
+        cancelled = true;
+        if (postAudioTimer) clearTimeout(postAudioTimer);
+        audio.pause();
+      };
+    }
+
+    if (skipMaya) {
+      finishPreview();
+      return () => {
+        cancelled = true;
+        if (postAudioTimer) clearTimeout(postAudioTimer);
+      };
+    }
+
+    void (async () => {
+      unlockExerciseAudio();
+      await prefetchExerciseGerman(current.german);
+      if (cancelled) return;
+      await speakExercisePrompt(current.german, "de");
+      if (!cancelled) finishPreview();
+    })();
+
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      if (postAudioTimer) clearTimeout(postAudioTimer);
       stopExerciseSpeech();
     };
-  }, [phase, current?.id, index]);
+  }, [phase, current?.id, current?.german, index, skipMaya, currentRecording, previewSeconds]);
 
   useEffect(() => {
     setShowEnHint(false);
@@ -163,39 +255,60 @@ function SentencesInner() {
     }
   };
 
+  const playAllRecordings = async () => {
+    const urls = exercises.map((_, i) => userRecordings[i]).filter(Boolean) as string[];
+    if (!urls.length) return;
+    setPlayingAll(true);
+    try {
+      await playRecordingUrls(urls);
+    } finally {
+      setPlayingAll(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
-      </div>
+      <ExerciseShell>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60dvh", padding: 24 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
+        </div>
+      </ExerciseShell>
     );
   }
 
   if (!exercises.length) {
     return (
-      <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: 24, textAlign: "center" }}>
-        <p style={{ marginTop: 80, color: "var(--text-muted)" }}>
+      <ExerciseShell>
+        <div style={{ padding: 24, textAlign: "center" }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>{meta?.emoji ?? "🧩"}</p>
+        <p style={{ marginTop: 40, color: "var(--text-muted)" }}>
           {fromCall
-            ? "Keine übbaren Korrekturen aus diesem Anruf (Sätze zu kurz oder schon geübt)."
-            : "Keine Sätze verfügbar."}
+            ? "Keine übbaren Korrekturen aus deinem Anruf."
+            : "Keine Sätze in dieser Kategorie."}
         </p>
-        <Link href="/mode" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>← Zurück</Link>
-      </div>
+        <Link href="/exercises/sentences" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>
+          ← Andere Kategorie
+        </Link>
+        </div>
+      </ExerciseShell>
     );
   }
 
   if (phase === "done") {
+    const recordedCount = Object.keys(userRecordings).length;
     return (
+      <ExerciseShell>
       <div style={{
-        minHeight: "100dvh", background: "var(--bg)", padding: 24,
+        padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+        minHeight: "70dvh",
       }}>
-        <p style={{ fontSize: 40, marginBottom: 12 }}>🧩</p>
-        <h1 style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 300, marginBottom: 8 }}>
+        <SuccessIllustration width={160} height={160} />
+        <h1 className="ui-title-serif" style={{ fontSize: 26, marginBottom: 8, marginTop: 16 }}>
           {score} / {exercises.length} richtig
         </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: noMore ? 12 : 28 }}>
-          {fromCall ? "Satzbau — aus deinem Anruf" : "Satzbau — Wörter in der richtigen Reihenfolge"}
+        <p className="ui-muted" style={{ marginBottom: noMore ? 12 : 28 }}>
+          {meta?.label ?? "Sätze üben"}
         </p>
         {noMore && (
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.5 }}>
@@ -203,50 +316,74 @@ function SentencesInner() {
           </p>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
+          {recordedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => void playAllRecordings()}
+              disabled={playingAll}
+              className="ui-btn-primary"
+              style={{ fontSize: 14, opacity: playingAll ? 0.7 : 1 }}
+            >
+              {playingAll ? "Spielt ab..." : `Meine ${recordedCount} Aufnahmen anhören`}
+            </button>
+          )}
           {!noMore && (
             <button
               type="button"
               onClick={() => void loadExercises(true)}
               disabled={loadingMore}
-              style={{
-                width: "100%", minHeight: 48, padding: "14px 28px", borderRadius: 10,
-                background: "#7F77DD", color: "#fff", fontSize: 14, fontFamily: "var(--font-mono)",
-                border: "none", cursor: loadingMore ? "wait" : "pointer",
-                opacity: loadingMore ? 0.7 : 1,
-              }}
+              className="ui-btn-primary"
+              style={{ fontSize: 14, opacity: loadingMore ? 0.7 : 1, cursor: loadingMore ? "wait" : "pointer" }}
             >
               {loadingMore ? "Lädt..." : "Weiter üben"}
             </button>
           )}
-          <Link href="/mode" style={{
-            padding: "14px 28px", borderRadius: 10,
-            border: "0.5px solid var(--border)", background: "var(--surface)",
-            color: "var(--text)", fontSize: 14, fontFamily: "var(--font-mono)", textDecoration: "none",
-            textAlign: "center", minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            Zurück
+          <Link href="/exercises/sentences" className="ui-btn-ghost" style={{ textDecoration: "none", minHeight: 48, justifyContent: "center" }}>
+            Kategorien
           </Link>
         </div>
       </div>
+      </ExerciseShell>
     );
   }
 
   return (
-    <div style={{
-      minHeight: "100dvh", background: "var(--bg)",
-      paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)",
-      paddingLeft: 20, paddingRight: 20,
-    }}>
+    <ExerciseShell>
+    <div style={{ paddingLeft: 20, paddingRight: 20 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, maxWidth: 400, margin: "0 auto 24px" }}>
-        <div>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300 }}>
-            {fromCall ? "Satzbau · Anruf" : "Satzbau"}
-          </p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{index + 1} / {exercises.length} · {current?.level}</p>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <span
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              background: meta?.gradient ?? "var(--gradient)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+              flexShrink: 0,
+            }}
+          >
+            {meta?.emoji ?? "🧩"}
+          </span>
+          <div>
+            <p className="ui-title-serif" style={{ fontSize: 18, marginBottom: 4 }}>
+              {meta?.label ?? "Satzbau"}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              {index + 1} / {exercises.length} · {current?.level}
+            </p>
+          </div>
         </div>
-        <Link href="/mode" style={{ fontSize: 11, color: "var(--text-muted)", border: "0.5px solid var(--border)", padding: "6px 10px", borderRadius: 6 }}>← Zurück</Link>
+        <Link href="/exercises/sentences" style={{ fontSize: 11, color: "var(--text-muted)", border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 10, textDecoration: "none" }}>←</Link>
       </header>
+
+      <div style={{ maxWidth: 400, margin: "0 auto 16px" }}>
+        {phase === "preview" && (
+          <SentencePreviewDurationSetting compact onChange={setPreviewSeconds} />
+        )}
+      </div>
 
       <div style={{ maxWidth: 400, margin: "0 auto" }}>
         {phase === "preview" && current && (
@@ -254,12 +391,19 @@ function SentencesInner() {
             textAlign: "center", padding: "28px 20px", marginBottom: 24,
             background: "var(--accent-glow)", border: "0.5px solid var(--accent-dim)", borderRadius: 12,
           }}>
+            {!fromCall && illustrationId && (
+              <SentenceIllustration sentenceId={illustrationId} height={130} />
+            )}
             <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
-              {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : "MERKE DIR DEN SATZ"}
+              {fromCall
+                ? "KORREKTUR AUS DEINEM ANRUF"
+                : skipMaya
+                  ? `MERKE DIR DEN SATZ · ${previewSeconds} SEK.`
+                  : `MAYA LIEST VOR · ${previewSeconds} SEK. SICHTBAR`}
             </p>
             {fromCall && current.said && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic" }}>
-                Du sagtest: „{current.said}"
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>
+                Du sagtest: „{truncateForDisplay(current.said, 120)}"
               </p>
             )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -269,15 +413,21 @@ function SentencesInner() {
               <button
                 type="button"
                 onClick={playGerman}
-                style={{
-                  flexShrink: 0, fontSize: 10, padding: "4px 8px", borderRadius: 4,
-                  border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
-                  color: "var(--accent)", cursor: "pointer",
-                }}
+                className="ui-btn-ghost"
+                style={{ flexShrink: 0, padding: "6px 8px" }}
                 aria-label="Nochmal anhören"
               >
-                🔊
+                <Volume2 size={14} />
               </button>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <SentenceSelfRecorder
+                recordingUrl={currentRecording}
+                skipMaya={skipMaya}
+                onSkipMayaChange={setSkipMaya}
+                onRecorded={url => setUserRecordings(prev => ({ ...prev, [index]: url }))}
+                compact
+              />
             </div>
           </div>
         )}
@@ -287,14 +437,31 @@ function SentencesInner() {
             textAlign: "center", padding: "28px 20px", marginBottom: 24,
             background: "rgba(39,174,96,0.08)", border: "0.5px solid rgba(39,174,96,0.35)", borderRadius: 12,
           }}>
+            {!fromCall && illustrationId && (
+              <SentenceIllustration sentenceId={illustrationId} height={130} />
+            )}
             <p style={{ fontSize: 10, color: "var(--green)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>RICHTIG!</p>
             <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.45, marginBottom: 10 }}>{current.german}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>{current.english}</p>
+            {fromCall && current.note ? (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 12 }}>{current.note}</p>
+            ) : current.english && !fromCall ? (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 12 }}>{current.english}</p>
+            ) : null}
+            <SentenceSelfRecorder
+              recordingUrl={currentRecording}
+              skipMaya={skipMaya}
+              onSkipMayaChange={setSkipMaya}
+              onRecorded={url => setUserRecordings(prev => ({ ...prev, [index]: url }))}
+              compact
+            />
           </div>
         )}
 
         {phase === "build" && current && (
           <>
+            {!fromCall && illustrationId && (
+              <SentenceIllustration sentenceId={illustrationId} height={120} />
+            )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
               <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, flex: 1 }}>
                 Baue den Satz aus dem Gedächtnis
@@ -302,14 +469,11 @@ function SentencesInner() {
               <button
                 type="button"
                 onClick={playGerman}
-                style={{
-                  flexShrink: 0, fontSize: 10, padding: "5px 10px", borderRadius: 6,
-                  border: "0.5px solid var(--accent-dim)", background: "var(--surface)",
-                  color: "var(--accent)", cursor: "pointer",
-                }}
+                className="ui-btn-ghost"
+                style={{ flexShrink: 0, padding: "6px 10px" }}
                 aria-label="Nochmal anhören"
               >
-                🔊
+                <Volume2 size={14} />
               </button>
               <button
                 type="button"
@@ -387,6 +551,7 @@ function SentencesInner() {
         )}
       </div>
     </div>
+    </ExerciseShell>
   );
 }
 
