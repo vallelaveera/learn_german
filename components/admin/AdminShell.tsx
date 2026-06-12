@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 
 const PURPLE = "#7F77DD";
 
@@ -117,7 +118,7 @@ export function AdminShell({ children, title, backHref, backLabel }: AdminShellP
             overflowX: "auto",
             WebkitOverflowScrolling: "touch",
           }}>
-            {MAIN_TABS.filter(tab => !tab.devOnly || process.env.NODE_ENV === "development").map(tab => {
+            {MAIN_TABS.filter(tab => !tab.devOnly || isDevAdminFeaturesEnabled()).map(tab => {
               const active = isTabActive(pathname, tab);
               return (
                 <Link

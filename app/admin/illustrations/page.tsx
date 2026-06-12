@@ -9,6 +9,7 @@ import type {
   IllustrationBatchResult,
   SentenceIllustrationRow,
 } from "@/lib/content/illustration-batch";
+import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 
 const PURPLE = "#7F77DD";
 
@@ -20,7 +21,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
 
 export default function AdminIllustrationsPage() {
   const router = useRouter();
-  const isDev = process.env.NODE_ENV === "development";
+  const isDev = isDevAdminFeaturesEnabled();
 
   const [categories, setCategories] = useState<CategoryStats[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("transport");

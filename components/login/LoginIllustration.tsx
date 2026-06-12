@@ -113,7 +113,7 @@ export function LoginIllustration() {
         </text>
       </g>
 
-      {/* User (green) */}
+      {/* User (orange) */}
       <g className="user-g">
         <circle cx="232" cy="82" r="26" fill="#F5C4B3" />
         <circle cx="232" cy="58" r="28" fill="#2C2C2A" />
@@ -132,15 +132,15 @@ export function LoginIllustration() {
         />
         <ellipse cx="222" cy="86" rx="5" ry="3" fill="#F0997B" opacity=".5" />
         <ellipse cx="242" cy="86" rx="5" ry="3" fill="#F0997B" opacity=".5" />
-        <rect x="212" y="104" width="40" height="50" rx="10" fill="#1D9E75" />
-        <rect x="204" y="114" width="14" height="32" rx="7" fill="#1D9E75" />
-        <rect x="250" y="114" width="14" height="32" rx="7" fill="#1D9E75" />
-        <rect x="207" y="116" width="10" height="20" rx="5" fill="#0F6E56" />
-        <rect x="253" y="116" width="10" height="20" rx="5" fill="#0F6E56" />
-        <rect x="218" y="150" width="14" height="28" rx="7" fill="#0F6E56" />
-        <rect x="234" y="150" width="14" height="28" rx="7" fill="#0F6E56" />
-        <rect x="218" y="168" width="14" height="12" rx="4" fill="#085041" />
-        <rect x="234" y="168" width="14" height="12" rx="4" fill="#085041" />
+        <rect x="212" y="104" width="40" height="50" rx="10" fill="#FF6B35" />
+        <rect x="204" y="114" width="14" height="32" rx="7" fill="#FF6B35" />
+        <rect x="250" y="114" width="14" height="32" rx="7" fill="#FF6B35" />
+        <rect x="207" y="116" width="10" height="20" rx="5" fill="#E85A28" />
+        <rect x="253" y="116" width="10" height="20" rx="5" fill="#E85A28" />
+        <rect x="218" y="150" width="14" height="28" rx="7" fill="#E85A28" />
+        <rect x="234" y="150" width="14" height="28" rx="7" fill="#E85A28" />
+        <rect x="218" y="168" width="14" height="12" rx="4" fill="#C44A1A" />
+        <rect x="234" y="168" width="14" height="12" rx="4" fill="#C44A1A" />
         <text
           x="232"
           y="30"
@@ -217,7 +217,7 @@ export function LoginIllustration() {
       </g>
 
       <g className="floaten">
-        <rect x="246" y="40" width="60" height="22" rx="8" fill="#1D9E75" opacity=".9" />
+        <rect x="246" y="40" width="60" height="22" rx="8" fill="#FF6B35" opacity=".9" />
         <text
           x="276"
           y="55"

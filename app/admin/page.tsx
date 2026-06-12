@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CorpusMatrixDashboard, type MatrixCategoryRow } from "@/components/admin/CorpusMatrixDashboard";
 import { AdminSubTabs, AdminCard, AdminStatGrid } from "@/components/admin/AdminShell";
+import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 
 const PURPLE = "#7F77DD";
 
@@ -163,7 +164,7 @@ export default function AdminPage() {
                 <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Generieren →</div>
               </AdminCard>
             </Link>
-            {process.env.NODE_ENV === "development" && (
+            {isDevAdminFeaturesEnabled() && (
               <Link href="/admin/illustrations" style={{ textDecoration: "none" }}>
                 <AdminCard style={{ height: "100%", cursor: "pointer" }}>
                   <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>SVG Illustrationen</div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
+import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 import {
   BATCH_CATEGORIES,
   getAllCategoryStats,
@@ -13,7 +14,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 function devOnly(): NextResponse | null {
-  if (process.env.NODE_ENV !== "development") {
+  if (!isDevAdminFeaturesEnabled()) {
     return NextResponse.json({ error: "Dev only" }, { status: 404 });
   }
   return null;
