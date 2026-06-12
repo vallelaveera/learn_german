@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import {
   practiceTypeLabel,
@@ -9,6 +10,7 @@ import {
   type GrammarLevel,
   type GrammarPoint,
 } from "@/lib/grammar/curriculum";
+import { supportsArticlePicker } from "@/lib/articles/scope";
 
 interface GrammarDetailSheetProps {
   point: GrammarPoint;
@@ -17,7 +19,9 @@ interface GrammarDetailSheetProps {
 }
 
 export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheetProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const hasArticlePicker = supportsArticlePicker(point.id);
 
   useEffect(() => {
     setMounted(true);
@@ -27,6 +31,11 @@ export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheet
       document.body.style.overflow = prev;
     };
   }, []);
+
+  const startArticleTrainer = () => {
+    onClose();
+    router.push(`/grammar/articles?point=${encodeURIComponent(point.id)}`);
+  };
 
   if (!mounted) return null;
 
@@ -114,28 +123,74 @@ export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheet
           </p>
         </div>
 
+        {hasArticlePicker && (
+          <button
+            type="button"
+            onClick={startArticleTrainer}
+            style={{
+              width: "100%",
+              minHeight: 48,
+              marginBottom: 16,
+              borderRadius: 12,
+              border: "none",
+              background: level.color,
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            Artikel wählen — Übung starten
+          </button>
+        )}
+
         {practiceTypes.length > 0 && (
           <>
             <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 10px" }}>
               Übungstypen
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {practiceTypes.map(type => (
-                <span
-                  key={type}
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    padding: "8px 12px",
-                    borderRadius: 999,
-                    background: "var(--surface)",
-                    border: "1px solid var(--border-light)",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  {practiceTypeLabel(type)}
-                </span>
-              ))}
+              {practiceTypes.map(type => {
+                const isArticle = type === "article-picker" && hasArticlePicker;
+                if (isArticle) {
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={startArticleTrainer}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: "8px 12px",
+                        borderRadius: 999,
+                        background: level.lightColor,
+                        border: `1px solid ${level.color}44`,
+                        color: level.color,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {practiceTypeLabel(type)}
+                    </button>
+                  );
+                }
+                return (
+                  <span
+                    key={type}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: "8px 12px",
+                      borderRadius: 999,
+                      background: "var(--surface)",
+                      border: "1px solid var(--border-light)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {practiceTypeLabel(type)}
+                  </span>
+                );
+              })}
             </div>
           </>
         )}

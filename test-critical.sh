@@ -150,9 +150,9 @@ grep -q 'localStorage.setItem("maya_voice", "soniox")' app/mode/page.tsx \
   && check "mode page: call sets soniox" "ok" \
   || check "mode page: call sets soniox" "fail"
 
-grep -qE 'router\.push\("/call"\)|router\.push\("/exercises/warmup\?next=/call"\)' app/mode/page.tsx \
-  && check "mode page: call routes to /call (direct or warmup)" "ok" \
-  || check "mode page: call routes to /call (direct or warmup)" "fail"
+grep -q 'router\.push\("/call")' app/mode/page.tsx \
+  && check "mode page: call routes directly to /call" "ok" \
+  || check "mode page: call routes directly to /call" "fail"
 
 grep -q 'ttsProviderRef.current = "soniox"' components/call/FreisprechenCall.tsx \
   && check "callmode: Maya B disabled, forces soniox" "ok" \
@@ -375,6 +375,35 @@ grep -q 'source=call' app/api/exercises/sentences/route.ts \
 grep -q 'computeCallReportStats' app/call/page.tsx \
   && check "call: unified client report stats" "ok" \
   || check "call: unified client report stats" "fail"
+
+echo ""
+echo "── lib/articles/scope.ts ───────────────"
+
+grep -q 'a1-004' lib/articles/scope.ts \
+  && check "article trainer: a1-004 entry point" "ok" \
+  || check "article trainer: a1-004 entry point" "fail"
+
+grep -q 'practiceCase: "nom"' lib/articles/scope.ts \
+  && check "article trainer: A1 nominativ scope" "ok" \
+  || check "article trainer: A1 nominativ scope" "fail"
+
+grep -q 'getArticleTrainerScope' lib/articles/scope.ts \
+  && check "article trainer: scope helper exists" "ok" \
+  || check "article trainer: scope helper exists" "fail"
+
+echo ""
+echo "── app/grammar/articles/page.tsx ───────"
+
+grep -q 'ArticleTrainer' app/grammar/articles/page.tsx \
+  && check "grammar articles route uses ArticleTrainer" "ok" \
+  || check "grammar articles route uses ArticleTrainer" "fail"
+
+echo ""
+echo "── components/grammar/GrammarDetailSheet.tsx"
+
+grep -q 'grammar/articles' components/grammar/GrammarDetailSheet.tsx \
+  && check "grammar sheet links to article trainer" "ok" \
+  || check "grammar sheet links to article trainer" "fail"
 
 echo ""
 echo "── middleware.ts ───────────────────────"
