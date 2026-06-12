@@ -205,13 +205,15 @@ export function LoginIllustration({ userName }: LoginIllustrationProps) {
         </text>
       </g>
 
-      {/* User reply bubble with typing dots */}
-      <g className="bub2" style={{ transform: "translateY(48px)" }}>
-        <rect x="116" y="55" width="88" height="30" rx="10" fill="#7F77DD" />
-        <path d="M204 65 L212 60 L204 70Z" fill="#7F77DD" />
-        <circle cx="142" cy="70" r="3" fill="white" className="d1" />
-        <circle cx="154" cy="70" r="3" fill="white" className="d2" />
-        <circle cx="166" cy="70" r="3" fill="white" className="d3" />
+      {/* User reply bubble — below Maya (outer group positions; inner animates scale only) */}
+      <g transform="translate(0, 48)">
+        <g className="bub2">
+          <rect x="116" y="55" width="88" height="30" rx="10" fill="#7F77DD" />
+          <path d="M204 65 L212 60 L204 70Z" fill="#7F77DD" />
+          <circle cx="142" cy="70" r="3" fill="white" className="d1" />
+          <circle cx="154" cy="70" r="3" fill="white" className="d2" />
+          <circle cx="166" cy="70" r="3" fill="white" className="d3" />
+        </g>
       </g>
 
       {/* Floating vocab pills */}

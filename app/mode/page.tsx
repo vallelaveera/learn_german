@@ -91,23 +91,27 @@ function ModePageInner() {
   return (
     <PageShell
       showTabBar
+      fitViewport
       headerRight={<LevelChip currentLevel={level} onSelect={saveLevel} />}
       minimalHeader
     >
-      <div className="ui-page">
+      <div className="ui-page ui-page-home">
         <div className="ui-hero animate-fade-in">
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 18, position: "relative", zIndex: 1 }}>
+          <div
+            className="ui-home-hero-inner"
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 18, position: "relative", zIndex: 1 }}
+          >
             <div style={{ textAlign: "center" }}>
-              <h1 className="ui-title-serif" style={{ fontSize: 24, marginBottom: 6 }}>
+              <h1 className="ui-title-serif" style={{ fontSize: 20, marginBottom: 4 }}>
                 {user ? `Hey ${user.name}!` : "Hey!"}
               </h1>
-              <p className="ui-muted" style={{ margin: 0 }}>
+              <p className="ui-muted" style={{ margin: 0, fontSize: 12 }}>
                 Wie möchtest du heute Deutsch üben?
               </p>
             </div>
             <HomeIllustration
-              width={240}
-              height={188}
+              width={168}
+              height={132}
               userLevel={level}
               recentMistakes={recentMistakes}
               userName={user?.name}
@@ -115,8 +119,9 @@ function ModePageInner() {
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="ui-home-cards">
           <ActivityCard
+            compact
             tone="orange"
             icon={<CallActivityIcon color="#FF6B35" />}
             label="Mit Maya sprechen"
@@ -127,6 +132,7 @@ function ModePageInner() {
             }}
           />
           <ActivityCard
+            compact
             tone="green"
             icon={<GrammarActivityIcon color="#38A169" />}
             label="Grammatik üben"
@@ -134,6 +140,7 @@ function ModePageInner() {
             onClick={() => router.push("/grammar")}
           />
           <ActivityCard
+            compact
             tone="purple"
             icon={<SentencesActivityIcon color="#805AD5" />}
             label="Sätze üben"
@@ -141,6 +148,7 @@ function ModePageInner() {
             onClick={() => router.push("/exercises/sentences")}
           />
           <ActivityCard
+            compact
             tone="blue"
             icon={<WordsActivityIcon color="#4A90E2" />}
             label="Wörter üben"
