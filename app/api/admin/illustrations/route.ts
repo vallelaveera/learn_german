@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
-import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 import {
   BATCH_CATEGORIES,
   getAllCategoryStats,
@@ -13,16 +12,7 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-function devOnly(): NextResponse | null {
-  if (!isDevAdminFeaturesEnabled()) {
-    return NextResponse.json({ error: "Dev only" }, { status: 404 });
-  }
-  return null;
-}
-
 export async function GET(req: NextRequest) {
-  const blocked = devOnly();
-  if (blocked) return blocked;
   if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const category = req.nextUrl.searchParams.get("category");
@@ -45,8 +35,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const blocked = devOnly();
-  if (blocked) return blocked;
   if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {

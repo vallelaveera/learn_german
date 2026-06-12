@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CorpusMatrixDashboard, type MatrixCategoryRow } from "@/components/admin/CorpusMatrixDashboard";
 import { AdminSubTabs, AdminCard, AdminStatGrid } from "@/components/admin/AdminShell";
-import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 
 const PURPLE = "#7F77DD";
 
@@ -164,15 +163,13 @@ export default function AdminPage() {
                 <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Generieren →</div>
               </AdminCard>
             </Link>
-            {isDevAdminFeaturesEnabled() && (
-              <Link href="/admin/illustrations" style={{ textDecoration: "none" }}>
-                <AdminCard style={{ height: "100%", cursor: "pointer" }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>SVG Illustrationen</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Maya-Szenen pro Kategorie · Dev only</div>
-                  <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Illustrationen →</div>
-                </AdminCard>
-              </Link>
-            )}
+            <Link href="/admin/illustrations" style={{ textDecoration: "none" }}>
+              <AdminCard style={{ height: "100%", cursor: "pointer" }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>SVG Illustrationen</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Maya-Szenen pro Kategorie generieren</div>
+                <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Illustrationen →</div>
+              </AdminCard>
+            </Link>
             <button
               type="button"
               onClick={() => setTab("users")}

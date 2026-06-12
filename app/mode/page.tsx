@@ -127,6 +127,13 @@ function ModePageInner() {
             }}
           />
           <ActivityCard
+            tone="green"
+            icon={<GrammarActivityIcon color="#38A169" />}
+            label="Grammatik üben"
+            subtext="Themen nach Level · Mit Maya sprechen"
+            onClick={() => router.push("/grammar")}
+          />
+          <ActivityCard
             tone="purple"
             icon={<SentencesActivityIcon color="#805AD5" />}
             label="Sätze üben"
@@ -139,13 +146,6 @@ function ModePageInner() {
             label="Wörter üben"
             subtext="Kategorien · Flashcards mit Maya"
             onClick={() => router.push("/exercises/words")}
-          />
-          <ActivityCard
-            tone="green"
-            icon={<GrammarActivityIcon color="#38A169" />}
-            label="Grammatik üben"
-            subtext="Themen nach Level · Mit Maya sprechen"
-            onClick={() => router.push("/grammar")}
           />
         </div>
       </div>

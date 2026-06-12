@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
 
 const PURPLE = "#7F77DD";
 
@@ -11,7 +10,7 @@ const MAIN_TABS: { href: string; label: string; prefix: string; exact?: boolean;
   { href: "/admin", label: "Dashboard", prefix: "/admin", exact: true },
   { href: "/admin/content", label: "Inhalt", prefix: "/admin/content" },
   { href: "/admin/generate", label: "Generieren", prefix: "/admin/generate" },
-  { href: "/admin/illustrations", label: "Illustrationen", prefix: "/admin/illustrations", devOnly: true },
+  { href: "/admin/illustrations", label: "Illustrationen", prefix: "/admin/illustrations" },
 ];
 
 function isTabActive(pathname: string, tab: (typeof MAIN_TABS)[number]) {
@@ -118,7 +117,7 @@ export function AdminShell({ children, title, backHref, backLabel }: AdminShellP
             overflowX: "auto",
             WebkitOverflowScrolling: "touch",
           }}>
-            {MAIN_TABS.filter(tab => !tab.devOnly || isDevAdminFeaturesEnabled()).map(tab => {
+            {MAIN_TABS.map(tab => {
               const active = isTabActive(pathname, tab);
               return (
                 <Link

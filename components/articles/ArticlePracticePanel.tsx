@@ -1,15 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Table2 } from "lucide-react";
 import { shuffleQuestions } from "@/lib/articles/questions";
-import type { PracticeQuestion } from "@/lib/articles/types";
+import type { ArticleType, CaseId, PracticeQuestion } from "@/lib/articles/types";
+import { ArticleReferenceSheet } from "./ArticleReferenceSheet";
 
 interface ArticlePracticePanelProps {
   questions: PracticeQuestion[];
+  scopedCases: CaseId[];
   accentColor: string;
   accentSoft: string;
   onAnswer: (correct: boolean) => void;
   onProgress?: (current: number, total: number) => void;
+}
+
+function inferArticleType(answer: string): ArticleType {
+  const a = answer.toLowerCase();
+  if (["ein", "eine", "einen", "einem", "einer", "eines"].includes(a)) return "indef";
+  return "def";
 }
 
 function splitSentence(sentence: string): [string, string] {
@@ -24,6 +33,7 @@ function questionPoolKey(questions: PracticeQuestion[]): string {
 
 export function ArticlePracticePanel({
   questions,
+  scopedCases,
   accentColor,
   accentSoft,
   onAnswer,
@@ -38,6 +48,7 @@ export function ArticlePracticePanel({
   const [usedOption, setUsedOption] = useState<string | null>(null);
   const [roundComplete, setRoundComplete] = useState(false);
   const [roundCorrect, setRoundCorrect] = useState(0);
+  const [referenceOpen, setReferenceOpen] = useState(false);
 
   const question = order[index];
 
@@ -50,6 +61,7 @@ export function ArticlePracticePanel({
     setUsedOption(null);
     setRoundComplete(false);
     setRoundCorrect(0);
+    setReferenceOpen(false);
   }, [poolKey]);
 
   useEffect(() => {
@@ -95,6 +107,7 @@ export function ArticlePracticePanel({
     }
     setIndex(i => i + 1);
     resetQuestionUi();
+    setReferenceOpen(false);
   };
 
   const handleChoose = (option: string) => {
@@ -154,9 +167,33 @@ export function ArticlePracticePanel({
 
   return (
     <div>
-      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 10px", fontWeight: 600 }}>
-        Satz {index + 1} / {order.length}
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, fontWeight: 600 }}>
+          Satz {index + 1} / {order.length}
+        </p>
+        <button
+          type="button"
+          onClick={() => setReferenceOpen(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minHeight: 32,
+            padding: "0 10px",
+            borderRadius: 8,
+            border: `1px solid ${accentColor}44`,
+            background: "#fff",
+            color: accentColor,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <Table2 size={14} />
+          Tabelle
+        </button>
+      </div>
 
       <div
         style={{
@@ -268,6 +305,17 @@ export function ArticlePracticePanel({
           {index >= order.length - 1 ? "Runde beenden →" : "Nächster Satz →"}
         </button>
       )}
+
+      <ArticleReferenceSheet
+        open={referenceOpen}
+        onClose={() => setReferenceOpen(false)}
+        caseId={question!.case}
+        gender={question!.gender}
+        articleType={inferArticleType(question!.answer)}
+        scopedCases={scopedCases}
+        levelColor={accentColor}
+        revealAnswer
+      />
     </div>
   );
 }

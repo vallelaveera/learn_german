@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Table2 } from "lucide-react";
 import { CASE_LABEL, GENDER_LABEL } from "@/lib/articles/declension";
 import { shuffleQuestions } from "@/lib/articles/questions";
-import type { QuizQuestion } from "@/lib/articles/types";
+import type { CaseId, QuizQuestion } from "@/lib/articles/types";
+import { ArticleReferenceSheet } from "./ArticleReferenceSheet";
 
 interface ArticleQuizPanelProps {
   questions: QuizQuestion[];
+  scopedCases: CaseId[];
   accentColor: string;
   onAnswer: (correct: boolean) => void;
   onProgress?: (current: number, total: number) => void;
@@ -42,7 +45,13 @@ function renderSentence(sentence: string) {
   );
 }
 
-export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress }: ArticleQuizPanelProps) {
+export function ArticleQuizPanel({
+  questions,
+  scopedCases,
+  accentColor,
+  onAnswer,
+  onProgress,
+}: ArticleQuizPanelProps) {
   const poolKey = questionPoolKey(questions);
   const [order, setOrder] = useState<QuizQuestion[]>(() => shuffleQuestions(questions));
   const [index, setIndex] = useState(0);
@@ -52,6 +61,7 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress 
   const [optionStates, setOptionStates] = useState<Record<string, "idle" | "ok" | "no">>({});
   const [roundComplete, setRoundComplete] = useState(false);
   const [roundCorrect, setRoundCorrect] = useState(0);
+  const [referenceOpen, setReferenceOpen] = useState(false);
 
   const question = order[index];
 
@@ -64,6 +74,7 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress 
     setOptionStates({});
     setRoundComplete(false);
     setRoundCorrect(0);
+    setReferenceOpen(false);
   }, [poolKey]);
 
   useEffect(() => {
@@ -109,6 +120,7 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress 
     }
     setIndex(i => i + 1);
     resetQuestionUi();
+    setReferenceOpen(false);
   };
 
   const handleChoose = (option: string) => {
@@ -173,12 +185,37 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress 
 
   const caseLabel = `${question!.type === "def" ? "Bestimmt" : "Unbestimmt"} · ${CASE_LABEL[question!.case]} · ${GENDER_LABEL[question!.gender]}`;
   const explanationPrefix = blankState === "ok" ? "✓ Richtig! " : blankState === "no" ? "✗ Falsch. " : "";
+  const revealReferenceAnswer = answered;
 
   return (
     <div>
-      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 10px", fontWeight: 600 }}>
-        Frage {index + 1} / {order.length}
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, fontWeight: 600 }}>
+          Frage {index + 1} / {order.length}
+        </p>
+        <button
+          type="button"
+          onClick={() => setReferenceOpen(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minHeight: 32,
+            padding: "0 10px",
+            borderRadius: 8,
+            border: `1px solid ${accentColor}44`,
+            background: "#fff",
+            color: accentColor,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <Table2 size={14} />
+          Tabelle
+        </button>
+      </div>
 
       <div
         className="ui-card ui-card-padded"
@@ -286,6 +323,17 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress 
             ? "Runde beenden →"
             : "Nächste Frage →"}
       </button>
+
+      <ArticleReferenceSheet
+        open={referenceOpen}
+        onClose={() => setReferenceOpen(false)}
+        caseId={question!.case}
+        gender={question!.gender}
+        articleType={question!.type}
+        scopedCases={scopedCases}
+        levelColor={accentColor}
+        revealAnswer={revealReferenceAnswer}
+      />
     </div>
   );
 }
