@@ -78,7 +78,7 @@ export function PageShell({ children, title, showTabBar = true, headerRight, min
           flex: 1,
           overflowY: "auto",
           overflowX: "hidden",
-          paddingBottom: showTabBar ? "calc(80px + env(safe-area-inset-bottom, 0px))" : undefined,
+          paddingBottom: showTabBar ? "calc(96px + env(safe-area-inset-bottom, 0px))" : undefined,
         }}
       >
         {children}

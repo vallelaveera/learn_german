@@ -312,6 +312,94 @@ input, textarea, select {
   animation: illus-shimmer 1.2s ease-in-out infinite;
 }
 
+/* ── Floating bubble tab bar ── */
+.ui-tab-bar {
+  position: fixed;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  max-width: 390px;
+  margin: 0 auto;
+  padding: 0 14px;
+  z-index: 100;
+  pointer-events: none;
+}
+.ui-tab-bar-bubble {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 0 0 1px rgba(255, 107, 53, 0.08),
+    0 12px 40px rgba(255, 107, 53, 0.18),
+    0 4px 12px rgba(45, 32, 24, 0.06);
+}
+.ui-tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  text-decoration: none;
+  color: var(--text-dim);
+  border-radius: 999px;
+  transition: color 0.15s ease;
+}
+.ui-tab-item-active {
+  color: var(--accent);
+}
+.ui-tab-icon-bubble {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+.ui-tab-item-active .ui-tab-icon-bubble {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 53, 0.2);
+}
+.ui-tab-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+  line-height: 1.1;
+}
+.ui-tab-item-active .ui-tab-label {
+  font-weight: 700;
+}
+.ui-tab-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--red);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+}
+
 .ui-phone-shell {
   border-radius: var(--radius-2xl);
   overflow: hidden;

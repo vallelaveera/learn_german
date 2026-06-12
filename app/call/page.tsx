@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FreisprechenCall } from "@/components/call/FreisprechenCall";
 import { TippenCall } from "@/components/call/TippenCall";
 import { CallReport } from "@/components/call/CallReport";
+import { TabBar } from "@/components/layout/TabBar";
 import { computeCallReportStats } from "@/lib/call-report-stats";
 import { Message } from "@/lib/types";
 
@@ -48,6 +49,7 @@ function CallPageInner() {
 
   return (
     <div
+      className="ui-phone-shell"
       style={{
         minHeight: "100dvh",
         maxWidth: 390,
@@ -55,7 +57,8 @@ function CallPageInner() {
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        background: "var(--bg)",
+        background: "var(--bg-warm)",
+        paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
       }}
     >
       {!report && (
@@ -116,6 +119,7 @@ function CallPageInner() {
           onClose={() => setReport(null)}
         />
       )}
+      <TabBar />
     </div>
   );
 }

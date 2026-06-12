@@ -577,7 +577,26 @@ export async function getPendingHomeworkList(userId: string): Promise<HomeworkAs
   if (!ids?.length) return [];
 
   const records = await Promise.all(ids.map(id => getHomework(id)));
-  return records.filter((a): a is HomeworkAssignment => a !== null && a.status === "pending");
+  const pending: HomeworkAssignment[] = [];
+
+  for (const assignment of records) {
+    if (!assignment) continue;
+    if (isAssignmentComplete(assignment)) {
+      assignment.status = "completed";
+      await redis.zrem(`homework:pending:${userId}`, assignment.id);
+      await redis.zadd(`homework:history:${userId}`, {
+        score: Date.now(),
+        member: assignment.id,
+      });
+      await saveHomeworkRecord(assignment);
+      continue;
+    }
+    if (assignment.status === "pending") {
+      pending.push(assignment);
+    }
+  }
+
+  return pending;
 }
 
 export async function getHomeworkHistoryList(
@@ -588,10 +607,14 @@ export async function getHomeworkHistoryList(
   if (!ids?.length) return [];
 
   const records = await Promise.all(ids.slice(0, limit).map(id => getHomework(id)));
-  return records.filter(
-    (a): a is HomeworkAssignment =>
-      a !== null && (a.status === "completed" || a.status === "skipped"),
-  );
+  return records
+    .filter((a): a is HomeworkAssignment => a !== null)
+    .sort((a, b) => {
+      const aDone = a.status === "completed" ? 1 : 0;
+      const bDone = b.status === "completed" ? 1 : 0;
+      if (aDone !== bDone) return bDone - aDone;
+      return b.createdAt - a.createdAt;
+    });
 }
 
 export async function getActiveHomework(userId: string): Promise<HomeworkAssignment | null> {

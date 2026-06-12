@@ -92,7 +92,7 @@ export default function ProgressPage() {
   return (
     <PageShell
       title="Fortschritt"
-      showTabBar={false}
+      showTabBar
       headerRight={
         <Link href="/profile" style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}>
           Profil

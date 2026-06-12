@@ -26,8 +26,9 @@ export async function GET(req: NextRequest) {
     }
 
     const filter = req.nextUrl.searchParams.get("filter");
+    const history = await getHomeworkHistoryList(user.userId);
+
     if (filter === "completed") {
-      const history = await getHomeworkHistoryList(user.userId);
       return NextResponse.json({
         enabled: true,
         assignments: [],
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
         enabled: true,
         assignments: [],
         assignment: null,
-        history: [],
+        history,
         summary: summarizeHomeworkList([]),
         progress: null,
       });
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       enabled: true,
       assignments,
       assignment,
-      history: [],
+      history,
       summary,
       progress,
     });

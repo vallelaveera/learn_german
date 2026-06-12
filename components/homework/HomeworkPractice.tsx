@@ -6,6 +6,7 @@ import { HomeworkRecorder, playBlobUrl } from "@/components/HomeworkRecorder";
 import { speakExercisePrompt, unlockExerciseAudio } from "@/lib/exercise-speech";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
+import { HomeworkMemoryVisual } from "@/components/homework/HomeworkMemoryVisual";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import {
   HomeworkAssignment,
@@ -149,7 +150,7 @@ function OpenHomeworkPractice({
   assignments: HomeworkAssignment[];
   summary: HomeworkSummary | null;
   onSelect: (id: string) => void;
-  onReload: () => void;
+  onReload: (completed?: boolean) => void;
 }) {
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -192,13 +193,13 @@ function OpenHomeworkPractice({
 
       const updated = data.assignment as HomeworkAssignment;
       if (updated.status === "completed") {
-        onReload();
+        onReload(true);
       } else {
         setProgress(computeProgress(updated));
         if (reps.length + 1 >= 3 && sentenceIdx < assignment.sentences.length - 1) {
           setTimeout(() => setSentenceIdx(i => i + 1), 600);
         }
-        onReload();
+        onReload(false);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload fehlgeschlagen");
@@ -227,7 +228,7 @@ function OpenHomeworkPractice({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "skip", homeworkId: assignment.id }),
     });
-    onReload();
+    onReload(true);
   };
 
   const batchLabel = assignments.length > 1
@@ -302,6 +303,15 @@ function OpenHomeworkPractice({
       </div>
 
       {sentence && (
+        <>
+          <HomeworkMemoryVisual
+            completedReps={reps.length}
+            activeRep={repToDo}
+          />
+        </>
+      )}
+
+      {sentence && (
         <div className="ui-card ui-card-padded" style={{ marginBottom: 24, background: "var(--gradient-soft)" }}>
           <p className="ui-title-serif" style={{ fontSize: 20, lineHeight: 1.5, marginBottom: 12 }}>{sentence.text}</p>
           {sentence.userSaid && (
@@ -346,7 +356,9 @@ function OpenHomeworkPractice({
       </div>
 
       <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
-        {repToDo ? `Aufnahme ${repToDo} von 3 — tippe zum Aufnehmen, nochmal zum Stoppen` : "Satz fertig!"}
+        {repToDo
+          ? `Nimm Satz ${repToDo} von 3 auf — je öfter, desto besser merkst du dir ihn`
+          : "Satz fertig — weiter zum nächsten!"}
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
@@ -391,37 +403,49 @@ export function HomeworkPractice() {
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  const loadOpen = useCallback(() => {
-    return fetch("/api/homework")
-      .then(r => r.json())
-      .then(data => {
-        setEnabled(data.enabled !== false);
-        const list: HomeworkAssignment[] = data.assignments ?? (data.assignment ? [data.assignment] : []);
-        setAssignments(list);
-        setAssignment(prev => {
-          if (prev && list.some(a => a.id === prev.id)) return list.find(a => a.id === prev.id) ?? list[0] ?? null;
-          return list[0] ?? null;
-        });
-        setSummary(data.summary ?? null);
-      });
+  const applyOpenData = useCallback((data: {
+    enabled?: boolean;
+    assignments?: HomeworkAssignment[];
+    assignment?: HomeworkAssignment | null;
+    summary?: HomeworkSummary | null;
+    history?: HomeworkAssignment[];
+  }) => {
+    setEnabled(data.enabled !== false);
+    const list: HomeworkAssignment[] = data.assignments ?? (data.assignment ? [data.assignment] : []);
+    setAssignments(list);
+    setAssignment(prev => {
+      if (prev && list.some(a => a.id === prev.id)) {
+        return list.find(a => a.id === prev.id) ?? list[0] ?? null;
+      }
+      return list[0] ?? null;
+    });
+    setSummary(data.summary ?? null);
+    if (data.history) setHistory(data.history);
   }, []);
 
-  const loadHistory = useCallback(() => {
-    return fetch("/api/homework?filter=completed")
-      .then(r => r.json())
-      .then(data => {
-        setHistory(data.history ?? []);
-      });
-  }, []);
+  const loadAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch("/api/homework");
+      const data = await res.json();
+      applyOpenData(data);
+    } catch {
+      // ignore
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [applyOpenData]);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([loadOpen(), loadHistory()])
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [loadOpen, loadHistory]);
+  useEffect(() => { void loadAll(); }, [loadAll]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (tab === "done") {
+      void fetch("/api/homework?filter=completed")
+        .then(r => r.json())
+        .then(data => setHistory(data.history ?? []))
+        .catch(() => {});
+    }
+  }, [tab]);
 
   if (loading) {
     return <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 24 }}>Lädt...</p>;
@@ -462,10 +486,13 @@ export function HomeworkPractice() {
             assignments={assignments}
             summary={summary}
             onSelect={id => setAssignment(assignments.find(a => a.id === id) ?? assignment)}
-            onReload={load}
+            onReload={completed => {
+              void loadAll(true);
+              if (completed) setTab("done");
+            }}
           />
         )
-      ) : history.length === 0 ? (
+      ) : history.filter(h => h.status === "completed" || h.status === "skipped").length === 0 ? (
         <EmptyState
           icon={<CheckCircle2 size={28} />}
           title="Noch nichts erledigt"
@@ -473,7 +500,9 @@ export function HomeworkPractice() {
         />
       ) : (
         <div>
-          {history.map(item => (
+          {history
+            .filter(h => h.status === "completed" || h.status === "skipped")
+            .map(item => (
             <HistoryCard key={item.id} assignment={item} />
           ))}
         </div>

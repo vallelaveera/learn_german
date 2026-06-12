@@ -6,6 +6,7 @@ import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSele
 import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
 import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
 import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
+import { TabBar } from "@/components/layout/TabBar";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
 type Step = "email" | "name" | "level" | "native";
@@ -118,6 +119,7 @@ export default function LoginPage() {
       position: "relative",
       minHeight: "100vh", display: "flex", alignItems: "center",
       justifyContent: "center", padding: "24px",
+      paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
       overflow: "hidden",
     }}>
       <DecorativeBackground />
@@ -278,6 +280,7 @@ export default function LoginPage() {
           No password needed. Maya remembers you.
         </p>
       </div>
+      <TabBar />
     </div>
   );
 }

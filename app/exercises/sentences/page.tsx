@@ -40,8 +40,6 @@ interface SentenceExercise {
 
 type Phase = "preview" | "build" | "complete" | "done";
 
-const PREVIEW_MS = 5000;
-
 function SentencesInner() {
   const params = useSearchParams();
   const rawCategory = params.get("category");
@@ -149,20 +147,45 @@ function SentencesPractice({
   }, [loadExercises]);
 
   useEffect(() => {
-    if (phase !== "preview" || !current || skipMaya) return;
+    if (phase !== "preview" || !current) return;
+
+    if (skipMaya && currentRecording) {
+      let cancelled = false;
+      const audio = new Audio(currentRecording);
+      audio.onended = () => {
+        if (!cancelled) setPhase("build");
+      };
+      audio.onerror = () => {
+        if (!cancelled) setPhase("build");
+      };
+      void audio.play().catch(() => {
+        if (!cancelled) setPhase("build");
+      });
+      return () => {
+        cancelled = true;
+        audio.pause();
+      };
+    }
+
+    if (skipMaya) {
+      setPhase("build");
+      return;
+    }
+
     let cancelled = false;
-    const run = async () => {
+    void (async () => {
+      unlockExerciseAudio();
       await prefetchExerciseGerman(current.german);
-      if (!cancelled) await speakExercisePrompt(current.german, "de");
-    };
-    void run();
-    const t = setTimeout(() => setPhase("build"), PREVIEW_MS);
+      if (cancelled) return;
+      await speakExercisePrompt(current.german, "de");
+      if (!cancelled) setPhase("build");
+    })();
+
     return () => {
       cancelled = true;
-      clearTimeout(t);
       stopExerciseSpeech();
     };
-  }, [phase, current?.id, index, skipMaya]);
+  }, [phase, current?.id, current?.german, index, skipMaya, currentRecording]);
 
   useEffect(() => {
     setShowEnHint(false);

@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, MessageSquare, Phone, X } from "lucide-react";
 import type { PracticeScenario } from "@/lib/exercises/scenarios";
@@ -11,6 +13,16 @@ interface ScenarioPracticeSheetProps {
 
 export function ScenarioPracticeSheet({ scenario, onClose }: ScenarioPracticeSheetProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   const goWords = () => {
     router.push(`/exercises/words?category=${scenario.wordCategory}&scenario=${scenario.id}`);
@@ -25,7 +37,9 @@ export function ScenarioPracticeSheet({ scenario, onClose }: ScenarioPracticeShe
     router.push(`/call?scenario=${scenario.id}`);
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       <button
         type="button"
@@ -36,7 +50,7 @@ export function ScenarioPracticeSheet({ scenario, onClose }: ScenarioPracticeShe
           inset: 0,
           background: "rgba(45, 32, 24, 0.45)",
           border: "none",
-          zIndex: 40,
+          zIndex: 200,
           cursor: "pointer",
         }}
       />
@@ -44,41 +58,42 @@ export function ScenarioPracticeSheet({ scenario, onClose }: ScenarioPracticeShe
         className="animate-slide-up"
         style={{
           position: "fixed",
-          left: "50%",
+          left: 0,
+          right: 0,
           bottom: 0,
-          transform: "translateX(-50%)",
+          margin: "0 auto",
           width: "100%",
           maxWidth: 390,
-          zIndex: 41,
+          zIndex: 201,
           background: "var(--surface-solid)",
-          borderRadius: "28px 28px 0 0",
-          padding: "20px 18px calc(24px + env(safe-area-inset-bottom, 0px))",
+          borderRadius: "24px 24px 0 0",
+          padding: "16px 16px calc(20px + env(safe-area-inset-bottom, 0px))",
           boxShadow: "0 -12px 40px rgba(45, 32, 24, 0.15)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 18,
+                width: 44,
+                height: 44,
+                borderRadius: 14,
                 background: scenario.gradient,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 26,
-                boxShadow: `0 8px 20px ${scenario.shadow}`,
+                fontSize: 22,
+                flexShrink: 0,
               }}
             >
               {scenario.emoji}
             </span>
-            <div>
-              <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px", fontFamily: "var(--font-serif)" }}>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 2px", fontFamily: "var(--font-serif)" }}>
                 {scenario.label}
               </h2>
-              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
-                Wie möchtest du üben?
+              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+                Wie üben?
               </p>
             </div>
           </div>
@@ -86,9 +101,9 @@ export function ScenarioPracticeSheet({ scenario, onClose }: ScenarioPracticeShe
             type="button"
             onClick={onClose}
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
+              width: 34,
+              height: 34,
+              borderRadius: 10,
               border: "1px solid var(--border-light)",
               background: "var(--surface)",
               color: "var(--text-muted)",
@@ -96,47 +111,26 @@ export function ScenarioPracticeSheet({ scenario, onClose }: ScenarioPracticeShe
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
+              flexShrink: 0,
             }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <PracticeModeButton
-            emoji="📚"
-            icon={<BookOpen size={20} />}
-            label="Wörter"
-            subtext="Flashcards zu diesem Thema"
-            onClick={goWords}
-            tone="#4A90E2"
-          />
-          <PracticeModeButton
-            emoji="🧩"
-            icon={<MessageSquare size={20} />}
-            label="Sätze"
-            subtext="Satzbau in dieser Situation"
-            onClick={goSentences}
-            tone="#805AD5"
-          />
-          <PracticeModeButton
-            emoji="📞"
-            icon={<Phone size={20} />}
-            label="Mit Maya sprechen"
-            subtext="Freies Gespräch in dieser Szene"
-            onClick={goCall}
-            tone="#FF6B35"
-            primary
-          />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <PracticeModeButton emoji="📚" label="Wörter" subtext="Flashcards" onClick={goWords} tone="#4A90E2" />
+          <PracticeModeButton emoji="🧩" label="Sätze" subtext="Satzbau" onClick={goSentences} tone="#805AD5" />
+          <PracticeModeButton emoji="📞" label="Anruf" subtext="Mit Maya sprechen" onClick={goCall} tone="#FF6B35" primary />
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
 function PracticeModeButton({
   emoji,
-  icon,
   label,
   subtext,
   onClick,
@@ -144,7 +138,6 @@ function PracticeModeButton({
   primary,
 }: {
   emoji: string;
-  icon: React.ReactNode;
   label: string;
   subtext: string;
   onClick: () => void;
@@ -153,11 +146,16 @@ function PracticeModeButton({
 }) {
   if (primary) {
     return (
-      <button type="button" onClick={onClick} className="ui-btn-primary" style={{ justifyContent: "flex-start" }}>
-        <span style={{ fontSize: 24 }}>{emoji}</span>
+      <button
+        type="button"
+        onClick={onClick}
+        className="ui-btn-primary"
+        style={{ justifyContent: "flex-start", minHeight: 48, padding: "10px 14px", fontSize: 14 }}
+      >
+        <span style={{ fontSize: 20 }}>{emoji}</span>
         <span style={{ textAlign: "left" }}>
-          <span style={{ display: "block", fontSize: 16, fontWeight: 700 }}>{label}</span>
-          <span style={{ display: "block", fontSize: 12, opacity: 0.9, fontWeight: 400 }}>{subtext}</span>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{label}</span>
+          <span style={{ display: "block", fontSize: 11, opacity: 0.9, fontWeight: 400 }}>{subtext}</span>
         </span>
       </button>
     );
@@ -169,37 +167,36 @@ function PracticeModeButton({
       onClick={onClick}
       style={{
         width: "100%",
-        padding: "14px 16px",
-        borderRadius: 20,
+        padding: "10px 12px",
+        borderRadius: 16,
         border: "none",
         background: "#fff",
-        boxShadow: "var(--shadow-md)",
+        boxShadow: "var(--shadow-sm)",
         display: "flex",
         alignItems: "center",
-        gap: 14,
+        gap: 12,
         textAlign: "left",
         cursor: "pointer",
       }}
     >
       <span
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 16,
+          width: 40,
+          height: 40,
+          borderRadius: 14,
           background: `${tone}18`,
-          color: tone,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 24,
+          fontSize: 20,
           flexShrink: 0,
         }}
       >
         {emoji}
       </span>
       <span>
-        <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{label}</span>
-        <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{subtext}</span>
+        <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{label}</span>
+        <span style={{ display: "block", fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{subtext}</span>
       </span>
     </button>
   );

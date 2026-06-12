@@ -7,6 +7,7 @@ import { LearningIllustration } from "@/components/illustrations/LearningIllustr
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
 import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
 import type { BinaryCard, PlacementLevel } from "@/lib/exercises/types";
+import { TabBar } from "@/components/layout/TabBar";
 import { normalizeGermanLevel } from "@/lib/levels";
 
 export default function PlacementPage() {
@@ -93,41 +94,49 @@ export default function PlacementPage() {
 
   if (finished) {
     return (
-      <div style={{
-        minHeight: "100dvh", background: "var(--bg)", padding: 24,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
-      }}>
-        <SuccessIllustration width={180} height={180} />
-        <h1 className="ui-title-serif" style={{ fontSize: 28, marginBottom: 8, marginTop: 16 }}>Level: {finished.level}</h1>
-        <p className="ui-muted" style={{ marginBottom: 28, maxWidth: 300 }}>
-          Maya passt ihre Sprache an dein Niveau an.
-          {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
-        </p>
-        <button
-          type="button"
-          onClick={() => router.push(`/mode?level=${finished.level}`)}
-          className="ui-btn-primary"
-          style={{ width: "auto", minWidth: 200, fontSize: 14 }}
-        >
-          Weiter →
-        </button>
-      </div>
+      <>
+        <div style={{
+          minHeight: "100dvh", background: "var(--bg)", padding: 24,
+          paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+        }}>
+          <SuccessIllustration width={180} height={180} />
+          <h1 className="ui-title-serif" style={{ fontSize: 28, marginBottom: 8, marginTop: 16 }}>Level: {finished.level}</h1>
+          <p className="ui-muted" style={{ marginBottom: 28, maxWidth: 300 }}>
+            Maya passt ihre Sprache an dein Niveau an.
+            {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/mode?level=${finished.level}`)}
+            className="ui-btn-primary"
+            style={{ width: "auto", minWidth: 200, fontSize: 14 }}
+          >
+            Weiter →
+          </button>
+        </div>
+        <TabBar />
+      </>
     );
   }
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Level-Check wird vorbereitet...</p>
-      </div>
+      <>
+        <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))" }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Level-Check wird vorbereitet...</p>
+        </div>
+        <TabBar />
+      </>
     );
   }
 
   return (
+    <>
     <div style={{
       minHeight: "100dvh", background: "var(--bg)",
       paddingTop: "calc(env(safe-area-inset-top,0px) + 20px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)",
+      paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
       paddingLeft: 20, paddingRight: 20,
       display: "flex", flexDirection: "column", alignItems: "center",
     }}>
@@ -168,5 +177,7 @@ export default function PlacementPage() {
         {betaShort ? "Später — ich starte mit A1" : "Überspringen (A1 annehmen)"}
       </button>
     </div>
+    <TabBar />
+    </>
   );
 }
