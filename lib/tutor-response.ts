@@ -39,7 +39,21 @@ export function attachCorrectionToLastUser(
     if (messages[i].role === "user") {
       return [
         ...messages.slice(0, i),
-        { ...messages[i], correction },
+        { ...messages[i], correction, grammarEvaluated: true },
+        ...messages.slice(i + 1),
+      ];
+    }
+  }
+  return messages;
+}
+
+/** Mark the latest user turn as grammatically correct (no Korrektur line). */
+export function markLastUserGrammarCorrect(messages: Message[]): Message[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      return [
+        ...messages.slice(0, i),
+        { ...messages[i], grammarEvaluated: true },
         ...messages.slice(i + 1),
       ];
     }

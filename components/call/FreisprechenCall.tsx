@@ -3,9 +3,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
+import { CallPreCallSetup } from "@/components/call/CallPreCallSetup";
+import { CallGrammarProgressHud, CallGrammarTurnBadge } from "@/components/call/CallGrammarProgress";
 import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
 import { computeCallReportStats } from "@/lib/call-report-stats";
-import { parseTutorResponse, attachCorrectionToLastUser } from "@/lib/tutor-response";
+import { loadCallSettings, type CallSettings } from "@/lib/call-settings";
+import { parseTutorResponse, attachCorrectionToLastUser, markLastUserGrammarCorrect } from "@/lib/tutor-response";
 import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
@@ -207,14 +210,81 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, []);
 
   const startRef = useRef<() => Promise<void>>(async () => {});
-  const stopRef = useRef<() => void>(() => {});
+  const stopRef = useRef<() => Promise<Blob | null>>(async () => null);
+  const callSettingsRef = useRef<CallSettings>(loadCallSettings());
+  const prewarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const micPrewarmedRef = useRef(false);
+  const micLiveRef = useRef(false);
+  const setTranscriptPausedRef = useRef<(paused: boolean) => void>(() => {});
+  const prewarmMicRef = useRef<() => Promise<void>>(async () => {});
+  const activateMicAfterTTSRef = useRef<() => Promise<void>>(async () => {});
+
+  const clearPrewarmTimer = useCallback(() => {
+    if (prewarmTimerRef.current) {
+      clearTimeout(prewarmTimerRef.current);
+      prewarmTimerRef.current = null;
+    }
+  }, []);
+
+  const schedulePrewarmMic = useCallback(() => {
+    clearPrewarmTimer();
+    const ctx = audioCtxRef.current;
+    if (!ctx || !_cm_active || !_cm_sending || micLiveRef.current) return;
+    const msUntilEnd = Math.max(0, (nextStartRef.current - ctx.currentTime) * 1000);
+    const delay = Math.max(0, msUntilEnd - callSettingsRef.current.earlyMicMs);
+    prewarmTimerRef.current = setTimeout(() => {
+      prewarmTimerRef.current = null;
+      if (_cm_active && _cm_sending && !micLiveRef.current) void prewarmMicRef.current();
+    }, delay);
+  }, [clearPrewarmTimer]);
+
+  const prewarmMic = useCallback(async () => {
+    if (!_cm_active || !_cm_sending || _cm_mic_running || micLiveRef.current) return;
+    _cm_mic_running = true;
+    try {
+      setTranscriptPausedRef.current(true);
+      await startRef.current();
+      micPrewarmedRef.current = true;
+      micLiveRef.current = true;
+    } catch {
+      micPrewarmedRef.current = false;
+      micLiveRef.current = false;
+    } finally {
+      _cm_mic_running = false;
+    }
+  }, []);
+
+  const activateMicAfterTTS = useCallback(async () => {
+    if (!_cm_active) return;
+    clearPrewarmTimer();
+    const pauseMs = callSettingsRef.current.pauseBetweenTurnsMs;
+    await new Promise(resolve => setTimeout(resolve, pauseMs));
+    if (!_cm_active) return;
+
+    if (micPrewarmedRef.current && micLiveRef.current) {
+      setTranscriptPausedRef.current(false);
+      speechBufferRef.current = "";
+      isSpeakingRef.current = false;
+      speechFramesRef.current = 0;
+      setLiveText("");
+      _cm_mic_start = Date.now() - Math.min(MIC_WARMUP_MS - 150, callSettingsRef.current.earlyMicMs);
+      _cm_sending = false;
+      micPrewarmedRef.current = false;
+      setCallState("listening");
+      return;
+    }
+
+    _cm_sending = false;
+    await restartMicRef.current();
+  }, [clearPrewarmTimer]);
 
   const restartMic = useCallback(async () => {
     if (!_cm_active || _cm_mic_running) return;
     _cm_mic_running = true;
     try {
-      stopRef.current();
-      await new Promise(r => setTimeout(r, 600));
+      await stopRef.current();
+      micLiveRef.current = false;
+      micPrewarmedRef.current = false;
       if (!_cm_active) return;
       speechBufferRef.current = "";
       isSpeakingRef.current = false;
@@ -222,7 +292,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setLiveText("");
       _cm_mic_start = Date.now();
       setCallState("listening");
+      setTranscriptPausedRef.current(false);
       await startRef.current();
+      micLiveRef.current = true;
       if (isMutedRef.current) setMutedRef.current(true);
     } finally {
       _cm_mic_running = false;
@@ -232,15 +304,13 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const finishTTSPlayback = useCallback(() => {
     if (_cm_tts_done_fired || !_cm_active) return;
     _cm_tts_done_fired = true;
-    _cm_sending = false;
     if (userWantsEndRef.current) {
       userWantsEndRef.current = false;
+      _cm_sending = false;
       setTimeout(() => endCallRef.current(), 400);
       return;
     }
-    setTimeout(() => {
-      if (_cm_active) restartMicRef.current();
-    }, 400);
+    void activateMicAfterTTSRef.current();
   }, []);
 
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
@@ -261,17 +331,20 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         }
       };
       sourceQueueRef.current.push(source);
+      schedulePrewarmMic();
     } catch (e) {
       console.error("playChunk error:", e);
     }
-  }, []);
+  }, [getAudioCtx, schedulePrewarmMic]);
 
   // ── TTS ───────────────────────────────────────────────
   const streamTTS = useCallback(async (text: string) => {
     setCallState("speaking");
     stopAudio();
+    clearPrewarmTimer();
     nextStartRef.current = 0;
     _cm_tts_done_fired = false;
+    _cm_sending = true;
     if (!text.trim()) {
       finishTTSPlaybackRef.current();
       return;
@@ -310,7 +383,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       console.error("TTS error:", e);
       finishTTSPlaybackRef.current();
     }
-  }, [playChunk, stopAudio]);
+  }, [playChunk, stopAudio, clearPrewarmTimer]);
 
   useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 
@@ -398,6 +471,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       let withCorrection = messagesRef.current;
       if (parsed.correction) {
         withCorrection = attachCorrectionToLastUser(withCorrection, parsed.correction);
+      } else {
+        withCorrection = markLastUserGrammarCorrect(withCorrection);
       }
 
       const assistantMsg: Message = {
@@ -416,19 +491,29 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     }
   }, [streamTTS, sessionId, sessionStart]);
 
-  const sendToTutor = useCallback(async (text: string) => {
+  const sendToTutor = useCallback(async (text: string, audioBlob?: Blob | null) => {
     if (!text.trim() || _cm_sending) return;
-    const userMsg: Message = { role: "user", content: text.replace(/<end>/g, "").trim(), timestamp: Date.now() };
+    const userMsg: Message = {
+      role: "user",
+      content: text.replace(/<end>/g, "").trim(),
+      timestamp: Date.now(),
+      ...(audioBlob ? { audioUrl: URL.createObjectURL(audioBlob) } : {}),
+    };
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
     await submitToClaude(updated);
   }, [submitToClaude]);
 
-  const askShortConfirm = useCallback(async (shortText: string) => {
+  const askShortConfirm = useCallback(async (shortText: string, audioBlob?: Blob | null) => {
     pendingShortReplyRef.current = shortText;
     awaitingConfirmRef.current = true;
-    const userMsg: Message = { role: "user", content: shortText, timestamp: Date.now() };
+    const userMsg: Message = {
+      role: "user",
+      content: shortText,
+      timestamp: Date.now(),
+      ...(audioBlob ? { audioUrl: URL.createObjectURL(audioBlob) } : {}),
+    };
     const phrase = pickConfirmPhrase(shortText);
     const confirmMsg: Message = { role: "assistant", content: phrase, timestamp: Date.now() };
     const updated = [...messagesRef.current, userMsg, confirmMsg];
@@ -440,13 +525,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     await streamTTS(phrase);
   }, [streamTTS]);
 
-  const handleConfirmResponse = useCallback(async (text: string) => {
+  const handleConfirmResponse = useCallback(async (text: string, audioBlob?: Blob | null) => {
     const lower = text.toLowerCase().replace(/[.!?]/g, "").trim();
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
 
     if (AFFIRMATIVE_RE.test(lower)) {
-      const confirmAnswer: Message = { role: "user", content: text, timestamp: Date.now() };
+      const confirmAnswer: Message = {
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+        ...(audioBlob ? { audioUrl: URL.createObjectURL(audioBlob) } : {}),
+      };
       const updated = [...messagesRef.current, confirmAnswer];
       setMessages(updated);
       messagesRef.current = updated;
@@ -464,18 +554,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     }
 
     if (wordCount(text) < 2 && !isFarewellUtterance(text)) {
-      await askShortConfirm(text);
+      await askShortConfirm(text, audioBlob);
       return;
     }
 
-    const userMsg: Message = { role: "user", content: text, timestamp: Date.now() };
+    const userMsg: Message = {
+      role: "user",
+      content: text,
+      timestamp: Date.now(),
+      ...(audioBlob ? { audioUrl: URL.createObjectURL(audioBlob) } : {}),
+    };
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
     await submitToClaude(updated);
   }, [askShortConfirm, speakLocal, submitToClaude]);
 
-  const tryCommitTurn = useCallback(() => {
+  const tryCommitTurn = useCallback(async () => {
     if (_cm_sending || !_cm_active) return;
     if (nonFinalRef.current.trim()) return;
 
@@ -486,7 +581,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       clearSilenceTimer();
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
-        tryCommitTurnRef.current();
+        void tryCommitTurnRef.current();
       }, sttEndpointRef.current ? SILENCE_DURATION_ENDPOINT : INCOMPLETE_EXTRA_WAIT);
       return;
     }
@@ -497,22 +592,24 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     nonFinalRef.current = "";
     sttEndpointRef.current = false;
     clearSilenceTimer();
-    stopRef.current();
+    const audioBlob = await stopRef.current();
+    micLiveRef.current = false;
+    micPrewarmedRef.current = false;
 
     if (awaitingConfirmRef.current) {
-      void handleConfirmResponse(text);
+      void handleConfirmResponse(text, audioBlob);
       return;
     }
 
     if (wordCount(text) < 2 && !isFarewellUtterance(text)) {
-      void askShortConfirm(text);
+      void askShortConfirm(text, audioBlob);
       return;
     }
 
-    void sendToTutor(text);
+    void sendToTutor(text, audioBlob);
   }, [askShortConfirm, clearSilenceTimer, handleConfirmResponse, sendToTutor]);
 
-  useEffect(() => { tryCommitTurnRef.current = tryCommitTurn; }, [tryCommitTurn]);
+  useEffect(() => { tryCommitTurnRef.current = () => { void tryCommitTurn(); }; }, [tryCommitTurn]);
 
   const scheduleSilenceSend = useCallback(() => {
     if (silenceTimerRef.current) return;
@@ -632,7 +729,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (navigator.vibrate) navigator.vibrate(20);
   }, [clearSilenceTimer]);
 
-  const { start, stop, setMuted, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
+  const { start, stop, setMuted, setTranscriptPaused, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
     onTranscript: handleTranscript,
     onFinished: handleFinished,
@@ -645,7 +742,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   useEffect(() => { startRef.current = start; }, [start]);
   useEffect(() => { stopRef.current = stop; }, [stop]);
   useEffect(() => { setMutedRef.current = setMuted; }, [setMuted]);
+  useEffect(() => { setTranscriptPausedRef.current = setTranscriptPaused; }, [setTranscriptPaused]);
   useEffect(() => { restartMicRef.current = restartMic; }, [restartMic]);
+  useEffect(() => { prewarmMicRef.current = prewarmMic; }, [prewarmMic]);
+  useEffect(() => { activateMicAfterTTSRef.current = activateMicAfterTTS; }, [activateMicAfterTTS]);
   useEffect(() => { finishTTSPlaybackRef.current = finishTTSPlayback; }, [finishTTSPlayback]);
 
   // ── Start call ────────────────────────────────────────
@@ -731,15 +831,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     _cm_sending = false;
     _cm_mic_running = false;
     _cm_tts_done_fired = true;
+    clearPrewarmTimer();
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
     userWantsEndRef.current = false;
+    micLiveRef.current = false;
+    micPrewarmedRef.current = false;
     isMutedRef.current = false;
     setIsMuted(false);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
-    stop();
+    void stop();
     stopAudio();
     if (durationRef.current) clearInterval(durationRef.current);
 
@@ -768,7 +871,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setPhase("idle");
     setMessages([]);
     setDuration(0);
-  }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded]);
+  }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded, clearPrewarmTimer]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
@@ -835,10 +938,12 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       )}
 
       {cachedOpening && contextReady && (
-        <p style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", lineHeight: 1.6, maxWidth: 300, marginBottom: 24, padding: "0 16px" }}>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", lineHeight: 1.6, maxWidth: 300, marginBottom: 16, padding: "0 16px" }}>
           &ldquo;{cachedOpening}&rdquo;
         </p>
       )}
+
+      <CallPreCallSetup onSettingsChange={s => { callSettingsRef.current = s; }} />
 
       <div style={{ position: "relative", width: 80, height: 80, marginBottom: pendingHomework ? 12 : 32, marginTop: contextReady && limitReached ? 0 : 8 }}>
         {!canCall && !limitReached && (
@@ -894,14 +999,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
 
       {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s" }} />
-          <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s", flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
             {isMuted && callState === "listening" ? "STUMM" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
           </span>
         </div>
-        <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)" }}>{fmt(duration)}</span>
+        <CallGrammarProgressHud messages={messages} compact />
+        <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{fmt(duration)}</span>
       </div>
 
       {/* Conversation bubbles */}
@@ -922,6 +1028,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
                 {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
               </div>
               <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>{msg.content.replace(/<end>/g, "").trim()}</p>
+              {msg.role === "user" && <CallGrammarTurnBadge msg={msg} inverted />}
               {msg.translation && msg.role === "assistant" && (
                 <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
               )}

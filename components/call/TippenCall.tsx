@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import { useSpeechRecorder } from "@/components/SpeechRecorder";
 import { Message } from "@/lib/types";
 import { computeCallReportStats } from "@/lib/call-report-stats";
-import { parseTutorResponse, attachCorrectionToLastUser } from "@/lib/tutor-response";
+import { parseTutorResponse, attachCorrectionToLastUser, markLastUserGrammarCorrect } from "@/lib/tutor-response";
+import { CallGrammarProgressHud, CallGrammarTurnBadge } from "@/components/call/CallGrammarProgress";
 import { useRouter } from "next/navigation";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
@@ -246,6 +247,8 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
         let updated = prev;
         if (parsed.correction) {
           updated = attachCorrectionToLastUser(updated, parsed.correction);
+        } else {
+          updated = markLastUserGrammarCorrect(updated);
         }
         updated = [...updated, assistantMsg];
         autoSave(updated);
@@ -434,15 +437,18 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
       </header>
       )}
 
-      {embedded && messages.length > 1 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 18px 0" }}>
-          <button
-            type="button"
-            onClick={generateReport}
-            style={{ minHeight: 44, padding: "8px 14px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer" }}
-          >
-            {pendingEndRef.current ? "..." : "Ende"}
-          </button>
+      {embedded && messages.length > 0 && (
+        <div style={{ padding: "8px 18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <CallGrammarProgressHud messages={messages} />
+          {messages.length > 1 && (
+            <button
+              type="button"
+              onClick={generateReport}
+              style={{ minHeight: 44, padding: "8px 14px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", flexShrink: 0 }}
+            >
+              {pendingEndRef.current ? "..." : "Ende"}
+            </button>
+          )}
         </div>
       )}
 
@@ -480,6 +486,7 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
           <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
             <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
             <p className={styles.bubbleText}>{msg.content.replace(/<end>/g, "").trim()}</p>
+            {msg.role === "user" && <CallGrammarTurnBadge msg={msg} />}
             {msg.translation && <p className={styles.bubbleHint}>{msg.translation}</p>}
             {msg.role === "assistant" && (
               <div>

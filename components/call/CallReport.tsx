@@ -1,9 +1,14 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Play } from "lucide-react";
 import { Message } from "@/lib/types";
 import { nextGermanLevel } from "@/lib/levels";
+import { playAudioUrl, revokeMessageAudioUrls } from "@/lib/call-replay";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { CallReplayPanel } from "@/components/call/CallReplayPanel";
+import { CallGrammarTurnBadge, CallGrammarTurnStrip } from "@/components/call/CallGrammarProgress";
+import { grammarScoreColor } from "@/lib/call-grammar-progress";
 
 export interface CallReportStats {
   durationLabel: string;
@@ -36,6 +41,11 @@ export function CallReport({
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => revokeMessageAudioUrls(messages);
+  }, [messages]);
 
   const suggestedLevel = nextGermanLevel(currentLevel);
   const showLevelSuggestion =
@@ -105,11 +115,11 @@ export function CallReport({
           {[
             { label: "Dauer", value: stats.durationLabel },
             { label: "Sätze", value: stats.sentenceCount },
-            { label: "Grammatik", value: `${stats.grammarScore}%` },
+            { label: "Grammatik", value: `${stats.grammarScore}%`, color: grammarScoreColor(stats.grammarScore) },
           ].map(s => (
             <div key={s.label} style={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "12px 10px", textAlign: "center" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 500, color: "var(--accent)" }}>{s.value}</div>
+              <div style={{ fontSize: 20, fontWeight: 500, color: "color" in s && s.color ? s.color : "var(--accent)" }}>{s.value}</div>
             </div>
           ))}
         </div>
@@ -219,6 +229,10 @@ export function CallReport({
           </div>
         )}
 
+        <CallReplayPanel messages={messages} />
+
+        <CallGrammarTurnStrip messages={messages} />
+
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
             Gespräch
@@ -235,18 +249,51 @@ export function CallReport({
                   marginLeft: msg.role === "user" ? "auto" : 0,
                   background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff",
                   border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
                 }}
               >
+                {msg.role === "user" && msg.audioUrl && (
+                  <button
+                    type="button"
+                    aria-label="Antwort anhören"
+                    onClick={() => {
+                      if (!msg.audioUrl) return;
+                      setPlayingIndex(i);
+                      void playAudioUrl(msg.audioUrl).finally(() => setPlayingIndex(null));
+                    }}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: playingIndex === i ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.2)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      marginTop: 14,
+                    }}
+                  >
+                    <Play size={12} />
+                  </button>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 10, color: msg.role === "assistant" ? "#7c4daa" : "rgba(255,255,255,0.85)", textTransform: "uppercase", marginBottom: 3 }}>
                   {msg.role === "user" ? (userName ?? "Du") : "Maya"}
                 </div>
                 <p style={{ fontSize: 13, color: msg.role === "user" ? "#fff" : "#2d1f1a", lineHeight: 1.5, margin: 0 }}>{msg.content}</p>
-                {msg.correction && msg.role === "user" && (
+                {msg.role === "user" && <CallGrammarTurnBadge msg={msg} inverted />}
+                {msg.correction && msg.role === "user" && !msg.grammarEvaluated && (
                   <p style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", marginTop: 6, fontStyle: "italic" }}>💡 {msg.correction}</p>
                 )}
                 {msg.translation && msg.role === "assistant" && (
                   <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic" }}>💡 {msg.translation}</p>
                 )}
+                </div>
               </div>
             ))}
           </div>

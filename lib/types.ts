@@ -4,6 +4,10 @@ export interface Message {
   translation?: string;
   correction?: string;
   timestamp: number;
+  /** Set after Maya evaluates this user turn (Freisprechen/Tippen tutor reply). */
+  grammarEvaluated?: boolean;
+  /** Client-side blob URL for Freisprechen user turn audio (not persisted). */
+  audioUrl?: string;
 }
 
 export interface UserFacts {

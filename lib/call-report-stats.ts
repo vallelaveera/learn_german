@@ -1,5 +1,6 @@
 import { Message } from "./types";
 import { extractCorrectionsFromMessages } from "./corrections";
+import { computeLiveGrammarProgress } from "./call-grammar-progress";
 
 export interface CallCorrectionDisplay {
   said: string;
@@ -19,9 +20,13 @@ export function computeCallReportStats(messages: Message[], durationSec: number)
   const userMessages = messages.filter(m => m.role === "user");
   const userTurns = userMessages.length;
   const corrections = extractCallCorrections(messages);
-  const grammarScore = userTurns > 0
-    ? Math.round(((userTurns - corrections.length) / userTurns) * 100)
-    : 0;
+  const progress = computeLiveGrammarProgress(messages);
+  const grammarScore =
+    progress.evaluated > 0
+      ? (progress.score ?? 0)
+      : userTurns > 0
+        ? Math.round(((userTurns - corrections.length) / userTurns) * 100)
+        : 0;
 
   const fmtDuration = `${String(Math.floor(durationSec / 60)).padStart(2, "0")}:${String(durationSec % 60).padStart(2, "0")}`;
 
