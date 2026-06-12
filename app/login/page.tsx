@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
-import { MayaAvatar } from "@/components/ui/MayaAvatar";
+import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
+import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
 import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
@@ -139,8 +140,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
-          <MayaAvatar size={88} decorative />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: step === "level" ? 24 : 32 }}>
+          {step === "email" && <WelcomeIllustration width={260} height={208} />}
+          {step === "level" && <LearningIllustration width={220} height={170} />}
         </div>
 
         <div className="ui-card" style={{ padding: "28px 24px" }}>

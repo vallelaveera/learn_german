@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Phone } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelChip } from "@/components/level/LevelChip";
+import { ConversationIllustration } from "@/components/illustrations/ConversationIllustration";
 import { PracticeJourneyMap } from "@/components/home/PracticeJourneyMap";
-import { MayaAvatar } from "@/components/ui/MayaAvatar";
 import { ActivityCard } from "@/components/ui/ActivityCard";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
 
@@ -68,8 +68,7 @@ function ModePageInner() {
     >
       <div className="ui-page">
         <div className="ui-hero animate-fade-in">
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginBottom: 22, position: "relative", zIndex: 1 }}>
-            <MayaAvatar size={88} decorative />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 18, position: "relative", zIndex: 1 }}>
             <div style={{ textAlign: "center" }}>
               <h1 className="ui-title-serif" style={{ fontSize: 24, marginBottom: 6 }}>
                 {user ? `Hey ${user.name}!` : "Hey!"}
@@ -78,6 +77,7 @@ function ModePageInner() {
                 Wie möchtest du heute Deutsch üben?
               </p>
             </div>
+            <ConversationIllustration width={240} height={188} />
           </div>
 
           <ActivityCard

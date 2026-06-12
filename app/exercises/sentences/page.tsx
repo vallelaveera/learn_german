@@ -13,6 +13,7 @@ import {
   parseSentenceCategory,
   type SentenceExerciseCategory,
 } from "@/lib/exercises/categories";
+import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
 import {
   prefetchExerciseGerman,
   revokeExerciseSpeechPrefetch,
@@ -262,23 +263,8 @@ function SentencesPractice({
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
         minHeight: "70dvh",
       }}>
-        <span
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 24,
-            background: meta?.gradient ?? "var(--gradient)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 40,
-            marginBottom: 16,
-            boxShadow: `0 8px 28px ${meta?.shadow ?? "var(--accent-glow)"}`,
-          }}
-        >
-          {meta?.emoji ?? "🧩"}
-        </span>
-        <h1 className="ui-title-serif" style={{ fontSize: 26, marginBottom: 8 }}>
+        <SuccessIllustration width={160} height={160} />
+        <h1 className="ui-title-serif" style={{ fontSize: 26, marginBottom: 8, marginTop: 16 }}>
           {score} / {exercises.length} richtig
         </h1>
         <p className="ui-muted" style={{ marginBottom: noMore ? 12 : 28 }}>

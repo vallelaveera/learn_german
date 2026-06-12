@@ -5,6 +5,7 @@ import { MessageSquare, Clock, BookOpen, MessagesSquare, Flame, ChevronDown, Che
 import { PageShell } from "@/components/layout/PageShell";
 import { StatTile } from "@/components/ui/StatTile";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ProgressIllustration } from "@/components/illustrations/ProgressIllustration";
 import { Session, Message } from "@/lib/types";
 
 interface VocabWord {
@@ -99,6 +100,9 @@ export default function ProgressPage() {
       }
     >
       <div style={{ padding: "16px 18px" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          <ProgressIllustration width={220} height={174} />
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
           <StatTile label="Gespräche" value={totalSessions} icon={<MessageSquare size={18} />} />
           <StatTile label="Minuten" value={totalMinutes} icon={<Clock size={18} />} />

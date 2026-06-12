@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Message } from "@/lib/types";
 import { nextGermanLevel } from "@/lib/levels";
+import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
 
 export interface CallReportStats {
   durationLabel: string;
@@ -92,6 +93,10 @@ export function CallReport({
           >
             ×
           </button>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <SuccessIllustration width={180} height={180} />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>

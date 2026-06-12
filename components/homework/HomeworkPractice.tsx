@@ -5,6 +5,7 @@ import { Volume2, Play, ClipboardList, CheckCircle2, Clock } from "lucide-react"
 import { HomeworkRecorder, playBlobUrl } from "@/components/HomeworkRecorder";
 import { speakExercisePrompt, unlockExerciseAudio } from "@/lib/exercise-speech";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import {
   HomeworkAssignment,
@@ -449,7 +450,7 @@ export function HomeworkPractice() {
       {tab === "open" ? (
         !assignment ? (
           <EmptyState
-            icon={<ClipboardList size={28} />}
+            illustration={<LearningIllustration width={160} height={123} />}
             title="Keine offenen Hausaufgaben"
             description="Ruf Maya an — nach dem Gespräch bekommst du neue Sätze zum Üben."
             actionLabel="Mit Maya sprechen"

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Target } from "lucide-react";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
+import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
+import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
 import type { BinaryCard, PlacementLevel } from "@/lib/exercises/types";
 import { normalizeGermanLevel } from "@/lib/levels";
 
@@ -95,22 +97,8 @@ export default function PlacementPage() {
         minHeight: "100dvh", background: "var(--bg)", padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
       }}>
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: "50%",
-            background: "var(--accent-soft)",
-            color: "var(--accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 20,
-          }}
-        >
-          <Target size={36} />
-        </div>
-        <h1 className="ui-title-serif" style={{ fontSize: 28, marginBottom: 8 }}>Level: {finished.level}</h1>
+        <SuccessIllustration width={180} height={180} />
+        <h1 className="ui-title-serif" style={{ fontSize: 28, marginBottom: 8, marginTop: 16 }}>Level: {finished.level}</h1>
         <p className="ui-muted" style={{ marginBottom: 28, maxWidth: 300 }}>
           Maya passt ihre Sprache an dein Niveau an.
           {betaShort && " Du kannst dein Level jederzeit oben auf dem Home-Bildschirm ändern."}
@@ -143,17 +131,21 @@ export default function PlacementPage() {
       paddingLeft: 20, paddingRight: 20,
       display: "flex", flexDirection: "column", alignItems: "center",
     }}>
-      <header style={{ width: "100%", maxWidth: 360, marginBottom: 28 }}>
+      <WelcomeIllustration width={200} height={160} />
+      <header style={{ width: "100%", maxWidth: 360, marginBottom: 20, marginTop: 16, textAlign: "center" }}>
         <p className="ui-title-serif" style={{ fontSize: 22, marginBottom: 6 }}>
           {betaShort ? "Kurzer Level-Check" : "Dein Deutsch-Level"}
         </p>
         <p className="ui-muted">
           {betaShort
-            ? `${cards.length} kurze Fragen — wähle die richtige englische Bedeutung.`
+            ? `${cards.length} kurze Fragen — dauert etwa 2 Minuten.`
             : `Kurzer Check — wähle die richtige englische Bedeutung. Stufe ${level}.`}
         </p>
       </header>
 
+      <LearningIllustration width={200} height={154} />
+
+      <div style={{ width: "100%", maxWidth: 360, marginTop: 16 }}>
       {cards[index] && (
         <BinaryFlashcard
           card={cards[index]}
@@ -165,6 +157,7 @@ export default function PlacementPage() {
           showDirectionToggle={false}
         />
       )}
+      </div>
 
       <button
         type="button"

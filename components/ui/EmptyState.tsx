@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 interface EmptyStateProps {
-  icon: ReactNode;
+  icon?: ReactNode;
+  illustration?: ReactNode;
   title: string;
   description: string;
   actionLabel?: string;
@@ -12,6 +13,7 @@ interface EmptyStateProps {
 
 export function EmptyState({
   icon,
+  illustration,
   title,
   description,
   actionLabel,
@@ -20,7 +22,11 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="ui-empty animate-fade-in">
-      <div className="ui-empty-icon">{icon}</div>
+      {illustration ? (
+        <div style={{ marginBottom: 16 }}>{illustration}</div>
+      ) : icon ? (
+        <div className="ui-empty-icon">{icon}</div>
+      ) : null}
       <h2 className="ui-title-serif" style={{ fontSize: 20, marginBottom: 8 }}>{title}</h2>
       <p className="ui-muted" style={{ marginBottom: 24, maxWidth: 280, marginLeft: "auto", marginRight: "auto" }}>
         {description}
