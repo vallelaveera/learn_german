@@ -1,0 +1,88 @@
+<svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes wait {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-3px); }
+      }
+      @keyframes busArrive {
+        0%, 80% { transform: translateX(250px); }
+        100% { transform: translateX(120px); }
+      }
+      .maya { animation: wait 2s ease-in-out infinite; }
+      .bus { animation: busArrive 4s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="160" fill="#F1EFE8"/>
+
+  <!-- Ground -->
+  <rect y="130" width="200" height="30" fill="#C0DD97"/>
+
+  <!-- Bus stop pole -->
+  <rect x="155" y="100" width="4" height="35" fill="#888780"/>
+  <rect x="145" y="95" width="24" height="8" fill="#888780"/>
+
+  <!-- Bus -->
+  <g class="bus">
+    <!-- Bus body -->
+    <rect x="120" y="85" width="45" height="25" fill="#378ADD" rx="2"/>
+    <!-- Bus windows -->
+    <rect x="125" y="88" width="8" height="8" fill="#B5D4F4"/>
+    <rect x="137" y="88" width="8" height="8" fill="#B5D4F4"/>
+    <rect x="149" y="88" width="8" height="8" fill="#B5D4F4"/>
+    <!-- Bus wheels -->
+    <circle cx="130" cy="112" r="3" fill="#2C2C2A"/>
+    <circle cx="155" cy="112" r="3" fill="#2C2C2A"/>
+  </g>
+
+  <!-- Maya - waiting for bus -->
+  <g class="maya">
+    <!-- Head -->
+    <circle cx="50" cy="65" r="11" fill="#FAC775"/>
+    <!-- Hair -->
+    <path d="M 42 56 Q 50 52 58 56" fill="#5F5E5A"/>
+    <!-- Eyes -->
+    <circle cx="46" cy="63" r="1.5" fill="#2C2C2A"/>
+    <circle cx="54" cy="63" r="1.5" fill="#2C2C2A"/>
+    <!-- Mouth -->
+    <path d="M 48 68 Q 50 69 52 68" stroke="#2C2C2A" stroke-width="1" fill="none"/>
+    <!-- Body -->
+    <rect x="42" y="77" width="16" height="18" fill="#7F77DD" rx="2"/>
+    <!-- Arms -->
+    <rect x="32" y="80" width="10" height="4" fill="#FAC775" rx="2"/>
+    <rect x="58" y="80" width="10" height="4" fill="#FAC775" rx="2"/>
+    <!-- Legs -->
+    <rect x="45" y="96" width="3" height="12" fill="#5F5E5A"/>
+    <rect x="52" y="96" width="3" height="12" fill="#5F5E5A"/>
+    <!-- Shoes -->
+    <ellipse cx="46.5" cy="109" rx="3" ry="2" fill="#2C2C2A"/>
+    <ellipse cx="53.5" cy="109" rx="3" ry="2" fill="#2C2C2A"/>
+  </g>
+
+  <!-- Another person waiting (simple) -->
+  <g class="maya" style="animation-delay: 0.3s;">
+    <!-- Head -->
+    <circle cx="85" cy="68" r="10" fill="#FAC775"/>
+    <!-- Hair -->
+    <path d="M 78 60 Q 85 56 92 60" fill="#5F5E5A"/>
+    <!-- Eyes -->
+    <circle cx="81" cy="66" r="1.5" fill="#2C2C2A"/>
+    <circle cx="89" cy="66" r="1.5" fill="#2C2C2A"/>
+    <!-- Body -->
+    <rect x="78" y="79" width="14" height="16" fill="#7F77DD" rx="2"/>
+    <!-- Legs -->
+    <rect x="80" y="96" width="3" height="11" fill="#5F5E5A"/>
+    <rect x="87" y="96" width="3" height="11" fill="#5F5E5A"/>
+    <!-- Shoes -->
+    <ellipse cx="81.5" cy="108" rx="2.5" ry="1.5" fill="#2C2C2A"/>
+    <ellipse cx="88.5" cy="108" rx="2.5" ry="1.5" fill="#2C2C2A"/>
+  </g>
+
+  <!-- Clock icon (representing time) -->
+  <circle cx="25" cy="30" r="12" fill="none" stroke="#FAC775" stroke-width="2"/>
+  <circle cx="25" cy="30" r="2" fill="#FAC775"/>
+  <line x1="25" y1="30" x2="25" y2="22" stroke="#FAC775" stroke-width="1.5"/>
+  <line x1="25" y1="30" x2="31" y2="30" stroke="#FAC775" stroke-width="1.5"/>
+</svg>

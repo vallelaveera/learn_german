@@ -1,0 +1,90 @@
+<svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes pedal {
+        0% { transform: translateX(0px); }
+        50% { transform: translateX(15px); }
+        100% { transform: translateX(0px); }
+      }
+      @keyframes wheelSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .bike-group {
+        animation: pedal 1.5s ease-in-out infinite;
+      }
+      .wheel {
+        animation: wheelSpin 0.6s linear infinite;
+      }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="200" height="160" fill="#F1EFE8"/>
+  
+  <!-- Road -->
+  <rect y="120" width="200" height="40" fill="#888780"/>
+  <line x1="0" y1="130" x2="200" y2="130" stroke="#C0DD97" stroke-width="2" stroke-dasharray="10,10"/>
+  
+  <!-- Building (work destination) -->
+  <rect x="150" y="70" width="35" height="50" fill="#534AB7"/>
+  <circle cx="160" cy="85" r="3" fill="#FAC775"/>
+  <circle cx="175" cy="85" r="3" fill="#FAC775"/>
+  <circle cx="160" cy="105" r="3" fill="#FAC775"/>
+  <circle cx="175" cy="105" r="3" fill="#FAC775"/>
+  
+  <!-- Bicycle Group (animated) -->
+  <g class="bike-group">
+    <!-- Frame -->
+    <line x1="40" y1="80" x2="60" y2="110" stroke="#5F5E5A" stroke-width="2.5"/>
+    <line x1="60" y1="110" x2="80" y2="110" stroke="#5F5E5A" stroke-width="2.5"/>
+    <line x1="40" y1="80" x2="80" y2="110" stroke="#5F5E5A" stroke-width="2.5"/>
+    
+    <!-- Wheels -->
+    <g class="wheel" style="transform-origin: 50px 110px">
+      <circle cx="50" cy="110" r="18" fill="none" stroke="#5F5E5A" stroke-width="2"/>
+      <circle cx="50" cy="110" r="3" fill="#5F5E5A"/>
+    </g>
+    
+    <g class="wheel" style="transform-origin: 80px 110px">
+      <circle cx="80" cy="110" r="18" fill="none" stroke="#5F5E5A" stroke-width="2"/>
+      <circle cx="80" cy="110" r="3" fill="#5F5E5A"/>
+    </g>
+    
+    <!-- Handlebars -->
+    <line x1="40" y1="80" x2="35" y2="75" stroke="#5F5E5A" stroke-width="2"/>
+    <line x1="35" y1="70" x2="35" y2="80" stroke="#5F5E5A" stroke-width="2"/>
+    
+    <!-- Seat -->
+    <ellipse cx="60" cy="75" rx="8" ry="3" fill="#5F5E5A"/>
+    
+    <!-- Maya on bike -->
+    <!-- Head -->
+    <circle cx="42" cy="55" r="11" fill="#FAC775"/>
+    
+    <!-- Hair -->
+    <path d="M 35 48 Q 42 43 49 48" fill="#C0DD97"/>
+    
+    <!-- Eyes -->
+    <circle cx="38" cy="53" r="1.5" fill="#2C2C2A"/>
+    <circle cx="46" cy="53" r="1.5" fill="#2C2C2A"/>
+    
+    <!-- Mouth -->
+    <path d="M 40 58 Q 42 59 44 58" stroke="#2C2C2A" stroke-width="1" fill="none"/>
+    
+    <!-- Body (purple outfit) -->
+    <rect x="36" y="66" width="12" height="14" fill="#7F77DD" rx="2"/>
+    
+    <!-- Left arm -->
+    <line x1="36" y1="68" x2="28" y2="65" stroke="#FAC775" stroke-width="2" stroke-linecap="round"/>
+    
+    <!-- Right arm (on handlebar) -->
+    <line x1="48" y1="68" x2="38" y2="70" stroke="#FAC775" stroke-width="2" stroke-linecap="round"/>
+    
+    <!-- Left leg -->
+    <line x1="40" y1="80" x2="38" y2="95" stroke="#7F77DD" stroke-width="2.5" stroke-linecap="round"/>
+    
+    <!-- Right leg -->
+    <line x1="44" y1="80" x2="48" y2="100" stroke="#7F77DD" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,15 +1,11 @@
 /**
  * Single-word vocabulary import pipeline test.
- * Run: npx ts-node --compiler-options '{"module":"commonjs"}' scripts/test-vocab-import.ts
+ * Run: npx ts-node -P scripts/tsconfig.json scripts/test-vocab-import.ts
  */
 
 import * as fs from "fs";
 import * as path from "path";
-import { Redis } from "@upstash/redis";
 import type { ImportWordInput, UnifiedWord } from "../lib/vocab/types";
-import { saveWords, getUnifiedWordById } from "../lib/vocab/save";
-import { filterUnifiedWords, loadUnifiedWords } from "../lib/vocab/load";
-import { cleanWordKey, getOrGenerateIcon } from "../lib/vocab/icons";
 
 function loadEnvFile(filePath: string): void {
   if (!fs.existsSync(filePath)) return;
@@ -70,6 +66,11 @@ async function main(): Promise<void> {
     console.error("Missing KV_REST_API_URL or KV_REST_API_TOKEN in environment.");
     process.exit(1);
   }
+
+  const { Redis } = await import("@upstash/redis");
+  const { saveWords, getUnifiedWordById } = await import("../lib/vocab/save");
+  const { filterUnifiedWords, loadUnifiedWords } = await import("../lib/vocab/load");
+  const { cleanWordKey, getOrGenerateIcon } = await import("../lib/vocab/icons");
 
   const redis = new Redis({
     url: process.env.KV_REST_API_URL,

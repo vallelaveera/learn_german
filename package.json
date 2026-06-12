@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "test:critical": "bash test-critical.sh",
-    "prepush": "bash scripts/prepush.sh"
+    "prepush": "bash scripts/prepush.sh",
+    "generate:svgs": "npx ts-node -P scripts/tsconfig.json scripts/generate-svg-batch.ts",
+    "generate:svgs:retry": "npx ts-node -P scripts/tsconfig.json scripts/generate-svg-batch.ts --test --retry"
   },
   "dependencies": {
     "@soniox/speech-to-text-web": "^1.4.0",

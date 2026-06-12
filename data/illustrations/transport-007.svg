@@ -1,0 +1,66 @@
+<svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes reach {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+      }
+      @keyframes trainMove {
+        0%, 100% { transform: translateX(0px); }
+        50% { transform: translateX(40px); }
+      }
+      .maya-arm { animation: reach 2s ease-in-out infinite; transform-origin: 60px 65px; }
+      .train { animation: trainMove 2.5s ease-in-out infinite; transform-origin: 140px 90px; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="160" fill="#F1EFE8"/>
+
+  <!-- Platform line -->
+  <rect x="0" y="120" width="200" height="3" fill="#888780"/>
+
+  <!-- Train -->
+  <g class="train">
+    <!-- Train body -->
+    <rect x="120" y="80" width="50" height="25" fill="#378ADD" rx="2"/>
+    <!-- Train windows -->
+    <rect x="125" y="85" width="8" height="8" fill="#B5D4F4"/>
+    <rect x="137" y="85" width="8" height="8" fill="#B5D4F4"/>
+    <rect x="149" y="85" width="8" height="8" fill="#B5D4F4"/>
+    <!-- Train wheels -->
+    <circle cx="130" cy="108" r="3" fill="#2C2C2A"/>
+    <circle cx="155" cy="108" r="3" fill="#2C2C2A"/>
+  </g>
+
+  <!-- Maya's head -->
+  <circle cx="50" cy="50" r="11" fill="#7F77DD"/>
+
+  <!-- Maya's hair -->
+  <path d="M 42 42 Q 50 38 58 42" fill="#534AB7" stroke="none"/>
+
+  <!-- Maya's eyes -->
+  <circle cx="47" cy="48" r="1.5" fill="#2C2C2A"/>
+  <circle cx="53" cy="48" r="1.5" fill="#2C2C2A"/>
+
+  <!-- Maya's body -->
+  <rect x="42" y="63" width="16" height="20" fill="#7F77DD" rx="2"/>
+
+  <!-- Maya's left arm -->
+  <rect x="38" y="65" width="4" height="18" fill="#7F77DD" rx="2" class="maya-arm"/>
+  <!-- Maya's right arm -->
+  <rect x="58" y="65" width="4" height="18" fill="#7F77DD" rx="2"/>
+
+  <!-- Maya's left leg -->
+  <rect x="44" y="84" width="4" height="14" fill="#534AB7" rx="2"/>
+  <!-- Maya's right leg -->
+  <rect x="52" y="84" width="4" height="14" fill="#534AB7" rx="2"/>
+
+  <!-- Sad/disappointed expression line -->
+  <path d="M 48 54 Q 50 56 52 54" stroke="#534AB7" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Clock symbol to show lateness -->
+  <circle cx="75" cy="45" r="8" fill="none" stroke="#FAC775" stroke-width="1.5"/>
+  <line x1="75" y1="40" x2="75" y2="45" stroke="#FAC775" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="75" y1="45" x2="80" y2="45" stroke="#FAC775" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

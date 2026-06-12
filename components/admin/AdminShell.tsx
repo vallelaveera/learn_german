@@ -6,10 +6,11 @@ import type { ReactNode } from "react";
 
 const PURPLE = "#7F77DD";
 
-const MAIN_TABS: { href: string; label: string; prefix: string; exact?: boolean }[] = [
+const MAIN_TABS: { href: string; label: string; prefix: string; exact?: boolean; devOnly?: boolean }[] = [
   { href: "/admin", label: "Dashboard", prefix: "/admin", exact: true },
   { href: "/admin/content", label: "Inhalt", prefix: "/admin/content" },
   { href: "/admin/generate", label: "Generieren", prefix: "/admin/generate" },
+  { href: "/admin/illustrations", label: "Illustrationen", prefix: "/admin/illustrations", devOnly: true },
 ];
 
 function isTabActive(pathname: string, tab: (typeof MAIN_TABS)[number]) {
@@ -116,7 +117,7 @@ export function AdminShell({ children, title, backHref, backLabel }: AdminShellP
             overflowX: "auto",
             WebkitOverflowScrolling: "touch",
           }}>
-            {MAIN_TABS.map(tab => {
+            {MAIN_TABS.filter(tab => !tab.devOnly || process.env.NODE_ENV === "development").map(tab => {
               const active = isTabActive(pathname, tab);
               return (
                 <Link

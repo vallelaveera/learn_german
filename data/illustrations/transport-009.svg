@@ -1,0 +1,76 @@
+<svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes drive {
+        0% { transform: translateX(0px); }
+        50% { transform: translateX(20px); }
+        100% { transform: translateX(0px); }
+      }
+      @keyframes nod {
+        0% { transform: rotateZ(0deg); }
+        25% { transform: rotateZ(5deg); }
+        50% { transform: rotateZ(0deg); }
+        75% { transform: rotateZ(-5deg); }
+        100% { transform: rotateZ(0deg); }
+      }
+      .car { animation: drive 3s ease-in-out infinite; }
+      .head { animation: nod 2s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="160" fill="#F1EFE8"/>
+
+  <!-- Road -->
+  <rect y="110" width="200" height="40" fill="#888780"/>
+  <line x1="0" y1="130" x2="200" y2="130" stroke="#FAC775" stroke-width="2" stroke-dasharray="10,10"/>
+
+  <!-- Building (city) -->
+  <rect x="140" y="50" width="45" height="60" fill="#378ADD"/>
+  <circle cx="155" cy="65" r="3" fill="#FAC775"/>
+  <circle cx="175" cy="65" r="3" fill="#FAC775"/>
+  <circle cx="155" cy="85" r="3" fill="#FAC775"/>
+  <circle cx="175" cy="85" r="3" fill="#FAC775"/>
+  <polygon points="182.5,50 192.5,40 202.5,50" fill="#C0DD97"/>
+
+  <!-- Car with Maya -->
+  <g class="car">
+    <!-- Car body -->
+    <rect x="20" y="100" width="50" height="25" fill="#534AB7" rx="3"/>
+    
+    <!-- Car window -->
+    <rect x="28" y="103" width="20" height="15" fill="#B5D4F4"/>
+    
+    <!-- Car wheels -->
+    <circle cx="30" cy="125" r="5" fill="#2C2C2A"/>
+    <circle cx="65" cy="125" r="5" fill="#2C2C2A"/>
+
+    <!-- Maya in car -->
+    <g class="head" transform="translate(42, 105)">
+      <!-- Head -->
+      <circle cx="0" cy="0" r="11" fill="#F1EFE8"/>
+      
+      <!-- Hair -->
+      <path d="M -8,-8 Q -10,-12 0,-13 Q 10,-12 8,-8" fill="#534AB7"/>
+      
+      <!-- Eyes -->
+      <circle cx="-3" cy="-1" r="1.5" fill="#2C2C2A"/>
+      <circle cx="3" cy="-1" r="1.5" fill="#2C2C2A"/>
+      
+      <!-- Smile -->
+      <path d="M -3,2 Q 0,4 3,2" stroke="#2C2C2A" stroke-width="1" fill="none" stroke-linecap="round"/>
+      
+      <!-- Body (purple outfit visible) -->
+      <rect x="-6" y="10" width="12" height="8" fill="#7F77DD" rx="1"/>
+      
+      <!-- Arms -->
+      <rect x="-10" y="11" width="5" height="3" fill="#F1EFE8" rx="1.5"/>
+      <rect x="5" y="11" width="5" height="3" fill="#F1EFE8" rx="1.5"/>
+    </g>
+  </g>
+
+  <!-- Stars representing knowledge -->
+  <circle cx="100" cy="40" r="2" fill="#FAC775"/>
+  <circle cx="115" cy="35" r="2" fill="#FAC775"/>
+  <circle cx="90" cy="30" r="2" fill="#FAC775"/>
+</svg>

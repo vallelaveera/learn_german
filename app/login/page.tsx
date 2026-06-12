@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
-import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustration";
+import { LoginIllustration } from "@/components/login/LoginIllustration";
 import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
 import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
   const subtitle =
     step === "email"
-      ? "Your German tutor is waiting."
+      ? "Lerne Deutsch — überall und jederzeit"
       : step === "name"
         ? "What should Maya call you?"
         : step === "level"
@@ -154,10 +154,24 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: step === "level" ? 24 : 32 }}>
-          {step === "email" && <WelcomeIllustration width={260} height={208} />}
-          {step === "level" && <LearningIllustration width={220} height={170} />}
-        </div>
+        {step === "email" && (
+          <div style={{
+            width: "100%",
+            height: 200,
+            overflow: "hidden",
+            background: "#EEEDFE",
+            borderRadius: 0,
+            margin: "16px 0",
+          }}>
+            <LoginIllustration />
+          </div>
+        )}
+
+        {step === "level" && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+            <LearningIllustration width={220} height={170} />
+          </div>
+        )}
 
         <div className="ui-card" style={{ padding: "28px 24px" }}>
           {step === "email" ? (

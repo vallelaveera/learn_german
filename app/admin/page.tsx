@@ -163,6 +163,15 @@ export default function AdminPage() {
                 <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Generieren →</div>
               </AdminCard>
             </Link>
+            {process.env.NODE_ENV === "development" && (
+              <Link href="/admin/illustrations" style={{ textDecoration: "none" }}>
+                <AdminCard style={{ height: "100%", cursor: "pointer" }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>SVG Illustrationen</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Maya-Szenen pro Kategorie · Dev only</div>
+                  <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Illustrationen →</div>
+                </AdminCard>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setTab("users")}
