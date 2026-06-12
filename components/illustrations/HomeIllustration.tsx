@@ -41,18 +41,18 @@ function truncateLine(text: string, max = 22): string {
   return `${text.slice(0, max)}…`;
 }
 
-function splitQuestion(
+function splitBubbleLines(
   text: string,
-  emoji: string,
+  max = 22,
 ): { line1: string; line2: string } {
-  if (text.length <= 22) {
-    return { line1: truncateLine(`${text} ${emoji}`), line2: "" };
+  if (text.length <= max) {
+    return { line1: truncateLine(text, max), line2: "" };
   }
-  const mid = text.lastIndexOf(" ", 22);
-  const splitAt = mid > 0 ? mid : 22;
+  const mid = text.lastIndexOf(" ", max);
+  const splitAt = mid > 0 ? mid : max;
   return {
-    line1: truncateLine(text.slice(0, splitAt)),
-    line2: truncateLine(`${text.slice(splitAt + 1)} ${emoji}`),
+    line1: truncateLine(text.slice(0, splitAt), max),
+    line2: truncateLine(text.slice(splitAt + 1), max),
   };
 }
 
@@ -106,10 +106,7 @@ export function HomeIllustration({
   }, []);
 
   const activeQuestion = question ?? FALLBACK_QUESTION;
-  const { line1, line2 } = splitQuestion(
-    activeQuestion.de,
-    activeQuestion.emoji,
-  );
+  const { line1, line2 } = splitBubbleLines(activeQuestion.de);
   const twoLines = line2.length > 0;
   const bubbleWidth = Math.max(
     100,
@@ -120,8 +117,15 @@ export function HomeIllustration({
   const bubbleTextY1 = twoLines ? 66 : 69;
   const bubbleTextY2 = 82;
   const userBubbleOffsetY = bubbleHeight + 10;
-  const userBubbleText = truncateLine(activeQuestion.en, 28);
-  const userBubbleWidth = Math.max(88, userBubbleText.length * 5.5 + 24);
+  const { line1: enLine1, line2: enLine2 } = splitBubbleLines(activeQuestion.en, 26);
+  const userTwoLines = enLine2.length > 0;
+  const userBubbleHeight = userTwoLines ? 44 : 30;
+  const userBubbleTextY1 = userTwoLines ? 66 : 74;
+  const userBubbleTextY2 = 82;
+  const userBubbleWidth = Math.max(
+    88,
+    Math.max(enLine1.length, enLine2.length) * 5.5 + 24,
+  );
   const userBubbleX = 160 - userBubbleWidth / 2;
 
   const dePillWidth = Math.max(52, vocabPair.de.length * 5.5 + 24);
@@ -154,15 +158,6 @@ export function HomeIllustration({
       0%,100%{opacity:1;transform:scale(1)}
       40%{opacity:.7;transform:scale(.96)}
     }
-    @keyframes dot1{
-      0%,100%{opacity:.3}33%{opacity:1}
-    }
-    @keyframes dot2{
-      0%,100%{opacity:.3}66%{opacity:1}
-    }
-    @keyframes dot3{
-      0%,100%{opacity:.3}100%{opacity:1}
-    }
     @keyframes floatde{
       0%,100%{transform:translateY(0);opacity:.8}
       50%{transform:translateY(-6px);opacity:1}
@@ -189,9 +184,6 @@ export function HomeIllustration({
     .floaten{
       animation:floaten 3s ease-in-out infinite .8s
     }
-    .d1{animation:dot1 1.2s ease-in-out infinite}
-    .d2{animation:dot2 1.2s ease-in-out infinite}
-    .d3{animation:dot3 1.2s ease-in-out infinite}
   `}</style>
 
       <rect width="320" height="200" fill="#EEEDFE" />
@@ -339,7 +331,7 @@ export function HomeIllustration({
             x={userBubbleX}
             y="55"
             width={userBubbleWidth}
-            height="30"
+            height={userBubbleHeight}
             rx="10"
             fill="#7F77DD"
           />
@@ -349,15 +341,28 @@ export function HomeIllustration({
           />
           <text
             x="160"
-            y="74"
+            y={userBubbleTextY1}
             textAnchor="middle"
             fontSize="10"
             fontWeight="500"
             fill="white"
             fontFamily="sans-serif"
           >
-            {userBubbleText}
+            {enLine1}
           </text>
+          {userTwoLines ? (
+            <text
+              x="160"
+              y={userBubbleTextY2}
+              textAnchor="middle"
+              fontSize="10"
+              fontWeight="500"
+              fill="white"
+              fontFamily="sans-serif"
+            >
+              {enLine2}
+            </text>
+          ) : null}
         </g>
       </g>
 

@@ -99,7 +99,7 @@ function ModePageInner() {
         <div className="ui-hero animate-fade-in">
           <div
             className="ui-home-hero-inner"
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 18, position: "relative", zIndex: 1 }}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 12, position: "relative", zIndex: 1 }}
           >
             <div style={{ textAlign: "center" }}>
               <h1 className="ui-title-serif" style={{ fontSize: 20, marginBottom: 4 }}>
@@ -110,8 +110,8 @@ function ModePageInner() {
               </p>
             </div>
             <HomeIllustration
-              width={168}
-              height={132}
+              width={284}
+              height={178}
               userLevel={level}
               recentMistakes={recentMistakes}
               userName={user?.name}
