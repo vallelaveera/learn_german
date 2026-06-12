@@ -9,6 +9,7 @@ import { WelcomeIllustration } from "@/components/illustrations/WelcomeIllustrat
 import type { BinaryCard, PlacementLevel } from "@/lib/exercises/types";
 import { TabBar } from "@/components/layout/TabBar";
 import { normalizeGermanLevel } from "@/lib/levels";
+import { reportVocabAnswer } from "@/lib/vocab/reportAnswer";
 
 export default function PlacementPage() {
   const router = useRouter();
@@ -75,6 +76,7 @@ export default function PlacementPage() {
     if (!card || feedback) return;
     const correct = card.correctOption === option;
     setFeedback(correct ? "correct" : "wrong");
+    reportVocabAnswer(card.german, correct);
     const updated = [...roundResults, { itemId: card.id, german: card.german, correct }];
     setRoundResults(updated);
     setTimeout(() => {

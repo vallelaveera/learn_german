@@ -270,6 +270,15 @@ input, textarea, select {
   100% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes vocab-icon-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.vocab-icon-pulse {
+  animation: vocab-icon-pulse 1.2s ease-in-out infinite;
+}
+
 .animate-fade-in { animation: fade-in 0.35s ease forwards; }
 .animate-pop-in { animation: pop-in 0.3s ease forwards; }
 .animate-slide-up { animation: slide-up 0.28s ease forwards; }

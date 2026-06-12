@@ -7,6 +7,8 @@ import { PageShell } from "@/components/layout/PageShell";
 import { HomeworkPractice } from "@/components/homework/HomeworkPractice";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { StatTile } from "@/components/ui/StatTile";
+import { VocabIcon } from "@/components/vocab/VocabIcon";
+import { getStatusFromScore } from "@/lib/vocab/iconColors";
 
 interface VocabWord {
   word: string;
@@ -14,6 +16,7 @@ interface VocabWord {
   timesSeen: number;
   lastSeen: number;
   usedByUser?: boolean;
+  correctCount?: number;
 }
 
 interface CareerEntry {
@@ -222,9 +225,17 @@ function WordsPageInner() {
             <Link href="/mode" style={{ color: "var(--accent)", fontSize: 13, marginTop: 8, display: "block" }}>Jetzt mit Maya sprechen →</Link>
           </div>
         )}
-        {filtered.map(w => (
+        {filtered.map(w => {
+          const status = getStatusFromScore(w.timesSeen, w.correctCount ?? 0);
+          return (
           <div key={w.word} className="ui-card" style={{ borderLeft: w.usedByUser ? "3px solid var(--green)" : "3px solid var(--accent)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ flex: 1 }}>
+            <VocabIcon
+              word={w.word}
+              status={status}
+              size={44}
+              showBadge={false}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 16, fontFamily: "var(--font-serif)", color: "var(--text)", marginBottom: 3 }}>{w.word}</div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
                 {w.timesSeen}× gehört · zuletzt {new Date(w.lastSeen).toLocaleDateString("de-DE")}
@@ -274,7 +285,8 @@ function WordsPageInner() {
               {w.usedByUser ? "Gelernt ✓" : "Neu"}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
           </>
         )}

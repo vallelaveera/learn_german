@@ -111,6 +111,47 @@ export async function markWordsUsedByUser(userId: string, words: string[]): Prom
   } catch {}
 }
 
+export async function updateVocabStatus(
+  userId: string,
+  wordId: string,
+  correct: boolean,
+): Promise<VocabWord | null> {
+  const k = wordId.toLowerCase().trim();
+  if (!k) return null;
+
+  const redisKey = `vocab:${userId}`;
+  const now = Date.now();
+  let vocab: Record<string, VocabWord> = {};
+
+  try {
+    const data = await redis.get<string>(redisKey);
+    if (data) {
+      vocab = typeof data === "string" ? JSON.parse(data) : data;
+    }
+  } catch {
+    return null;
+  }
+
+  if (!vocab[k]) {
+    vocab[k] = {
+      word: wordId.trim(),
+      firstSeen: now,
+      timesSeen: 0,
+      lastSeen: now,
+      correctCount: 0,
+    };
+  }
+
+  vocab[k].timesSeen += 1;
+  if (correct) {
+    vocab[k].correctCount = (vocab[k].correctCount ?? 0) + 1;
+  }
+  vocab[k].lastSeen = now;
+
+  await redis.set(redisKey, JSON.stringify(vocab));
+  return vocab[k];
+}
+
 export async function getNewWordsForSession(userId: string, sessionMessages: import("./types").Message[]): Promise<string[]> {
   // Get all words Maya used in this session
   const mayaText = sessionMessages

@@ -43,6 +43,12 @@ export async function GET(req: NextRequest) {
         total: vocab.length,
         learned: vocab.filter(w => w.usedByUser).length,
         new: vocab.filter(w => !w.usedByUser).length,
+        words: vocab.map(w => ({
+          word: w.word,
+          timesSeen: w.timesSeen,
+          correctCount: w.correctCount ?? 0,
+          usedByUser: w.usedByUser ?? false,
+        })),
       },
     });
   } catch (e) {

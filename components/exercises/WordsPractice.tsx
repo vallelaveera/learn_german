@@ -12,6 +12,7 @@ import {
 } from "@/lib/exercises/categories";
 import type { BinaryCard } from "@/lib/exercises/types";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { reportVocabAnswer } from "@/lib/vocab/reportAnswer";
 
 interface WordsPracticeProps {
   category: WordExerciseCategory;
@@ -67,6 +68,7 @@ export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ results: [result] }),
     });
+    reportVocabAnswer(result.german, result.correct);
   };
 
   const handleChoose = (option: "A" | "B") => {

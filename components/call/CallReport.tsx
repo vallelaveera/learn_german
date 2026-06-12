@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Message } from "@/lib/types";
 import { nextGermanLevel } from "@/lib/levels";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { VocabIcon } from "@/components/vocab/VocabIcon";
 
 export interface CallReportStats {
   durationLabel: string;
@@ -186,15 +187,17 @@ export function CallReport({
                     border: "0.5px solid var(--accent-dim)",
                     color: "#7F77DD",
                     borderRadius: 20,
-                    padding: "8px 14px",
+                    padding: "6px 12px 6px 6px",
                     fontSize: 13,
                     fontFamily: "var(--font-serif)",
                     textDecoration: "none",
                     minHeight: 44,
                     display: "inline-flex",
                     alignItems: "center",
+                    gap: 8,
                   }}
                 >
+                  <VocabIcon word={w} status="new" size={28} showBadge={false} />
                   {w}
                 </Link>
               ))}

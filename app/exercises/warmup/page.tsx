@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
 import type { ExerciseDirection } from "@/components/DirectionToggle";
 import type { BinaryCard } from "@/lib/exercises/types";
+import { reportVocabAnswer } from "@/lib/vocab/reportAnswer";
 
 function WarmupInner() {
   const router = useRouter();
@@ -31,6 +32,7 @@ function WarmupInner() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ results: [result] }),
     });
+    reportVocabAnswer(result.german, result.correct);
   };
 
   const finish = async () => {

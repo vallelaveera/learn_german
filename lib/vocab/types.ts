@@ -34,3 +34,39 @@ export interface SavedWord extends WordInput {
   source: "generated";
   createdAt: number;
 }
+
+export type WordPriority = "high" | "medium" | "low";
+
+/** Imported / unified vocabulary entry (global corpus). */
+export interface UnifiedWord {
+  id: string;
+  text: string;
+  translation: string;
+  level: CEFRLevel;
+  category: VocabCategory;
+  seenCount: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  correctCount?: number;
+  article?: string; // der/die/das
+  base?: string; // word without article
+  plural?: string; // plural form
+  example?: string; // example sentence
+  priority?: WordPriority;
+  type?: string;
+}
+
+/** Dataset import shape (e.g. JSON vocabulary bank). */
+export interface ImportWordInput {
+  id?: string;
+  text: string;
+  translation: string;
+  level: CEFRLevel;
+  category: VocabCategory;
+  type?: string;
+  article?: string;
+  base?: string;
+  plural?: string;
+  example?: string;
+  priority?: WordPriority;
+}
