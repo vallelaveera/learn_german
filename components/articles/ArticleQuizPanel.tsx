@@ -9,6 +9,11 @@ interface ArticleQuizPanelProps {
   questions: QuizQuestion[];
   accentColor: string;
   onAnswer: (correct: boolean) => void;
+  onProgress?: (current: number, total: number) => void;
+}
+
+function questionPoolKey(questions: QuizQuestion[]): string {
+  return questions.map(q => q.id).join("|");
 }
 
 function renderSentence(sentence: string) {
@@ -18,7 +23,6 @@ function renderSentence(sentence: string) {
     <>
       {parts[0]}
       <span
-        id="article-quiz-blank"
         style={{
           display: "inline-block",
           minWidth: 52,
@@ -38,13 +42,16 @@ function renderSentence(sentence: string) {
   );
 }
 
-export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQuizPanelProps) {
+export function ArticleQuizPanel({ questions, accentColor, onAnswer, onProgress }: ArticleQuizPanelProps) {
+  const poolKey = questionPoolKey(questions);
   const [order, setOrder] = useState<QuizQuestion[]>(() => shuffleQuestions(questions));
   const [index, setIndex] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [blankState, setBlankState] = useState<"idle" | "ok" | "no">("idle");
   const [chosen, setChosen] = useState<string | null>(null);
   const [optionStates, setOptionStates] = useState<Record<string, "idle" | "ok" | "no">>({});
+  const [roundComplete, setRoundComplete] = useState(false);
+  const [roundCorrect, setRoundCorrect] = useState(0);
 
   const question = order[index];
 
@@ -55,7 +62,17 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQu
     setBlankState("idle");
     setChosen(null);
     setOptionStates({});
-  }, [questions]);
+    setRoundComplete(false);
+    setRoundCorrect(0);
+  }, [poolKey]);
+
+  useEffect(() => {
+    if (roundComplete) {
+      onProgress?.(order.length, order.length);
+      return;
+    }
+    onProgress?.(index + (answered ? 1 : 0), order.length);
+  }, [index, answered, order.length, roundComplete, onProgress]);
 
   const shuffledOptions = useMemo(() => {
     if (!question) return [];
@@ -76,32 +93,43 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQu
     setOptionStates({});
   }, []);
 
+  const restartRound = useCallback(() => {
+    setOrder(shuffleQuestions(questions));
+    setIndex(0);
+    setRoundComplete(false);
+    setRoundCorrect(0);
+    resetQuestionUi();
+  }, [questions, resetQuestionUi]);
+
   const handleNext = () => {
     if (order.length === 0) return;
-    const next = (index + 1) % order.length;
-    if (next === 0) setOrder(shuffleQuestions(questions));
-    setIndex(next);
+    if (index >= order.length - 1) {
+      setRoundComplete(true);
+      return;
+    }
+    setIndex(i => i + 1);
     resetQuestionUi();
   };
 
   const handleChoose = (option: string) => {
-    if (!question || answered) return;
-    const correct = option.toLowerCase() === question.blank.toLowerCase();
+    if (!question || answered || roundComplete) return;
+    const isCorrect = option.toLowerCase() === question.blank.toLowerCase();
     setAnswered(true);
     setChosen(option);
-    setBlankState(correct ? "ok" : "no");
+    setBlankState(isCorrect ? "ok" : "no");
     const states: Record<string, "idle" | "ok" | "no"> = {};
     shuffledOptions.forEach(opt => {
       if (opt.toLowerCase() === question.blank.toLowerCase()) states[opt] = "ok";
-      else if (opt === option && !correct) states[opt] = "no";
+      else if (opt === option && !isCorrect) states[opt] = "no";
       else states[opt] = "idle";
     });
-    if (correct) states[option] = "ok";
+    if (isCorrect) states[option] = "ok";
     setOptionStates(states);
-    onAnswer(correct);
+    if (isCorrect) setRoundCorrect(c => c + 1);
+    onAnswer(isCorrect);
   };
 
-  if (!question) {
+  if (!question && !roundComplete) {
     return (
       <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 24 }}>
         Keine Fragen für dieses Thema.
@@ -109,11 +137,49 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQu
     );
   }
 
-  const caseLabel = `${question.type === "def" ? "Bestimmt" : "Unbestimmt"} · ${CASE_LABEL[question.case]} · ${GENDER_LABEL[question.gender]}`;
+  if (roundComplete) {
+    return (
+      <div
+        className="ui-card ui-card-padded"
+        style={{ textAlign: "center", border: "1px solid var(--border-light)" }}
+      >
+        <p style={{ fontSize: 32, margin: "0 0 8px" }}>✓</p>
+        <h2 className="ui-title-serif" style={{ fontSize: 22, margin: "0 0 8px" }}>
+          Quiz geschafft!
+        </h2>
+        <p style={{ fontSize: 14, color: "var(--text-muted)", margin: "0 0 20px" }}>
+          {roundCorrect} / {order.length} richtig in dieser Runde
+        </p>
+        <button
+          type="button"
+          onClick={restartRound}
+          style={{
+            width: "100%",
+            minHeight: 48,
+            borderRadius: 12,
+            background: accentColor,
+            color: "#fff",
+            border: "none",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Nochmal quizzen
+        </button>
+      </div>
+    );
+  }
+
+  const caseLabel = `${question!.type === "def" ? "Bestimmt" : "Unbestimmt"} · ${CASE_LABEL[question!.case]} · ${GENDER_LABEL[question!.gender]}`;
   const explanationPrefix = blankState === "ok" ? "✓ Richtig! " : blankState === "no" ? "✗ Falsch. " : "";
 
   return (
     <div>
+      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 10px", fontWeight: 600 }}>
+        Frage {index + 1} / {order.length}
+      </p>
+
       <div
         className="ui-card ui-card-padded"
         style={{ marginBottom: 12, border: "1px solid var(--border-light)" }}
@@ -124,7 +190,7 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQu
         <div style={{ fontSize: 17, fontWeight: 500, color: "var(--text)", marginBottom: 8, lineHeight: 1.5 }}>
           {answered ? (
             <>
-              {question.sentence.split("___")[0]}
+              {question!.sentence.split("___")[0]}
               <span
                 style={{
                   display: "inline-block",
@@ -142,14 +208,14 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQu
               >
                 {chosen}
               </span>
-              {question.sentence.split("___").slice(1).join("___")}
+              {question!.sentence.split("___").slice(1).join("___")}
             </>
           ) : (
-            renderSentence(question.sentence)
+            renderSentence(question!.sentence)
           )}
         </div>
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
-          💡 {question.hint}
+          💡 {question!.hint}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {shuffledOptions.map(opt => {
@@ -194,26 +260,31 @@ export function ArticleQuizPanel({ questions, accentColor, onAnswer }: ArticleQu
             }}
           >
             {explanationPrefix}
-            {question.explanation}
+            {question!.explanation}
           </div>
         )}
       </div>
       <button
         type="button"
         onClick={handleNext}
+        disabled={!answered}
         style={{
           width: "100%",
           minHeight: 48,
           borderRadius: 12,
-          background: accentColor,
-          color: "#fff",
+          background: answered ? accentColor : "var(--border-light)",
+          color: answered ? "#fff" : "var(--text-muted)",
           border: "none",
           fontSize: 14,
           fontWeight: 600,
-          cursor: "pointer",
+          cursor: answered ? "pointer" : "default",
         }}
       >
-        Nächste Frage →
+        {!answered
+          ? "Erst antworten…"
+          : index >= order.length - 1
+            ? "Runde beenden →"
+            : "Nächste Frage →"}
       </button>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArticleTrainer } from "@/components/articles/ArticleTrainer";
 import { getArticleTrainerScope, resolveArticleTrainerPoint } from "@/lib/articles/scope";
@@ -31,7 +31,7 @@ function ArticlesPageInner() {
   }
 
   const point = getGrammarPoint(pointId);
-  const scope = getArticleTrainerScope(pointId);
+  const scope = useMemo(() => getArticleTrainerScope(pointId), [pointId]);
 
   return (
     <ArticleTrainer

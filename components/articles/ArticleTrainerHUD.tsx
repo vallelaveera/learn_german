@@ -1,19 +1,21 @@
 interface ArticleTrainerHUDProps {
   score: number;
   streak: number;
-  answered: number;
-  total: number;
+  progressCurrent: number;
+  progressTotal: number;
   accentColor: string;
 }
 
 export function ArticleTrainerHUD({
   score,
   streak,
-  answered,
-  total,
+  progressCurrent,
+  progressTotal,
   accentColor,
 }: ArticleTrainerHUDProps) {
-  const progress = total > 0 ? Math.min(100, (answered / total) * 100) : 0;
+  const progress = progressTotal > 0
+    ? Math.min(100, (progressCurrent / progressTotal) * 100)
+    : 0;
 
   return (
     <div

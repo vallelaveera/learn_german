@@ -27,20 +27,31 @@ export function ArticleTrainer({ scope, title, initialTab = "learn" }: ArticleTr
   const levelColor = level?.color ?? "var(--accent)";
   const levelLightColor = level?.lightColor ?? "var(--accent-soft)";
 
+  const quizQuestions = useMemo(
+    () => scope.quizQuestions,
+    [scope.pointId],
+  );
+  const practiceQuestions = useMemo(
+    () => scope.practiceQuestions,
+    [scope.pointId],
+  );
+
   const [tab, setTab] = useState<ArticleTrainerTab>(initialTab);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [answered, setAnswered] = useState(0);
+  const [roundProgress, setRoundProgress] = useState({ current: 0, total: 0 });
 
-  const poolTotal = useMemo(() => {
-    if (tab === "quiz") return scope.quizQuestions.length;
-    if (tab === "practice") return scope.practiceQuestions.length;
-    return 0;
-  }, [tab, scope]);
+  const handleTabChange = useCallback((next: ArticleTrainerTab) => {
+    setTab(next);
+    setRoundProgress({ current: 0, total: 0 });
+  }, []);
+
+  const handleProgress = useCallback((current: number, total: number) => {
+    setRoundProgress({ current, total });
+  }, []);
 
   const handleAnswer = useCallback(
     (correct: boolean) => {
-      setAnswered(n => n + 1);
       if (correct) {
         setScore(s => s + 1);
         setStreak(s => s + 1);
@@ -76,14 +87,14 @@ export function ArticleTrainer({ scope, title, initialTab = "learn" }: ArticleTr
           </h1>
         </div>
 
-        <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} />
+        <SegmentedTabs tabs={TABS} value={tab} onChange={handleTabChange} />
 
         {showHud && (
           <ArticleTrainerHUD
             score={score}
             streak={streak}
-            answered={answered}
-            total={poolTotal}
+            progressCurrent={roundProgress.current}
+            progressTotal={roundProgress.total}
             accentColor={levelColor}
           />
         )}
@@ -97,17 +108,19 @@ export function ArticleTrainer({ scope, title, initialTab = "learn" }: ArticleTr
         )}
         {tab === "quiz" && (
           <ArticleQuizPanel
-            questions={scope.quizQuestions}
+            questions={quizQuestions}
             accentColor={levelColor}
             onAnswer={handleAnswer}
+            onProgress={handleProgress}
           />
         )}
         {tab === "practice" && (
           <ArticlePracticePanel
-            questions={scope.practiceQuestions}
+            questions={practiceQuestions}
             accentColor={levelColor}
             accentSoft={levelLightColor}
             onAnswer={handleAnswer}
+            onProgress={handleProgress}
           />
         )}
       </div>
