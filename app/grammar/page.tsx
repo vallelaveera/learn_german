@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Table2 } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarDetailSheet } from "@/components/grammar/GrammarDetailSheet";
@@ -28,6 +28,12 @@ import {
   setExplainerCollapsed,
   type GrammarExplainersFile,
 } from "@/lib/grammar/explainers";
+import {
+  getArticleTrainerHref,
+  getDefaultArticleTrainerPointForLevel,
+  isArticleTrainerPoint,
+  supportsArticlePicker,
+} from "@/lib/articles/scope";
 
 export default function GrammarPage() {
   const router = useRouter();
@@ -66,6 +72,13 @@ export default function GrammarPage() {
     () => getExplainerForLevel(explainers, levelId),
     [explainers, levelId],
   );
+  const articleTablePointId = useMemo(
+    () => getDefaultArticleTrainerPointForLevel(levelId),
+    [levelId],
+  );
+  const articleTableHref = articleTablePointId
+    ? getArticleTrainerHref(articleTablePointId)
+    : null;
 
   const collapseExplainer = useCallback(() => {
     setExplainerCollapsed(levelId, true);
@@ -114,6 +127,61 @@ export default function GrammarPage() {
           onChange={setLevelId}
         />
 
+        {articleTableHref && level && (
+          <Link
+            href={articleTableHref}
+            className="ui-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              marginBottom: 16,
+              marginTop: 4,
+              textDecoration: "none",
+              border: `1px solid ${level.color}44`,
+              background: level.lightColor,
+            }}
+          >
+            <span
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: "#fff",
+                color: level.color,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Table2 size={18} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: level.color,
+                  marginBottom: 2,
+                }}
+              >
+                Artikel-Tabelle
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+                {levelId === "A1"
+                  ? "der · die · das — Nominativ"
+                  : "Nom · Akk · Dat — interaktive Übersicht"}
+              </span>
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: level.color, flexShrink: 0 }}>
+              Öffnen →
+            </span>
+          </Link>
+        )}
+
         {explainer && level && !explainerCollapsed && (
           <GrammarLevelExplainer
             explainer={explainer}
@@ -140,11 +208,24 @@ export default function GrammarPage() {
             gap: 12,
           }}
         >
-          {points.map(point => (
-            <button
+          {points.map(point => {
+            const tableHref =
+              supportsArticlePicker(point.id) && isArticleTrainerPoint(point.id)
+                ? getArticleTrainerHref(point.id)
+                : null;
+
+            return (
+            <div
               key={point.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => setSelectedPoint(point)}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedPoint(point);
+                }
+              }}
               className="ui-card"
               style={{
                 textAlign: "left",
@@ -193,7 +274,25 @@ export default function GrammarPage() {
                 {point.example.de}
               </p>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                {tableHref && (
+                  <Link
+                    href={tableHref}
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "5px 10px",
+                      borderRadius: 999,
+                      background: level?.lightColor ?? "var(--accent-soft)",
+                      color: level?.color ?? "var(--accent)",
+                      border: `1px solid ${level?.color ?? "var(--accent)"}55`,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Tabelle
+                  </Link>
+                )}
                 {visiblePracticeTypes(point.practiceTypes).slice(0, 4).map(type => (
                   <span
                     key={type}
@@ -216,8 +315,9 @@ export default function GrammarPage() {
                   </span>
                 )}
               </div>
-            </button>
-          ))}
+            </div>
+            );
+          })}
         </div>
 
         {points.length === 0 && (
