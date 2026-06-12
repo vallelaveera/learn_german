@@ -86,7 +86,17 @@ export function IllustrationBase({
     };
   }, [src, colors]);
 
-  if (failed) return null;
+  if (failed) {
+    return (
+      <div
+        aria-hidden="true"
+        className={`ui-illustration-wrap${className ? ` ${className}` : ""}`}
+        style={{ "--illus-w": `${width}px`, "--illus-h": `${height}px` } as React.CSSProperties}
+      >
+        <div className="ui-illustration-fallback">📚</div>
+      </div>
+    );
+  }
 
   const cssVars = {
     "--illus-w": `${width}px`,

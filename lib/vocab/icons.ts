@@ -5,6 +5,31 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN!,
 });
 
+function redisConfigured(): boolean {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+async function readIconCache(iconKey: string): Promise<string | null> {
+  if (!redisConfigured()) return null;
+  try {
+    const cached = await redis.get<string>(iconRedisKey(iconKey));
+    if (!cached) return null;
+    return typeof cached === "string" ? cached : String(cached);
+  } catch (err) {
+    console.error("Icon cache read failed:", iconKey, err);
+    return null;
+  }
+}
+
+async function writeIconCache(iconKey: string, svg: string): Promise<void> {
+  if (!redisConfigured()) return;
+  try {
+    await redis.set(iconRedisKey(iconKey), svg);
+  } catch (err) {
+    console.error("Icon cache write failed:", iconKey, err);
+  }
+}
+
 const ICON_SYSTEM_PROMPT = `You are an SVG icon designer for a German language learning app. Create a minimal flat SVG icon.
 
 STRICT RULES:
@@ -129,16 +154,18 @@ async function generateIconSvg(
 export async function getIcon(germanWord: string): Promise<string | null> {
   const iconKey = cleanWordKey(germanWord);
   if (!iconKey) return null;
-  const cached = await redis.get<string>(iconRedisKey(iconKey));
-  if (!cached) return null;
-  return typeof cached === "string" ? cached : String(cached);
+  return readIconCache(iconKey);
 }
 
 /** Remove cached icon so the next GET regenerates. */
 export async function deleteIcon(germanWord: string): Promise<void> {
   const iconKey = cleanWordKey(germanWord);
-  if (!iconKey) return;
-  await redis.del(iconRedisKey(iconKey));
+  if (!iconKey || !redisConfigured()) return;
+  try {
+    await redis.del(iconRedisKey(iconKey));
+  } catch (err) {
+    console.error("Icon cache delete failed:", iconKey, err);
+  }
 }
 
 /** Cache hit returns immediately; otherwise generates once and stores permanently. */
@@ -151,14 +178,14 @@ export async function getOrGenerateIcon(
     return placeholderIconSvg(germanWord);
   }
 
-  const cached = await redis.get<string>(iconRedisKey(iconKey));
+  const cached = await readIconCache(iconKey);
   if (cached) {
     console.log("Icon cache hit:", iconKey);
-    return typeof cached === "string" ? cached : String(cached);
+    return cached;
   }
 
   const svg = await generateIconSvg(germanWord, englishTranslation);
-  await redis.set(iconRedisKey(iconKey), svg);
+  await writeIconCache(iconKey, svg);
   console.log("Icon generated:", iconKey);
   return svg;
 }

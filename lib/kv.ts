@@ -4,6 +4,7 @@ import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssig
 import type { CareerVocabUserProgress } from "./career-vocab/types";
 import { normalizeGermanLevel } from "./levels";
 import { v4 as uuidv4 } from "uuid";
+import { getOrGenerateIcon } from "./vocab/icons";
 
 function isAssignmentComplete(assignment: HomeworkAssignment): boolean {
   const totalReps = assignment.sentences.length * 3;
@@ -71,6 +72,9 @@ export async function saveVocabWords(userId: string, words: string[]): Promise<v
       vocab[k].lastSeen = now;
     } else {
       vocab[k] = { word, firstSeen: now, timesSeen: 1, lastSeen: now };
+      void getOrGenerateIcon(word).catch(err =>
+        console.error("Icon gen failed:", err),
+      );
     }
   }
   await redis.set(key, JSON.stringify(vocab));

@@ -279,6 +279,12 @@ input, textarea, select {
   animation: vocab-icon-pulse 1.2s ease-in-out infinite;
 }
 
+.vocab-icon-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .animate-fade-in { animation: fade-in 0.35s ease forwards; }
 .animate-pop-in { animation: pop-in 0.3s ease forwards; }
 .animate-slide-up { animation: slide-up 0.28s ease forwards; }
@@ -311,6 +317,17 @@ input, textarea, select {
   width: 100%;
   height: 100%;
   display: block;
+}
+.ui-illustration-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  background: var(--brand-orange-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  opacity: 0.85;
 }
 .ui-illustration-skeleton {
   width: 100%;

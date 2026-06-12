@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ICON_COLORS, type VocabStatus } from "@/lib/vocab/iconColors";
 import { cleanWordKey } from "@/lib/vocab/icons";
 
@@ -26,12 +26,55 @@ export function VocabIcon({
 }: VocabIconProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [svgHtml, setSvgHtml] = useState<string | null>(null);
   const colors = ICON_COLORS[status];
   const translationQuery = translation
     ? `&translation=${encodeURIComponent(translation)}`
     : "";
   const src = `/api/icons/${encodeURIComponent(word)}?status=${status}${translationQuery}&_=${refreshKey}`;
   const fallbackLetter = cleanWordKey(word).charAt(0).toUpperCase() || "?";
+  const innerSize = size - 8;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    setSvgHtml(null);
+
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoading(false);
+        setError(true);
+      }
+    }, 25000);
+
+    fetch(src)
+      .then(res => {
+        if (!res.ok) throw new Error(`Icon HTTP ${res.status}`);
+        return res.text();
+      })
+      .then(text => {
+        if (cancelled) return;
+        if (!text.trim().startsWith("<svg")) throw new Error("Invalid SVG");
+        setSvgHtml(text);
+        setLoading(false);
+        setError(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setError(true);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [src]);
 
   return (
     <div
@@ -61,11 +104,11 @@ export function VocabIcon({
         />
       )}
 
-      {error ? (
+      {error || !svgHtml ? (
         <div
           style={{
-            width: size - 8,
-            height: size - 8,
+            width: innerSize,
+            height: innerSize,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -78,22 +121,11 @@ export function VocabIcon({
           {fallbackLetter}
         </div>
       ) : (
-        <img
-          key={`${status}-${refreshKey}`}
-          src={src}
-          width={size - 8}
-          height={size - 8}
-          alt=""
+        <div
           aria-hidden="true"
-          onLoad={() => {
-            setLoading(false);
-            setError(false);
-          }}
-          onError={() => {
-            setLoading(false);
-            setError(true);
-          }}
-          style={{ display: "block", objectFit: "contain" }}
+          className="vocab-icon-svg"
+          style={{ width: innerSize, height: innerSize, lineHeight: 0 }}
+          dangerouslySetInnerHTML={{ __html: svgHtml }}
         />
       )}
 

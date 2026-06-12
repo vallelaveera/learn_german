@@ -11,6 +11,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Vocab icons are keyed by word string — no user data; must load in <img> without auth redirects
+  if (pathname.startsWith("/api/icons/")) {
+    return NextResponse.next();
+  }
+
   // Check auth token
   const token = req.cookies.get("auth_token")?.value;
   if (!token) {

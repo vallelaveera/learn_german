@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
 import type { VocabStatus } from "@/lib/vocab/iconColors";
 import { injectColors } from "@/lib/vocab/injectColors";
-import { deleteIcon, getOrGenerateIcon } from "@/lib/vocab/icons";
+import { deleteIcon, getOrGenerateIcon, placeholderIconSvg } from "@/lib/vocab/icons";
 
 export const runtime = "nodejs";
 
@@ -35,7 +35,15 @@ export async function GET(
     });
   } catch (e) {
     console.error("Icon GET failed:", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    const word = decodeURIComponent(params.word);
+    const status = parseStatus(req.nextUrl.searchParams.get("status"));
+    const fallback = injectColors(placeholderIconSvg(word), status);
+    return new NextResponse(fallback, {
+      headers: {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "no-cache",
+      },
+    });
   }
 }
 
