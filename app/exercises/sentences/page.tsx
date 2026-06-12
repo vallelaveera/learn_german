@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2 } from "lucide-react";
 import { ExerciseCategoryPicker } from "@/components/exercises/ExerciseCategoryPicker";
 import { SentencePreviewDurationSetting } from "@/components/exercises/SentencePreviewDurationSetting";
-import { SentenceSelfRecorder, playRecordingUrls } from "@/components/exercises/SentenceSelfRecorder";
 import { ExerciseShell } from "@/components/layout/ExerciseShell";
 import { truncateForDisplay } from "@/lib/corrections";
 import {
@@ -90,9 +89,6 @@ function SentencesPractice({
   const [loadingMore, setLoadingMore] = useState(false);
   const [noMore, setNoMore] = useState(false);
   const [showEnHint, setShowEnHint] = useState(false);
-  const [skipMaya, setSkipMaya] = useState(false);
-  const [userRecordings, setUserRecordings] = useState<Record<number, string>>({});
-  const [playingAll, setPlayingAll] = useState(false);
   const [previewSeconds, setPreviewSeconds] = useState(() =>
     typeof window === "undefined" ? 5 : resolvePreviewSeconds(loadPreviewDurationSetting()),
   );
@@ -101,8 +97,6 @@ function SentencesPractice({
   const illustrationId = current
     ? resolveIllustrationId(current.id, current.german)
     : null;
-  const currentRecording = userRecordings[index] ?? null;
-
   const exercisesUrl = fromCall
     ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
     : `/api/exercises/sentences?category=${category}${scenarioId ? `&scenario=${encodeURIComponent(scenarioId)}` : ""}`;
@@ -136,15 +130,9 @@ function SentencesPractice({
 
   const playGerman = useCallback(() => {
     if (!current) return;
-    if (skipMaya && currentRecording) {
-      const audio = new Audio(currentRecording);
-      void audio.play();
-      return;
-    }
-    if (skipMaya) return;
     unlockExerciseAudio();
     speakExercisePrompt(current.german, "de").catch(() => {});
-  }, [current, skipMaya, currentRecording]);
+  }, [current]);
 
   useEffect(() => {
     if (!current) return;
@@ -169,26 +157,6 @@ function SentencesPractice({
       }, previewSeconds * 1000);
     };
 
-    if (skipMaya && currentRecording) {
-      const audio = new Audio(currentRecording);
-      audio.onended = () => finishPreview();
-      audio.onerror = () => finishPreview();
-      void audio.play().catch(() => finishPreview());
-      return () => {
-        cancelled = true;
-        if (postAudioTimer) clearTimeout(postAudioTimer);
-        audio.pause();
-      };
-    }
-
-    if (skipMaya) {
-      finishPreview();
-      return () => {
-        cancelled = true;
-        if (postAudioTimer) clearTimeout(postAudioTimer);
-      };
-    }
-
     void (async () => {
       unlockExerciseAudio();
       await prefetchExerciseGerman(current.german);
@@ -202,7 +170,7 @@ function SentencesPractice({
       if (postAudioTimer) clearTimeout(postAudioTimer);
       stopExerciseSpeech();
     };
-  }, [phase, current?.id, current?.german, index, skipMaya, currentRecording, previewSeconds]);
+  }, [phase, current?.id, current?.german, index, previewSeconds]);
 
   useEffect(() => {
     setShowEnHint(false);
@@ -255,17 +223,6 @@ function SentencesPractice({
     }
   };
 
-  const playAllRecordings = async () => {
-    const urls = exercises.map((_, i) => userRecordings[i]).filter(Boolean) as string[];
-    if (!urls.length) return;
-    setPlayingAll(true);
-    try {
-      await playRecordingUrls(urls);
-    } finally {
-      setPlayingAll(false);
-    }
-  };
-
   if (loading) {
     return (
       <ExerciseShell>
@@ -295,7 +252,6 @@ function SentencesPractice({
   }
 
   if (phase === "done") {
-    const recordedCount = Object.keys(userRecordings).length;
     return (
       <ExerciseShell>
       <div style={{
@@ -316,17 +272,6 @@ function SentencesPractice({
           </p>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
-          {recordedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => void playAllRecordings()}
-              disabled={playingAll}
-              className="ui-btn-primary"
-              style={{ fontSize: 14, opacity: playingAll ? 0.7 : 1 }}
-            >
-              {playingAll ? "Spielt ab..." : `Meine ${recordedCount} Aufnahmen anhören`}
-            </button>
-          )}
           {!noMore && (
             <button
               type="button"
@@ -397,9 +342,7 @@ function SentencesPractice({
             <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
               {fromCall
                 ? "KORREKTUR AUS DEINEM ANRUF"
-                : skipMaya
-                  ? `MERKE DIR DEN SATZ · ${previewSeconds} SEK.`
-                  : `MAYA LIEST VOR · ${previewSeconds} SEK. SICHTBAR`}
+                : `MAYA LIEST VOR · ${previewSeconds} SEK. SICHTBAR`}
             </p>
             {fromCall && current.said && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>
@@ -420,15 +363,6 @@ function SentencesPractice({
                 <Volume2 size={14} />
               </button>
             </div>
-            <div style={{ marginTop: 16 }}>
-              <SentenceSelfRecorder
-                recordingUrl={currentRecording}
-                skipMaya={skipMaya}
-                onSkipMayaChange={setSkipMaya}
-                onRecorded={url => setUserRecordings(prev => ({ ...prev, [index]: url }))}
-                compact
-              />
-            </div>
           </div>
         )}
 
@@ -447,13 +381,6 @@ function SentencesPractice({
             ) : current.english && !fromCall ? (
               <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 12 }}>{current.english}</p>
             ) : null}
-            <SentenceSelfRecorder
-              recordingUrl={currentRecording}
-              skipMaya={skipMaya}
-              onSkipMayaChange={setSkipMaya}
-              onRecorded={url => setUserRecordings(prev => ({ ...prev, [index]: url }))}
-              compact
-            />
           </div>
         )}
 
