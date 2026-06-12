@@ -38,7 +38,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { runIllustrationBatchForCategory } = await import("../lib/content/illustration-batch");
+  const { runIllustrationBatchForCategory, ILLUSTRATION_BATCH_LIMIT } = await import("../lib/content/illustration-batch");
   const { ensureLocalDir } = await import("../lib/content/illustration-storage");
   ensureLocalDir();
 
@@ -64,15 +64,24 @@ async function main(): Promise<void> {
   let totalSkipped = 0;
   let totalFailed = 0;
 
+  const allMode = process.argv.includes("--all");
+
   for (const cat of categories) {
     console.log(`\n=== ${cat.label} (${cat.id}) ===`);
-    const result = await runIllustrationBatchForCategory(cat.id, {
-      retryPlaceholders: retryMode,
-    });
-    for (const line of result.logs) console.log(line);
-    totalGenerated += result.generated;
-    totalSkipped += result.skipped;
-    totalFailed += result.failed;
+    let round = 0;
+    do {
+      if (round > 0) console.log(`--- round ${round + 1} ---`);
+      const result = await runIllustrationBatchForCategory(cat.id, {
+        retryPlaceholders: retryMode,
+        limit: ILLUSTRATION_BATCH_LIMIT,
+      });
+      for (const line of result.logs) console.log(line);
+      totalGenerated += result.generated;
+      totalSkipped += result.skipped;
+      totalFailed += result.failed;
+      round++;
+      if (!allMode || !result.hasMore) break;
+    } while (round < 50);
   }
 
   console.log("\n=== BATCH COMPLETE ===");

@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const body = await req.json() as { category?: string; retry?: boolean };
+    const body = await req.json() as { category?: string; retry?: boolean; limit?: number };
     const category = body.category?.trim();
+    const limit = body.limit ?? 10;
 
     if (!category) {
       return NextResponse.json({ error: "category is required" }, { status: 400 });
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     const result = await runIllustrationBatchForCategory(category, {
       retryPlaceholders: Boolean(body.retry),
+      limit: Math.min(Math.max(limit, 1), 10),
     });
 
     const sentences = await getSentencesByCategory(category);
@@ -72,6 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ result, stats, sentences: rows });
   } catch (e) {
     console.error("Admin illustrations POST failed:", e);
-    return NextResponse.json({ error: "Generation failed" }, { status: 500 });
+    const message = e instanceof Error ? e.message : "Generation failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

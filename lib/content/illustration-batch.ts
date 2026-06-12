@@ -3,6 +3,7 @@ import { BATCH_SENTENCES } from "./sentences-batch";
 import {
   corpusCategoryMatchesBatch,
   inferBatchCategoryFromGerman,
+  ILLUSTRATION_BATCH_LIMIT,
   normalizeGerman,
 } from "./illustration-lookup";
 import {
@@ -59,9 +60,15 @@ export interface IllustrationBatchResult {
   skipped: number;
   failed: number;
   total: number;
+  limit: number;
+  pending: number;
+  hasMore: boolean;
   costEstimate: string;
   logs: string[];
 }
+
+/** Max Claude generations per API request (avoids Vercel timeouts). */
+export { ILLUSTRATION_BATCH_LIMIT } from "./illustration-lookup";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -164,14 +171,16 @@ export async function getAllCategoryStats(): Promise<CategoryStats[]> {
 
 export async function runIllustrationBatchForCategory(
   category: string,
-  options: { retryPlaceholders?: boolean; delayMs?: number } = {},
+  options: { retryPlaceholders?: boolean; delayMs?: number; limit?: number } = {},
 ): Promise<IllustrationBatchResult> {
   const delayMs = options.delayMs ?? 500;
+  const limit = Math.min(Math.max(options.limit ?? ILLUSTRATION_BATCH_LIMIT, 1), ILLUSTRATION_BATCH_LIMIT);
   const sentences = await getSentencesByCategory(category);
   const logs: string[] = [];
   let generated = 0;
   let skipped = 0;
   let failed = 0;
+  let attempted = 0;
 
   if (sentences.length === 0) {
     return {
@@ -180,12 +189,20 @@ export async function runIllustrationBatchForCategory(
       skipped: 0,
       failed: 0,
       total: 0,
+      limit,
+      pending: 0,
+      hasMore: false,
       costEstimate: "0.000",
       logs: ["No sentences in category"],
     };
   }
 
   for (let i = 0; i < sentences.length; i++) {
+    if (attempted >= limit) {
+      logs.push(`BATCH LIMIT: ${limit} per request — run again for the next batch`);
+      break;
+    }
+
     const sentence = sentences[i];
 
     if (options.retryPlaceholders) {
@@ -202,6 +219,8 @@ export async function runIllustrationBatchForCategory(
         continue;
       }
     }
+
+    attempted++;
 
     try {
       let svg: string;
@@ -234,11 +253,16 @@ export async function runIllustrationBatchForCategory(
       failed++;
     }
 
-    if ((i + 1) % 5 === 0 || i === sentences.length - 1) {
-      logs.push(`Progress: ${i + 1}/${sentences.length}`);
+    if (attempted % 5 === 0 || attempted === limit) {
+      logs.push(`Progress: ${attempted}/${limit} this batch · ${i + 1}/${sentences.length} in category`);
     }
 
     await sleep(delayMs);
+  }
+
+  let pending = 0;
+  for (const s of sentences) {
+    if (await needsRegeneration(s.id)) pending++;
   }
 
   return {
@@ -247,6 +271,9 @@ export async function runIllustrationBatchForCategory(
     skipped,
     failed,
     total: sentences.length,
+    limit,
+    pending,
+    hasMore: pending > 0,
     costEstimate: (generated * 0.003).toFixed(3),
     logs,
   };

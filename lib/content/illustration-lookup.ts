@@ -1,6 +1,9 @@
 import { BATCH_SENTENCES } from "./sentences-batch";
 import type { SentenceExerciseCategory } from "@/lib/exercises/categories";
 
+/** Max Claude generations per API request (avoids Vercel timeouts). */
+export const ILLUSTRATION_BATCH_LIMIT = 10;
+
 export function normalizeGerman(text: string): string {
   return text.toLowerCase().trim().replace(/\s+/g, " ");
 }

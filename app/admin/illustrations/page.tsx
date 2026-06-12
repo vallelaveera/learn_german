@@ -10,8 +10,22 @@ import type {
   SentenceIllustrationRow,
 } from "@/lib/content/illustration-batch";
 import { isDevAdminFeaturesEnabled } from "@/lib/dev-admin-features";
+import { ILLUSTRATION_BATCH_LIMIT } from "@/lib/content/illustration-lookup";
 
 const PURPLE = "#7F77DD";
+
+async function readApiJson(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      text.trim().startsWith("<")
+        ? `Server error (HTTP ${res.status}) — request may have timed out. Try again; max ${ILLUSTRATION_BATCH_LIMIT} per batch.`
+        : text.slice(0, 160) || `HTTP ${res.status}`,
+    );
+  }
+}
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   generated: { bg: "#EAF3DE", color: "#27500A", label: "Generated" },
@@ -47,11 +61,11 @@ export default function AdminIllustrationsPage() {
         setError("Illustrations admin is dev-only.");
         return;
       }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load");
-      setCategories(data.categories ?? []);
-      setSentences(data.sentences ?? []);
-      setStats(data.stats ?? null);
+      const data = await readApiJson(res);
+      if (!res.ok) throw new Error(String(data.error ?? "Failed to load"));
+      setCategories((data.categories as CategoryStats[]) ?? []);
+      setSentences((data.sentences as SentenceIllustrationRow[]) ?? []);
+      setStats((data.stats as CategoryStats) ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -74,16 +88,21 @@ export default function AdminIllustrationsPage() {
       const res = await fetch("/api/admin/illustrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: selectedCategory, retry }),
+        body: JSON.stringify({
+          category: selectedCategory,
+          retry,
+          limit: ILLUSTRATION_BATCH_LIMIT,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Generation failed");
+      const data = await readApiJson(res);
+      if (!res.ok) throw new Error(String(data.error ?? "Generation failed"));
 
-      setLastResult(data.result);
-      setLogs(data.result?.logs ?? []);
-      setSentences(data.sentences ?? []);
-      setStats(data.stats ?? null);
-      if (data.categories) setCategories(data.categories);
+      const result = data.result as IllustrationBatchResult;
+      setLastResult(result);
+      setLogs(result?.logs ?? []);
+      setSentences((data.sentences as SentenceIllustrationRow[]) ?? []);
+      setStats((data.stats as CategoryStats) ?? null);
+      if (data.categories) setCategories(data.categories as CategoryStats[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -108,6 +127,7 @@ export default function AdminIllustrationsPage() {
           Generate animated Maya SVGs per category via Claude Haiku. On Vercel, SVGs are stored in Redis (
           <code>KV_REST_API_URL</code>); locally they also save to <code>data/illustrations/</code>.
           Includes batch sentences plus matching flashcard/corpus entries.
+          Generates up to <strong>{ILLUSTRATION_BATCH_LIMIT}</strong> SVGs per click — click again until done.
         </p>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
@@ -161,7 +181,7 @@ export default function AdminIllustrationsPage() {
               opacity: running || loading ? 0.7 : 1,
             }}
           >
-            {running ? "Generating…" : "Generate category"}
+            {running ? `Generating (${ILLUSTRATION_BATCH_LIMIT} max)…` : `Generate next ${ILLUSTRATION_BATCH_LIMIT}`}
           </button>
         </div>
 
@@ -181,9 +201,12 @@ export default function AdminIllustrationsPage() {
 
       {lastResult && (
         <AdminCard>
-          <p style={{ fontSize: 12, margin: 0, color: "var(--text-muted)" }}>
+          <p style={{ fontSize: 12, margin: 0, color: "var(--text-muted)", lineHeight: 1.5 }}>
             Batch complete — generated {lastResult.generated}, skipped {lastResult.skipped}, failed {lastResult.failed}.
             Est. cost ${lastResult.costEstimate}
+            {lastResult.hasMore && (
+              <> · <strong>{lastResult.pending}</strong> still pending — click &quot;Generate next {ILLUSTRATION_BATCH_LIMIT}&quot; again.</>
+            )}
           </p>
         </AdminCard>
       )}
