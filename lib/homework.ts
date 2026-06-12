@@ -1,11 +1,16 @@
+import { getUserFeatures } from "./kv";
 import { HomeworkAssignment } from "./types";
 
+/** Homework is on for everyone unless HOMEWORK_ENABLED=false on the server. */
 export function isHomeworkGloballyEnabled(): boolean {
-  return process.env.HOMEWORK_ENABLED === "true";
+  return process.env.HOMEWORK_ENABLED !== "false";
 }
 
-export async function isHomeworkEnabledForUser(_userId: string): Promise<boolean> {
-  return isHomeworkGloballyEnabled();
+export async function isHomeworkEnabledForUser(userId: string): Promise<boolean> {
+  if (!isHomeworkGloballyEnabled()) return false;
+  const features = await getUserFeatures(userId);
+  if (features.homeworkEnabled === false) return false;
+  return true;
 }
 
 export function getHomeworkProgress(assignment: HomeworkAssignment): {

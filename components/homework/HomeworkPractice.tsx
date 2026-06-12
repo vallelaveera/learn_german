@@ -467,7 +467,9 @@ export function HomeworkPractice() {
     return (
       <div style={{ textAlign: "center", padding: 32 }}>
         <p style={{ fontSize: 14, color: "var(--text)", marginBottom: 8 }}>Hausaufgaben nicht aktiviert</p>
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>HOMEWORK_ENABLED muss auf dem Server gesetzt sein.</p>
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          Für dein Konto ist Hausaufgaben deaktiviert. Bitte Support kontaktieren.
+        </p>
       </div>
     );
   }
