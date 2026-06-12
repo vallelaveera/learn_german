@@ -27,7 +27,6 @@ export function prepareFishTTS(text: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
-    line = line.replace(/([a-zäöüß])\s+([A-ZÄÖÜ])/g, "$1. $2");
     if (!/[.!?]$/.test(line)) line = line + ".";
     parts.push(line);
   }

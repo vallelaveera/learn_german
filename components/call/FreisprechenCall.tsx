@@ -71,8 +71,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId }: Freispre
   const [user, setUser] = useState<{ name: string } | null>(null);
   const ttsProviderRef = useRef<"soniox" | "fish">("soniox");
   useEffect(() => {
-    const voice = (localStorage.getItem("maya_voice") ?? "soniox") as "soniox" | "fish";
-    ttsProviderRef.current = voice;
+    ttsProviderRef.current = "soniox";
   }, []);
 
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);

@@ -89,7 +89,8 @@ function ModePageInner() {
             subtext="Freisprechen — wie ein echtes Gespräch"
             onClick={() => {
               localStorage.setItem("maya_voice", "soniox");
-              router.push("/call");
+              // After warmup flashcards: router.push("/call")
+              router.push("/exercises/warmup?next=/call");
             }}
           />
         </div>

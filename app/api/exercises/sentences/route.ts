@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const source = req.nextUrl.searchParams.get("source");
+    // Call corrections: GET ?source=call&session={id}
     if (source === "call") {
       const sessionId = req.nextUrl.searchParams.get("session");
       let corrections = sessionId
