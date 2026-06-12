@@ -3,8 +3,10 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Phone } from "lucide-react";
+import Link from "next/link";
+import { TrendingUp } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
-import { LevelStrip } from "@/components/level/LevelStrip";
+import { LevelChip } from "@/components/level/LevelChip";
 import { MayaAvatar } from "@/components/ui/MayaAvatar";
 import { ActivityCard } from "@/components/ui/ActivityCard";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
@@ -60,7 +62,11 @@ function ModePageInner() {
   };
 
   return (
-    <PageShell showTabBar>
+    <PageShell
+      showTabBar
+      headerRight={<LevelChip currentLevel={level} onSelect={saveLevel} />}
+      minimalHeader
+    >
       <div className="ui-page">
         <div className="ui-hero animate-fade-in">
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginBottom: 22, position: "relative", zIndex: 1 }}>
@@ -87,13 +93,6 @@ function ModePageInner() {
               router.push("/call");
             }}
           />
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <LevelStrip currentLevel={level} onSelect={saveLevel} />
-          <p className="ui-muted" style={{ fontSize: 12, marginTop: 10, textAlign: "center" }}>
-            Tippe dein Level — Maya passt sich an.
-          </p>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

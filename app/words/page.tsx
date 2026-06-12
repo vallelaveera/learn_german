@@ -2,7 +2,7 @@
 import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, ClipboardList, Briefcase, Languages, Sparkles, CheckCircle2 } from "lucide-react";
+import { BookOpen, Briefcase, Languages, Sparkles, CheckCircle2 } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { HomeworkPractice } from "@/components/homework/HomeworkPractice";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
@@ -28,10 +28,18 @@ type WordView = "vocab" | "homework" | "karriere";
 
 export default function WordsPage() {
   return (
-    <PageShell title="Üben">
-      <Suspense fallback={<p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
-        <WordsPageInner />
-      </Suspense>
+    <Suspense fallback={<p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
+      <WordsPageShell />
+    </Suspense>
+  );
+}
+
+function WordsPageShell() {
+  const searchParams = useSearchParams();
+  const isHomework = searchParams.get("view") === "homework";
+  return (
+    <PageShell title={isHomework ? "Hausaufgaben" : "Üben"}>
+      <WordsPageInner />
     </PageShell>
   );
 }
@@ -56,6 +64,13 @@ function WordsPageInner() {
   const [careerEntries, setCareerEntries] = useState<CareerEntry[]>([]);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerAvailable, setCareerAvailable] = useState(true);
+
+  useEffect(() => {
+    const v = searchParams.get("view");
+    if (v === "homework") setView("homework");
+    else if (v === "karriere") setView("karriere");
+    else if (v !== "homework") setView("vocab");
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/vocab")
@@ -139,17 +154,18 @@ function WordsPageInner() {
 
   return (
       <div style={{ padding: "16px 18px" }}>
+        {view === "homework" ? (
+          <HomeworkPractice />
+        ) : (
+          <>
         <SegmentedTabs
           tabs={[
             { id: "vocab", label: "Vokabeln", icon: <BookOpen size={16} /> },
-            { id: "homework", label: "Hausaufgaben", icon: <ClipboardList size={16} /> },
             { id: "karriere", label: "Karriere", icon: <Briefcase size={16} /> },
           ]}
-          value={view}
-          onChange={setView}
+          value={view === "karriere" ? "karriere" : "vocab"}
+          onChange={id => setView(id as WordView)}
         />
-
-        {view === "homework" && <HomeworkPractice />}
 
         {view === "vocab" && (
           <>
@@ -308,6 +324,8 @@ function WordsPageInner() {
                 <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{entry.category}</span>
               </div>
             ))}
+          </>
+        )}
           </>
         )}
       </div>

@@ -41,11 +41,7 @@ export function ExerciseCategoryPicker({ type }: ExerciseCategoryPickerProps) {
   return (
     <div
       style={{
-        minHeight: "100dvh",
-        paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)",
-        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-        paddingLeft: 18,
-        paddingRight: 18,
+        padding: "0 18px 24px",
       }}
     >
       <header style={{ marginBottom: 24 }}>

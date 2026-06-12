@@ -9,7 +9,7 @@ export function correctionsToExercises(corrections: CallCorrection[]): SentenceE
     .map(c => ({
       id: c.id,
       german: c.correct,
-      english: c.note ?? `Du sagtest: „${c.said}"`,
+      english: c.note?.trim() || "Korrigierter Satz aus deinem Anruf",
       level: "Anruf",
       words: tokenizeSentence(c.correct),
     }));
@@ -20,5 +20,6 @@ export function buildCallSentenceExercises(corrections: CallCorrection[]) {
     ...s,
     chips: shuffleWords(s.words),
     said: corrections.find(c => c.id === s.id)?.said,
+    note: corrections.find(c => c.id === s.id)?.note,
   }));
 }

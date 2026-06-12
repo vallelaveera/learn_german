@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { MessageSquare, Clock, BookOpen, MessagesSquare, Flame, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { StatTile } from "@/components/ui/StatTile";
@@ -88,7 +89,15 @@ export default function ProgressPage() {
   });
 
   return (
-    <PageShell title="Fortschritt">
+    <PageShell
+      title="Fortschritt"
+      showTabBar={false}
+      headerRight={
+        <Link href="/profile" style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}>
+          Profil
+        </Link>
+      }
+    >
       <div style={{ padding: "16px 18px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
           <StatTile label="Gespräche" value={totalSessions} icon={<MessageSquare size={18} />} />

@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Check, Flame, MessageSquare } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Check, Flame, MessageSquare, TrendingUp, ChevronRight } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { StatTile } from "@/components/ui/StatTile";
 
@@ -114,6 +115,40 @@ export default function ProfilePage() {
             <StatTile label="Sessions" value={user.totalSessions ?? 0} icon={<MessageSquare size={18} />} />
             <StatTile label="Streak" value={user.streak ?? 0} icon={<Flame size={18} />} accent="var(--green)" />
           </div>
+
+          <Link
+            href="/progress"
+            className="ui-card ui-card-padded"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "var(--accent-soft)",
+                color: "var(--accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <TrendingUp size={20} />
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Fortschritt</span>
+              <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+                Gespräche, Streak & Verlauf
+              </span>
+            </span>
+            <ChevronRight size={18} color="var(--text-dim)" />
+          </Link>
 
           <button
             type="button"

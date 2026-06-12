@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2 } from "lucide-react";
 import { ExerciseCategoryPicker } from "@/components/exercises/ExerciseCategoryPicker";
+import { SentenceSelfRecorder, playRecordingUrls } from "@/components/exercises/SentenceSelfRecorder";
+import { ExerciseShell } from "@/components/layout/ExerciseShell";
+import { truncateForDisplay } from "@/lib/corrections";
 import {
   getSentenceCategoryMeta,
   parseSentenceCategory,
@@ -31,6 +34,7 @@ interface SentenceExercise {
   words: string[];
   chips: Chip[];
   said?: string;
+  note?: string;
 }
 
 type Phase = "preview" | "build" | "complete" | "done";
@@ -38,10 +42,17 @@ type Phase = "preview" | "build" | "complete" | "done";
 const PREVIEW_MS = 5000;
 
 function SentencesInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const rawCategory = params.get("category");
-  if (!rawCategory) return <ExerciseCategoryPicker type="sentences" />;
+  if (!rawCategory) {
+    return (
+      <ExerciseShell>
+        <div style={{ padding: "0 18px" }}>
+          <ExerciseCategoryPicker type="sentences" />
+        </div>
+      </ExerciseShell>
+    );
+  }
 
   const category = parseSentenceCategory(rawCategory);
   return <SentencesPractice category={category} sessionId={params.get("session")} />;
@@ -68,8 +79,12 @@ function SentencesPractice({
   const [loadingMore, setLoadingMore] = useState(false);
   const [noMore, setNoMore] = useState(false);
   const [showEnHint, setShowEnHint] = useState(false);
+  const [skipMaya, setSkipMaya] = useState(false);
+  const [userRecordings, setUserRecordings] = useState<Record<number, string>>({});
+  const [playingAll, setPlayingAll] = useState(false);
 
   const current = exercises[index];
+  const currentRecording = userRecordings[index] ?? null;
 
   const exercisesUrl = fromCall
     ? `/api/exercises/sentences?source=call${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ""}`
@@ -104,9 +119,15 @@ function SentencesPractice({
 
   const playGerman = useCallback(() => {
     if (!current) return;
+    if (skipMaya && currentRecording) {
+      const audio = new Audio(currentRecording);
+      void audio.play();
+      return;
+    }
+    if (skipMaya) return;
     unlockExerciseAudio();
     speakExercisePrompt(current.german, "de").catch(() => {});
-  }, [current]);
+  }, [current, skipMaya, currentRecording]);
 
   useEffect(() => {
     if (!current) return;
@@ -119,7 +140,7 @@ function SentencesPractice({
   }, [loadExercises]);
 
   useEffect(() => {
-    if (phase !== "preview" || !current) return;
+    if (phase !== "preview" || !current || skipMaya) return;
     let cancelled = false;
     const run = async () => {
       await prefetchExerciseGerman(current.german);
@@ -132,7 +153,7 @@ function SentencesPractice({
       clearTimeout(t);
       stopExerciseSpeech();
     };
-  }, [phase, current?.id, index]);
+  }, [phase, current?.id, index, skipMaya]);
 
   useEffect(() => {
     setShowEnHint(false);
@@ -185,18 +206,32 @@ function SentencesPractice({
     }
   };
 
+  const playAllRecordings = async () => {
+    const urls = exercises.map((_, i) => userRecordings[i]).filter(Boolean) as string[];
+    if (!urls.length) return;
+    setPlayingAll(true);
+    try {
+      await playRecordingUrls(urls);
+    } finally {
+      setPlayingAll(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
-      </div>
+      <ExerciseShell>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60dvh", padding: 24 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Sätze werden geladen...</p>
+        </div>
+      </ExerciseShell>
     );
   }
 
   if (!exercises.length) {
     return (
-      <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: 24, textAlign: "center" }}>
-        <p style={{ fontSize: 40, marginBottom: 12 }}>{meta?.emoji ?? "🧩"}</p>
+      <ExerciseShell>
+        <div style={{ padding: 24, textAlign: "center" }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>{meta?.emoji ?? "🧩"}</p>
         <p style={{ marginTop: 40, color: "var(--text-muted)" }}>
           {fromCall
             ? "Keine übbaren Korrekturen aus deinem Anruf."
@@ -205,15 +240,19 @@ function SentencesPractice({
         <Link href="/exercises/sentences" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>
           ← Andere Kategorie
         </Link>
-      </div>
+        </div>
+      </ExerciseShell>
     );
   }
 
   if (phase === "done") {
+    const recordedCount = Object.keys(userRecordings).length;
     return (
+      <ExerciseShell>
       <div style={{
-        minHeight: "100dvh", background: "var(--bg)", padding: 24,
+        padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+        minHeight: "70dvh",
       }}>
         <span
           style={{
@@ -243,6 +282,17 @@ function SentencesPractice({
           </p>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
+          {recordedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => void playAllRecordings()}
+              disabled={playingAll}
+              className="ui-btn-primary"
+              style={{ fontSize: 14, opacity: playingAll ? 0.7 : 1 }}
+            >
+              {playingAll ? "Spielt ab..." : `Meine ${recordedCount} Aufnahmen anhören`}
+            </button>
+          )}
           {!noMore && (
             <button
               type="button"
@@ -259,16 +309,13 @@ function SentencesPractice({
           </Link>
         </div>
       </div>
+      </ExerciseShell>
     );
   }
 
   return (
-    <div style={{
-      minHeight: "100dvh", background: "var(--bg)",
-      paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)",
-      paddingLeft: 20, paddingRight: 20,
-    }}>
+    <ExerciseShell>
+    <div style={{ paddingLeft: 20, paddingRight: 20 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, maxWidth: 400, margin: "0 auto 24px" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           <span
@@ -308,8 +355,8 @@ function SentencesPractice({
               {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : "MERKE DIR DEN SATZ"}
             </p>
             {fromCall && current.said && (
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic" }}>
-                Du sagtest: „{current.said}"
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>
+                Du sagtest: „{truncateForDisplay(current.said, 120)}"
               </p>
             )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -326,6 +373,15 @@ function SentencesPractice({
                 <Volume2 size={14} />
               </button>
             </div>
+            <div style={{ marginTop: 16 }}>
+              <SentenceSelfRecorder
+                recordingUrl={currentRecording}
+                skipMaya={skipMaya}
+                onSkipMayaChange={setSkipMaya}
+                onRecorded={url => setUserRecordings(prev => ({ ...prev, [index]: url }))}
+                compact
+              />
+            </div>
           </div>
         )}
 
@@ -336,7 +392,18 @@ function SentencesPractice({
           }}>
             <p style={{ fontSize: 10, color: "var(--green)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>RICHTIG!</p>
             <p style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--text)", lineHeight: 1.45, marginBottom: 10 }}>{current.german}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>{current.english}</p>
+            {fromCall && current.note ? (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 12 }}>{current.note}</p>
+            ) : current.english && !fromCall ? (
+              <p style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 12 }}>{current.english}</p>
+            ) : null}
+            <SentenceSelfRecorder
+              recordingUrl={currentRecording}
+              skipMaya={skipMaya}
+              onSkipMayaChange={setSkipMaya}
+              onRecorded={url => setUserRecordings(prev => ({ ...prev, [index]: url }))}
+              compact
+            />
           </div>
         )}
 
@@ -431,6 +498,7 @@ function SentencesPractice({
         )}
       </div>
     </div>
+    </ExerciseShell>
   );
 }
 

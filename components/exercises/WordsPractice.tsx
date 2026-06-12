@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BinaryFlashcard } from "@/components/BinaryFlashcard";
+import { ExerciseShell } from "@/components/layout/ExerciseShell";
 import type { ExerciseDirection } from "@/components/DirectionToggle";
 import {
   getWordCategoryMeta,
@@ -86,29 +87,35 @@ export function WordsPractice({ category }: WordsPracticeProps) {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Wörter werden geladen...</p>
-      </div>
+      <ExerciseShell>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60dvh", padding: 24 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Wörter werden geladen...</p>
+        </div>
+      </ExerciseShell>
     );
   }
 
   if (!cards.length) {
     return (
-      <div style={{ minHeight: "100dvh", padding: 24, textAlign: "center" }}>
+      <ExerciseShell>
+        <div style={{ padding: 24, textAlign: "center" }}>
         <p style={{ fontSize: 40, marginBottom: 12 }}>{meta?.emoji ?? "📚"}</p>
         <p style={{ marginTop: 40, color: "var(--text-muted)" }}>Keine Wörter in dieser Kategorie.</p>
         <Link href="/exercises/words" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>
           ← Andere Kategorie
         </Link>
-      </div>
+        </div>
+      </ExerciseShell>
     );
   }
 
   if (done) {
     return (
+      <ExerciseShell>
       <div style={{
-        minHeight: "100dvh", padding: 24,
+        padding: 24,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+        minHeight: "70dvh",
       }}>
         <span
           style={{
@@ -154,17 +161,13 @@ export function WordsPractice({ category }: WordsPracticeProps) {
           </Link>
         </div>
       </div>
+      </ExerciseShell>
     );
   }
 
   return (
-    <div style={{
-      minHeight: "100dvh",
-      paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)",
-      paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-      paddingLeft: 20, paddingRight: 20,
-      display: "flex", flexDirection: "column", alignItems: "center",
-    }}>
+    <ExerciseShell>
+    <div style={{ paddingLeft: 20, paddingRight: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
       <header style={{ width: "100%", maxWidth: 300, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           <span
@@ -205,5 +208,6 @@ export function WordsPractice({ category }: WordsPracticeProps) {
         showWordExamples
       />
     </div>
+    </ExerciseShell>
   );
 }
