@@ -6,13 +6,30 @@ import { isLevelAppropriate, isTooBasic } from "./levels";
 import { toBinaryCards } from "./cards";
 import { isExerciseEntryExcluded } from "./exclusion";
 import type { WordExerciseCategory } from "./categories";
+import { matchesWordCategory } from "./categories";
 import type { BinaryCard, FlashCardEntry } from "./types";
 import { getScenario, matchesScenario } from "./scenarios";
+import { prioritizeWithVisuals } from "./prioritize";
+import { hasWordIcon } from "./visual-assets";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
 function isExcluded(entry: FlashCardEntry, excluded: Set<string>): boolean {
   return isExerciseEntryExcluded(entry.id, entry.german, excluded);
+}
+
+function passesWordFilters(
+  entry: FlashCardEntry,
+  userLevel: string,
+  category: WordExerciseCategory,
+  excluded: Set<string>,
+): boolean {
+  return (
+    !isTooBasic(entry.german, userLevel) &&
+    isLevelAppropriate(entry.level, userLevel) &&
+    !isExcluded(entry, excluded) &&
+    matchesWordCategory(entry.german, category)
+  );
 }
 
 export async function selectWarmupCards(
@@ -39,12 +56,15 @@ export async function selectWarmupCards(
       distractors: careerRaw.filter(o => o.id !== entry.id).slice(0, 3).map(o => o.english),
       level: entry.level,
     }));
-    let pool = flashEntries.filter(e => !isExcluded(e, excluded));
+    let pool = flashEntries.filter(e => passesWordFilters(e, userLevel, category, excluded));
     if (pool.length < limit) {
-      const extra = (await getWarmupPoolAsync(userLevel, limit * 8)).filter(e => !isExcluded(e, excluded));
+      const extra = (await getWarmupPoolAsync(userLevel, limit * 8)).filter(e =>
+        passesWordFilters(e, userLevel, category, excluded),
+      );
       pool = [...pool, ...extra.filter(e => !pool.some(p => p.id === e.id))];
     }
-    return toBinaryCards(pool.slice(0, limit), "warmup");
+    const ranked = await prioritizeWithVisuals(pool, e => hasWordIcon(e.german));
+    return toBinaryCards(ranked.slice(0, limit), "warmup");
   }
 
   const picked: string[] = [];
@@ -75,18 +95,15 @@ export async function selectWarmupCards(
   }
 
   const unique = Array.from(new Set(picked.map(w => w.toLowerCase())));
-  let entries = resolveWordsToEntries(unique).filter(
-    e =>
-      !isTooBasic(e.german, userLevel) &&
-      isLevelAppropriate(e.level, userLevel) &&
-      !isExcluded(e, excluded)
+  let entries = resolveWordsToEntries(unique).filter(e =>
+    passesWordFilters(e, userLevel, category, excluded),
   );
 
   if (entries.length < limit) {
     const pool = await getWarmupPoolAsync(userLevel, limit * 12);
     for (const entry of pool) {
       if (entries.length >= limit) break;
-      if (isExcluded(entry, excluded)) continue;
+      if (!passesWordFilters(entry, userLevel, category, excluded)) continue;
       if (!entries.some(e => e.id === entry.id)) entries.push(entry);
     }
   }
@@ -101,13 +118,14 @@ export async function selectWarmupCards(
       for (const entry of pool) {
         if (entries.length >= limit) break;
         if (!matchesScenario(entry.german, scenario)) continue;
-        if (isExcluded(entry, excluded)) continue;
+        if (!passesWordFilters(entry, userLevel, category, excluded)) continue;
         if (!entries.some(e => e.id === entry.id)) entries.push(entry);
       }
     }
   }
 
-  return toBinaryCards(entries.slice(0, limit), "warmup");
+  const ranked = await prioritizeWithVisuals(entries, e => hasWordIcon(e.german));
+  return toBinaryCards(ranked.slice(0, limit), "warmup");
 }
 
 export function entryFromGerman(german: string): BinaryCard | null {

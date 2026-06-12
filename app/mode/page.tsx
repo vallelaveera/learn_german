@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Phone } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { LevelChip } from "@/components/level/LevelChip";
-import { ConversationIllustration } from "@/components/illustrations/ConversationIllustration";
+import { HomeIllustration } from "@/components/illustrations/HomeIllustration";
 import { PracticeJourneyMap } from "@/components/home/PracticeJourneyMap";
 import { ActivityCard } from "@/components/ui/ActivityCard";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
@@ -23,6 +23,7 @@ function ModePageInner() {
   const searchParams = useSearchParams();
   const [user, setUser] = useState<{ name: string; germanLevel?: string } | null>(null);
   const [level, setLevel] = useState<string>("A1");
+  const [recentMistakes, setRecentMistakes] = useState<string[]>([]);
 
   useEffect(() => {
     const urlLevel = searchParams.get("level");
@@ -45,6 +46,29 @@ function ModePageInner() {
         if (d && !d.placementDone) router.push("/exercises/placement");
         else if (d?.germanLevel) setLevel(normalizeGermanLevel(d.germanLevel));
       });
+
+    fetch("/api/vocab", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d?.words?.length) return;
+        const mistakes = (d.words as Array<{
+          word?: string;
+          text?: string;
+          correctCount?: number;
+          timesSeen?: number;
+          seenCount?: number;
+        }>)
+          .filter(w => {
+            const seen = w.timesSeen ?? w.seenCount ?? 0;
+            const correct = w.correctCount ?? 0;
+            return seen > 0 && correct < seen;
+          })
+          .slice(0, 5)
+          .map(w => w.word ?? w.text ?? "")
+          .filter(Boolean);
+        setRecentMistakes(mistakes);
+      })
+      .catch(() => {});
 
     if (urlLevel) {
       router.replace("/mode", { scroll: false });
@@ -77,7 +101,13 @@ function ModePageInner() {
                 Wie möchtest du heute Deutsch üben?
               </p>
             </div>
-            <ConversationIllustration width={240} height={188} />
+            <HomeIllustration
+              width={240}
+              height={188}
+              userLevel={level}
+              recentMistakes={recentMistakes}
+              userName={user?.name}
+            />
           </div>
 
           <ActivityCard

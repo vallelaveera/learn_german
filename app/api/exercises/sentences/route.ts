@@ -7,7 +7,8 @@ import {
   saveExerciseResults,
 } from "@/lib/kv";
 import { buildCallSentenceExercises } from "@/lib/exercises/call-sentences";
-import { selectSentenceExercises, shuffleWords } from "@/lib/exercises/sentences";
+import { selectSentenceExercises } from "@/lib/exercises/sentences-select";
+import { shuffleWords } from "@/lib/exercises/sentences";
 import { parseSentenceCategory } from "@/lib/exercises/categories";
 
 export const runtime = "nodejs";

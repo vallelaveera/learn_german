@@ -1,3 +1,5 @@
+import { getCareerVocabEntries } from "@/lib/career-vocab/load";
+
 export type WordExerciseCategory = "mixed" | "conversation" | "new" | "review" | "career";
 
 export type SentenceExerciseCategory = "everyday" | "call" | "work" | "travel";
@@ -92,17 +94,48 @@ export const SENTENCE_CATEGORIES: ExerciseCategoryMeta[] = [
 const WORK_KEYWORDS = [
   "arbeit", "stelle", "unternehmen", "bewerb", "software", "woche", "gespräch",
   "kolleg", "beruf", "meeting", "projekt", "chef", "büro", "gehalt", "team",
+  "präsentation", "bericht", "frist", "bewerbung", "karriere",
 ];
 const TRAVEL_KEYWORDS = [
   "reise", "hotel", "flughafen", "zug", "ticket", "urlaub", "bus", "bahn",
-  "koffer", "flug", "unterwegs", "stadt", "karte",
+  "koffer", "flug", "unterwegs", "stadt", "karte", "fahrer", "verspätung",
+  "autobahn", "stau", "landet", "u-bahn",
 ];
 
-export function matchesSentenceCategory(german: string, category: SentenceExerciseCategory): boolean {
-  if (category === "everyday" || category === "call") return true;
+function inferTopicBatchCategory(german: string): string {
   const lower = german.toLowerCase();
-  const keywords = category === "work" ? WORK_KEYWORDS : TRAVEL_KEYWORDS;
-  return keywords.some(k => lower.includes(k));
+  if (/(zug|bus|bahn|flug|ticket|fahr|reise|hotel|flughafen|landet|stau|autobahn)/.test(lower)) {
+    return "transport";
+  }
+  if (/(kaffee|esse|trink|koch|restaurant|brot|kuchen|suppe|hunger)/.test(lower)) {
+    return "food";
+  }
+  if (/(arbeit|stelle|meeting|büro|chef|projekt|bewerb|bericht|präsentation|frist)/.test(lower)) {
+    return "career";
+  }
+  if (/(freue|müde|stolz|dankbar|ärger|lacht|aufgeregt|gefühl|heimweh|entscheidung)/.test(lower)) {
+    return "emotions";
+  }
+  return "daily_life";
+}
+
+export function inferSentenceExerciseCategory(german: string): SentenceExerciseCategory {
+  const topic = inferTopicBatchCategory(german);
+  if (topic === "transport") return "travel";
+  if (topic === "career") return "work";
+  return "everyday";
+}
+
+export function matchesSentenceCategory(german: string, category: SentenceExerciseCategory): boolean {
+  if (category === "call") return false;
+  return inferSentenceExerciseCategory(german) === category;
+}
+
+export function matchesWordCategory(german: string, category: WordExerciseCategory): boolean {
+  if (category !== "career") return true;
+  const lower = german.toLowerCase().trim();
+  if (WORK_KEYWORDS.some(k => lower.includes(k))) return true;
+  return getCareerVocabEntries().some(e => e.text.toLowerCase() === lower);
 }
 
 export function getWordCategoryMeta(id: string): ExerciseCategoryMeta | undefined {
