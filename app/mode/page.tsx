@@ -123,7 +123,7 @@ function ModePageInner() {
             subtext="Freisprechen — wie ein echtes Gespräch"
             onClick={() => {
               localStorage.setItem("maya_voice", "soniox");
-              router.push("/exercises/warmup?next=/call");
+              router.push("/call");
             }}
           />
           <ActivityCard
