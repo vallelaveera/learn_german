@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
 import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
 import { computeCallReportStats } from "@/lib/call-report-stats";
+import { parseTutorResponse, attachCorrectionToLastUser } from "@/lib/tutor-response";
 import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
@@ -389,25 +390,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         }
       }
       if (!fullText) throw new Error();
-      const allLines = fullText.split("\n").filter(Boolean);
-      const speechLines = allLines.filter(l => !l.startsWith("💡"));
+      const parsed = parseTutorResponse(fullText);
       const german = ttsProviderRef.current === "fish"
-        ? prepareFishTTS(speechLines.join("\n"))
-        : speechLines.join(" ").trim();
-      const hintLines = allLines
-        .filter(l => l.startsWith("💡"))
-        .map(l => l.replace(/^💡\s*/, "").trim())
-        .filter(Boolean);
-      const hint = hintLines.length
-        ? hintLines.filter((h, i) => hintLines.indexOf(h) === i).join(" · ")
-        : undefined;
+        ? prepareFishTTS(parsed.german)
+        : parsed.german;
+
+      let withCorrection = messagesRef.current;
+      if (parsed.correction) {
+        withCorrection = attachCorrectionToLastUser(withCorrection, parsed.correction);
+      }
+
       const assistantMsg: Message = {
         role: "assistant",
         content: german,
-        translation: hint,
+        translation: parsed.hint,
         timestamp: Date.now(),
       };
-      const withAssistant = [...messagesRef.current, assistantMsg];
+      const withAssistant = [...withCorrection, assistantMsg];
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
       await streamTTS(german);
