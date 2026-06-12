@@ -23,11 +23,15 @@ export function ExerciseShell({
       className="ui-phone-shell"
       style={{
         position: "relative",
+        height: "100dvh",
+        maxHeight: "100dvh",
         minHeight: "100dvh",
         maxWidth: 390,
         margin: "0 auto",
         width: "100%",
-        overflowX: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
         background: "var(--bg-warm)",
       }}
     >
@@ -36,7 +40,11 @@ export function ExerciseShell({
         style={{
           position: "relative",
           zIndex: 1,
-          minHeight: "100dvh",
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          WebkitOverflowScrolling: "touch",
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
           paddingBottom: showTabBar
             ? "calc(96px + env(safe-area-inset-bottom, 0px))"

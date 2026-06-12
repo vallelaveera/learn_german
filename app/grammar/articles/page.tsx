@@ -9,7 +9,7 @@ import type { ArticleTrainerTab } from "@/lib/articles/types";
 
 function parseTab(value: string | null): ArticleTrainerTab {
   if (value === "learn" || value === "quiz" || value === "practice") return value;
-  return "quiz";
+  return "learn";
 }
 
 function ArticlesPageInner() {
