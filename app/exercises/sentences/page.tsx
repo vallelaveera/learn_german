@@ -160,15 +160,13 @@ function SentencesPractice({
     if (phase !== "preview" || !current) return;
 
     let cancelled = false;
-    const startedAt = Date.now();
-    const minDisplayMs = previewSeconds * 1000;
+    let postAudioTimer: number | undefined;
 
+    /** Keep sentence on screen for previewSeconds after Maya / audio finishes. */
     const finishPreview = () => {
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, minDisplayMs - elapsed);
-      window.setTimeout(() => {
+      postAudioTimer = window.setTimeout(() => {
         if (!cancelled) setPhase("build");
-      }, remaining);
+      }, previewSeconds * 1000);
     };
 
     if (skipMaya && currentRecording) {
@@ -178,6 +176,7 @@ function SentencesPractice({
       void audio.play().catch(() => finishPreview());
       return () => {
         cancelled = true;
+        if (postAudioTimer) clearTimeout(postAudioTimer);
         audio.pause();
       };
     }
@@ -186,6 +185,7 @@ function SentencesPractice({
       finishPreview();
       return () => {
         cancelled = true;
+        if (postAudioTimer) clearTimeout(postAudioTimer);
       };
     }
 
@@ -199,6 +199,7 @@ function SentencesPractice({
 
     return () => {
       cancelled = true;
+      if (postAudioTimer) clearTimeout(postAudioTimer);
       stopExerciseSpeech();
     };
   }, [phase, current?.id, current?.german, index, skipMaya, currentRecording, previewSeconds]);
@@ -379,7 +380,9 @@ function SentencesPractice({
       </header>
 
       <div style={{ maxWidth: 400, margin: "0 auto 16px" }}>
-        <SentencePreviewDurationSetting compact onChange={setPreviewSeconds} />
+        {phase === "preview" && (
+          <SentencePreviewDurationSetting compact onChange={setPreviewSeconds} />
+        )}
       </div>
 
       <div style={{ maxWidth: 400, margin: "0 auto" }}>
@@ -392,7 +395,11 @@ function SentencesPractice({
               <SentenceIllustration sentenceId={illustrationId} height={130} />
             )}
             <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
-              {fromCall ? "KORREKTUR AUS DEINEM ANRUF" : `MERKE DIR DEN SATZ · ${previewSeconds} SEK.`}
+              {fromCall
+                ? "KORREKTUR AUS DEINEM ANRUF"
+                : skipMaya
+                  ? `MERKE DIR DEN SATZ · ${previewSeconds} SEK.`
+                  : `MAYA LIEST VOR · ${previewSeconds} SEK. SICHTBAR`}
             </p>
             {fromCall && current.said && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>

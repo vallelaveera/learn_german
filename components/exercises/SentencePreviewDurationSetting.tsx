@@ -71,12 +71,12 @@ export function SentencePreviewDurationSetting({
             margin: "0 0 4px",
           }}
         >
-          {compact ? "Satz sichtbar" : "Wie lange soll der Satz sichtbar bleiben?"}
+          {compact ? "Maya liest vor" : "Wie lange bleibt der Satz sichtbar, während Maya spricht?"}
         </p>
         <p style={{ fontSize: compact ? 10 : 11, color: "var(--text-muted)", margin: 0, lineHeight: 1.45 }}>
           {compact
-            ? "Bevor du den Satz aus dem Gedächtnis aufbaust"
-            : "Der Satz bleibt so lange auf dem Bildschirm — danach baust du ihn aus dem Gedächtnis."}
+            ? "Der Satz bleibt so lange auf dem Bildschirm, während Maya ihn vorliest"
+            : "Maya liest den Satz vor — er bleibt so lange sichtbar, bevor du ihn aus dem Gedächtnis aufbaust."}
         </p>
       </div>
 
@@ -138,7 +138,7 @@ export function SentencePreviewDurationSetting({
       )}
 
       <p style={{ fontSize: 10, color: "var(--accent)", margin: compact ? "8px 0 0" : "10px 0 0", fontWeight: 600 }}>
-        Aktuell: {previewDurationLabel(activeSeconds)}
+        Maya spricht · {previewDurationLabel(activeSeconds)} sichtbar
       </p>
     </div>
   );
