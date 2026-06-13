@@ -51,10 +51,13 @@ export function BetaWelcomeModal({ open, onClose, onGiveFeedback }: BetaWelcomeM
           Beta · Testphase
         </p>
         <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 300, margin: "0 0 10px", color: "var(--text)" }}>
-          Willkommen!
+          Willkommen! · Welcome!
         </h2>
         <p style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6, margin: "0 0 18px" }}>
           Du testest CallMeDaily in der frühen Phase. Bitte gib uns am Ende eines Anrufs Feedback — oder jederzeit unter Profil → Feedback.
+          <span style={{ display: "block", marginTop: 8, fontSize: 13 }}>
+            You're testing CallMeDaily in early beta. Please give feedback after a call — or anytime under Profile → Feedback.
+          </span>
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {onGiveFeedback && (
@@ -75,7 +78,7 @@ export function BetaWelcomeModal({ open, onClose, onGiveFeedback }: BetaWelcomeM
                 cursor: "pointer",
               }}
             >
-              Feedback geben
+              Feedback geben · Give feedback
             </button>
           )}
           <button
@@ -91,7 +94,7 @@ export function BetaWelcomeModal({ open, onClose, onGiveFeedback }: BetaWelcomeM
               cursor: "pointer",
             }}
           >
-            Verstanden
+            Verstanden · Got it
           </button>
         </div>
       </div>

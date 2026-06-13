@@ -129,11 +129,15 @@ export function CallGrammarTurnBadge({ msg, inverted = false }: CallGrammarTurnB
 
 interface CallGrammarTurnStripProps {
   messages: Message[];
+  onTurnClick?: (messageIndex: number) => void;
+  activeMessageIndex?: number | null;
 }
 
-export function CallGrammarTurnStrip({ messages }: CallGrammarTurnStripProps) {
-  const userMessages = messages.filter(m => m.role === "user");
-  if (userMessages.length === 0) return null;
+export function CallGrammarTurnStrip({ messages, onTurnClick, activeMessageIndex = null }: CallGrammarTurnStripProps) {
+  const userTurns = messages
+    .map((msg, messageIndex) => ({ msg, messageIndex }))
+    .filter(({ msg }) => msg.role === "user");
+  if (userTurns.length === 0) return null;
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -141,7 +145,7 @@ export function CallGrammarTurnStrip({ messages }: CallGrammarTurnStripProps) {
         Antwort für Antwort
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {userMessages.map((msg, i) => {
+        {userTurns.map(({ msg, messageIndex }, i) => {
           const info = getGrammarTurnInfo(msg);
           const bg =
             info.status === "correct" ? "#EAF3DE" :
@@ -155,16 +159,24 @@ export function CallGrammarTurnStrip({ messages }: CallGrammarTurnStripProps) {
             info.status === "correct" ? "✓" :
             info.status === "corrected" ? "💡" :
             "…";
+          const isActive = activeMessageIndex === messageIndex;
+          const label =
+            info.status === "correct" ? `Richtig — Antwort ${i + 1}` :
+            info.status === "corrected" ? `Korrektur — Antwort ${i + 1}` :
+            `Antwort ${i + 1}`;
           return (
-            <div
-              key={`${msg.timestamp}-${i}`}
+            <button
+              key={`${msg.timestamp}-${messageIndex}`}
+              type="button"
               title={msg.content.replace(/<end>/g, "").trim()}
+              aria-label={label}
+              onClick={() => onTurnClick?.(messageIndex)}
               style={{
                 minWidth: 36,
                 height: 36,
                 borderRadius: 10,
                 background: bg,
-                border: "0.5px solid var(--border)",
+                border: isActive ? "2px solid #7F77DD" : "0.5px solid var(--border)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -172,11 +184,15 @@ export function CallGrammarTurnStrip({ messages }: CallGrammarTurnStripProps) {
                 fontSize: 14,
                 color,
                 fontWeight: 700,
+                cursor: onTurnClick ? "pointer" : "default",
+                padding: 0,
+                boxShadow: isActive ? "0 0 0 2px rgba(127, 119, 221, 0.2)" : undefined,
+                transition: "border-color 0.2s ease, box-shadow 0.2s ease",
               }}
             >
               <span>{symbol}</span>
               <span style={{ fontSize: 8, fontWeight: 600, opacity: 0.8 }}>{i + 1}</span>
-            </div>
+            </button>
           );
         })}
       </div>

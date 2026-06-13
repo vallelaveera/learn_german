@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Play, Square, Volume2 } from "lucide-react";
+import { Mic, Play, Settings2, Square, Volume2 } from "lucide-react";
 import {
   DEFAULT_CALL_SETTINGS,
   loadCallSettings,
@@ -176,17 +176,46 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
         onClick={() => setOpen(v => !v)}
         style={{
           width: "100%",
-          minHeight: 40,
-          borderRadius: 10,
-          border: "0.5px solid var(--border)",
-          background: "var(--surface)",
-          color: "var(--text-muted)",
-          fontSize: 12,
+          minHeight: 52,
+          borderRadius: 12,
+          border: open ? "1.5px solid #7F77DD" : "1px solid rgba(127, 119, 221, 0.45)",
+          background: open ? "rgba(127, 119, 221, 0.1)" : "rgba(127, 119, 221, 0.06)",
+          color: "#534AB7",
           cursor: "pointer",
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
+          textAlign: "left",
+          padding: "10px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
         }}
       >
-        {open ? "Einstellungen ▲" : "Vor dem Anruf · Einstellungen ▼"}
+        <span
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: "#7F77DD",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Settings2 size={18} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text)", lineHeight: 1.3 }}>
+            Maya einstellen
+          </span>
+          <span style={{ display: "block", fontSize: 11, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.35 }}>
+            Configure Maya for better call quality
+          </span>
+        </span>
+        <span style={{ fontSize: 11, color: "#7F77DD", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+          {open ? "▲" : "▼"}
+        </span>
       </button>
 
       {open && (
@@ -195,15 +224,22 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
             marginTop: 10,
             padding: "14px",
             borderRadius: 12,
-            border: "0.5px solid var(--border)",
+            border: "1px solid rgba(127, 119, 221, 0.35)",
             background: "var(--surface)",
             textAlign: "left",
+            boxShadow: "0 4px 16px rgba(127, 119, 221, 0.08)",
           }}
         >
+          <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 14px", lineHeight: 1.45 }}>
+            Mikrofon & Stimme testen · Test mic & voice before you call
+          </p>
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               Mikrofon testen
             </div>
+            <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 8px", lineHeight: 1.4 }}>
+              Test your microphone
+            </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
               <button
                 type="button"
@@ -265,9 +301,12 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
           </div>
 
           <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "0.5px solid var(--border)" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               Maya testen
             </div>
+            <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 8px", lineHeight: 1.4 }}>
+              Hear Maya&apos;s voice (same as in call)
+            </p>
             <button
               type="button"
               onClick={() => void testMaya()}
@@ -300,8 +339,8 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
           </div>
 
           <label style={{ display: "block", marginBottom: 14 }}>
-            <span style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text)", marginBottom: 6 }}>
-              <span>Pause nach Maya</span>
+            <span style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text)", marginBottom: 4 }}>
+              <span>Pause nach Maya · Pause after Maya</span>
               <span style={{ color: "var(--text-muted)" }}>{(settings.pauseBetweenTurnsMs / 1000).toFixed(1)}s</span>
             </span>
             <input
@@ -316,8 +355,8 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
           </label>
 
           <label style={{ display: "block" }}>
-            <span style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text)", marginBottom: 6 }}>
-              <span>Mic früher starten</span>
+            <span style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text)", marginBottom: 4 }}>
+              <span>Mic früher starten · Start mic early</span>
               <span style={{ color: "var(--text-muted)" }}>{(settings.earlyMicMs / 1000).toFixed(1)}s vor Ende</span>
             </span>
             <input
@@ -331,7 +370,7 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
             />
             <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "8px 0 0", lineHeight: 1.4 }}>
               <Volume2 size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-              Fängt deine ersten Worte besser ein
+              Catches your first words better · Fängt deine ersten Worte besser ein
             </p>
           </label>
         </div>

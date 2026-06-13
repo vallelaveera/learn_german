@@ -148,9 +148,9 @@ export default function ProfilePage() {
               <MessageCircle size={20} />
             </span>
             <span style={{ flex: 1 }}>
-              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Feedback geben</span>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Feedback geben · Give feedback</span>
               <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
-                Testphase — Verbesserungen mitteilen
+                Testphase — Verbesserungen mitteilen · Share improvements
               </span>
             </span>
             <ChevronRight size={18} color="var(--text-dim)" />

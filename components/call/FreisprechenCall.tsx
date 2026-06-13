@@ -107,12 +107,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const userWantsEndRef = useRef(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
-  const [showSilenceHint, setShowSilenceHint] = useState(false);
+  const [showJetztDuNudge, setShowJetztDuNudge] = useState(false);
   const [jetztDuActive, setJetztDuActive] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const isMutedRef = useRef(false);
-  const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
   const endCallRef = useRef<() => void>(() => {});
@@ -158,6 +157,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const setJetztDu = useCallback((active: boolean) => {
     jetztDuRef.current = active;
     setJetztDuActive(active);
+    if (active) setShowJetztDuNudge(true);
+    else setShowJetztDuNudge(false);
   }, []);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -450,8 +451,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     _cm_sending = true;
     setJetztDu(false);
     setCallState("thinking");
-    setShowSilenceHint(false);
-    if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
     setLiveText("");
 
     fetch("/api/sessions", {
@@ -676,6 +675,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       speechFramesRef.current++;
       if (speechFramesRef.current >= SPEECH_FRAMES_MIN) {
         isSpeakingRef.current = true;
+        setShowJetztDuNudge(false);
       }
       sttEndpointRef.current = false;
     } else if (vol < SILENCE_THRESHOLD) {
@@ -685,19 +685,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     const speaking = isSpeakingRef.current;
 
     if (!speaking) {
-      setShowSilenceHint(false);
-      if (silenceHintRef.current) {
-        clearTimeout(silenceHintRef.current);
-        silenceHintRef.current = null;
-      }
       clearSilenceTimer();
       return;
-    }
-
-    setShowSilenceHint(false);
-    if (silenceHintRef.current) {
-      clearTimeout(silenceHintRef.current);
-      silenceHintRef.current = null;
     }
 
     if (vol >= SILENCE_THRESHOLD) {
@@ -723,6 +712,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       return;
     }
     if (!jetztDuRef.current) return;
+
+    setShowJetztDuNudge(false);
 
     if (isFinal) {
       speechBufferRef.current += text;
@@ -898,7 +889,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setJetztDu(false);
     setIsMuted(false);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     void stop();
     stopAudio();
     if (durationRef.current) clearInterval(durationRef.current);
@@ -940,7 +930,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       stopAudio();
       if (durationRef.current) clearInterval(durationRef.current);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
     };
   }, [stop, stopAudio]);
 
@@ -1053,10 +1042,21 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   // ── ACTIVE ────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+    <div
+      style={{
+        flex: embedded ? 1 : undefined,
+        minHeight: embedded ? 0 : "100dvh",
+        height: embedded ? "100%" : undefined,
+        background: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)",
+        overflow: "hidden",
+      }}
+    >
 
       {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0", gap: 12, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s", flexShrink: 0 }} />
           <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
@@ -1067,8 +1067,22 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{fmt(duration)}</span>
       </div>
 
-      {/* Conversation bubbles */}
-      <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" }}>
+      {/* Conversation — bubble panel */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          margin: "8px 12px 0",
+          borderRadius: 16,
+          background: "var(--surface)",
+          border: "0.5px solid var(--border)",
+          boxShadow: "0 2px 16px rgba(45, 32, 24, 0.05)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" }}>
         {messages.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 8 }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--gradient-soft)", border: "2px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1093,14 +1107,35 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           </div>
         ))}
 
+        {showJetztDuNudge && jetztDuActive && callState === "listening" && !liveText && (
+          <div style={{ maxWidth: "85%", alignSelf: "flex-start", animation: "fade-in 0.25s ease-out" }}>
+            <div
+              style={{
+                padding: "8px 14px",
+                borderRadius: 20,
+                background: "rgba(212,168,67,0.14)",
+                border: "1px solid rgba(212,168,67,0.35)",
+                boxShadow: "0 2px 8px rgba(212,168,67,0.12)",
+              }}
+            >
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#7c4daa", margin: 0, lineHeight: 1.4 }}>
+                🎙️ Jetzt du — sprich laut
+              </p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0", lineHeight: 1.35 }}>
+                Your turn — speak now
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Live text while speaking */}
         {liveText && callState === "listening" && jetztDuActive && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
-            <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))", border: "0.5px solid rgba(124,77,170,0.2)" }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
-              <p style={{ fontSize: 14, color: "#8a7060", lineHeight: 1.6, margin: 0 }}>
+            <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, #7c4daa, #e8643a)", border: "0.5px solid transparent" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
+              <p style={{ fontSize: 14, color: "#ffffff", lineHeight: 1.6, margin: 0 }}>
                 {liveText.replace(/<end>/g, "").trim()}
-                <span style={{ display: "inline-block", width: 2, height: "1em", background: "var(--accent)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
+                <span style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.85)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
               </p>
             </div>
           </div>
@@ -1115,10 +1150,25 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
             </div>
           </div>
         )}
+        </div>
       </div>
 
-      {/* Bottom — volume indicator + hang up */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, padding: "16px" }}>
+      {/* Bottom — always visible controls */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 14,
+          padding: "12px 16px",
+          paddingBottom: embedded
+            ? "calc(12px + env(safe-area-inset-bottom, 0px))"
+            : "calc(16px + env(safe-area-inset-bottom, 0px))",
+          borderTop: "0.5px solid #e8e0f0",
+          background: "var(--bg)",
+        }}
+      >
 
         {/* Volume bars */}
         <div style={{ display: "flex", alignItems: "center", gap: 3, height: 28 }}>
@@ -1143,23 +1193,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
             );
           })}
         </div>
-
-        {/* Silence hint */}
-        {showSilenceHint && callState === "listening" && (
-          <div style={{
-            background: "rgba(212,168,67,0.08)",
-            border: "0.5px solid rgba(212,168,67,0.2)",
-            borderRadius: 10, padding: "10px 16px",
-            textAlign: "center", animation: "fade-in 0.3s ease-out",
-          }}>
-            <p style={{ fontSize: 12, color: "#7c4daa", marginBottom: 4 }}>
-              🎙️ JETZT DU — sprich laut
-            </p>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-              Sag einen ganzen Satz auf Deutsch
-            </p>
-          </div>
-        )}
 
         {ttsError && (
           <div style={{ textAlign: "center", maxWidth: 300 }}>
