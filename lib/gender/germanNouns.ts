@@ -55,6 +55,14 @@ export function pickRandomNouns(count: number, article?: GenderArticle): GenderN
   return shuffleNouns(pool).slice(0, Math.min(count, pool.length));
 }
 
+export function pickSortRoundWords(): GenderNoun[] {
+  return shuffleNouns([
+    ...pickRandomNouns(3, "der"),
+    ...pickRandomNouns(3, "die"),
+    ...pickRandomNouns(3, "das"),
+  ]);
+}
+
 export function nounsByArticle(article: GenderArticle): GenderNoun[] {
   return GERMAN_NOUNS.filter(n => n.article === article);
 }
