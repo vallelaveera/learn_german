@@ -231,7 +231,14 @@ export function useCallRecorder({
 
   const setTranscriptPaused = useCallback((paused: boolean) => {
     transcriptPausedRef.current = paused;
-    if (paused) onVolume(0);
+    if (paused) {
+      finalBufferRef.current = "";
+      finishedFiredRef.current = false;
+      onVolume(0);
+    } else {
+      finalBufferRef.current = "";
+      finishedFiredRef.current = false;
+    }
   }, [onVolume]);
 
   const stop = useCallback((): Promise<Blob | null> => {
