@@ -175,6 +175,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const nextStartRef = useRef(0);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const openingRef = useRef<string | null>(null);
+  const openingFollowUpRef = useRef<string | null>(null);
   const normalOpeningRef = useRef<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
@@ -250,6 +251,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         if (data.opening) {
           openingRef.current = data.opening;
           setCachedOpening(data.opening);
+        }
+        if (data.openingFollowUp) {
+          openingFollowUpRef.current = data.openingFollowUp;
         }
         if (data.normalOpening) {
           normalOpeningRef.current = data.normalOpening;
@@ -719,7 +723,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     const isFirstOnboardingReply =
       isOnboardingRef.current
       && updated.filter(m => m.role === "user").length === 1
-      && updated.filter(m => m.role === "assistant").length === 1;
+      && updated.filter(m => m.role === "assistant").length >= 2;
 
     if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
@@ -1131,6 +1135,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           if (skipNag && data.normalOpening) opening = data.normalOpening;
           else opening = data.opening;
         }
+        if (data?.openingFollowUp) {
+          openingFollowUpRef.current = data.openingFollowUp;
+        }
         if (data?.normalOpening) normalOpeningRef.current = data.normalOpening;
         if (data?.systemPrompt) systemPromptRef.current = data.systemPrompt;
       } catch {}
@@ -1143,6 +1150,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setCallState("speaking");
 
     await streamTTSRef.current?.(opening);
+
+    const followUp = openingFollowUpRef.current;
+    if (followUp && isOnboardingRef.current) {
+      await speakLocal(followUp, {
+        role: "assistant",
+        content: followUp,
+        timestamp: Date.now() + 1,
+      });
+    }
   };
 
   // ── End call ──────────────────────────────────────────
