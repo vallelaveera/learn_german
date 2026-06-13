@@ -7,21 +7,32 @@ import {
   JETZT_POS,
   ROAD_H,
   SUBJECTS,
-  TENSES,
   TOKEN,
   VERBS,
   parts,
   posToPx,
   posToTokenPx,
   tenseById,
+  timelineTensesForLevel,
+  verbsForLevel,
+  type BuildTenseId,
   type SubjectId,
-  type TenseId,
   type VerbId,
 } from "@/constants/germanTenses";
+import type { TenseLevel } from "@/lib/tenses/types";
 
 export interface TenseTimelineProps {
   onSpeak?: (text: string, lang?: string) => void;
-  /** Compact embed inside grammar tab. */
+  level?: TenseLevel;
+  verbId?: VerbId;
+  tenseId?: BuildTenseId;
+  subjectId?: SubjectId;
+  onVerbChange?: (id: VerbId) => void;
+  onTenseChange?: (id: BuildTenseId) => void;
+  onSubjectChange?: (id: SubjectId) => void;
+  hideVerbPicker?: boolean;
+  hideSubjectRow?: boolean;
+  hideSentence?: boolean;
   compact?: boolean;
   expanded?: boolean;
   onExpand?: () => void;
@@ -44,6 +55,16 @@ function useReducedMotion(): boolean {
 
 export function TenseTimeline({
   onSpeak,
+  level = "B1",
+  verbId: verbIdProp,
+  tenseId: tenseIdProp,
+  subjectId: subjectIdProp,
+  onVerbChange,
+  onTenseChange,
+  onSubjectChange,
+  hideVerbPicker = false,
+  hideSubjectRow = false,
+  hideSentence = false,
   compact = false,
   expanded = false,
   onExpand,
@@ -54,12 +75,32 @@ export function TenseTimeline({
   const reducedMotion = useReducedMotion();
   const roadRef = useRef<HTMLDivElement>(null);
   const [roadW, setRoadW] = useState(0);
-  const [verbId, setVerbId] = useState<VerbId>("machen");
-  const [tenseId, setTenseId] = useState<TenseId>("praes");
-  const [subjectId, setSubjectId] = useState<SubjectId>("ich");
+  const [verbIdLocal, setVerbIdLocal] = useState<VerbId>("machen");
+  const [tenseIdLocal, setTenseIdLocal] = useState<BuildTenseId>("praes");
+  const [subjectIdLocal, setSubjectIdLocal] = useState<SubjectId>("ich");
+
+  const verbId = verbIdProp ?? verbIdLocal;
+  const tenseId = tenseIdProp ?? tenseIdLocal;
+  const subjectId = subjectIdProp ?? subjectIdLocal;
+
+  const availableTenses = useMemo(() => timelineTensesForLevel(level), [level]);
+  const availableVerbs = useMemo(() => verbsForLevel(level), [level]);
+
+  const setVerbId = (id: VerbId) => {
+    if (onVerbChange) onVerbChange(id);
+    else setVerbIdLocal(id);
+  };
+  const setTenseId = (id: BuildTenseId) => {
+    if (onTenseChange) onTenseChange(id);
+    else setTenseIdLocal(id);
+  };
+  const setSubjectId = (id: SubjectId) => {
+    if (onSubjectChange) onSubjectChange(id);
+    else setSubjectIdLocal(id);
+  };
 
   const tense = tenseById(tenseId);
-  const verb = VERBS[verbId];
+  const verb = VERBS[verbId] ?? VERBS.machen!;
   const { segments, full } = useMemo(() => parts(verbId, tenseId, subjectId), [verbId, tenseId, subjectId]);
 
   const targetPx = posToTokenPx(tense.pos, roadW);
@@ -171,16 +212,15 @@ export function TenseTimeline({
         </div>
       </div>
 
-      {/* Verb picker */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-        {(Object.keys(VERBS) as VerbId[]).map(id => {
-          const v = VERBS[id];
-          const active = verbId === id;
+      {!hideVerbPicker && (
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", maxHeight: 88, overflowY: "auto" }}>
+        {availableVerbs.map(v => {
+          const active = verbId === v.id;
           return (
             <button
-              key={id}
+              key={v.id}
               type="button"
-              onClick={() => setVerbId(id)}
+              onClick={() => setVerbId(v.id)}
               style={{
                 minHeight: 38,
                 padding: "6px 12px",
@@ -201,6 +241,7 @@ export function TenseTimeline({
           );
         })}
       </div>
+      )}
 
       {/* Time road */}
       <div
@@ -374,7 +415,7 @@ export function TenseTimeline({
 
       {/* Tense chips */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-        {TENSES.map(t => {
+        {availableTenses.map(t => {
           const active = tenseId === t.id;
           return (
             <button
@@ -399,7 +440,7 @@ export function TenseTimeline({
         })}
       </div>
 
-      {/* Sentence */}
+      {!hideSentence && (
       <div
         className="ui-card"
         style={{
@@ -448,7 +489,10 @@ export function TenseTimeline({
           </button>
         )}
       </div>
+      )}
 
+      {!hideSubjectRow && (
+      <>
       <p style={{ margin: "0 0 8px", fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>
         Pronomen — Satz neu bilden
       </p>
@@ -486,8 +530,10 @@ export function TenseTimeline({
       </div>
 
       <p style={{ margin: "12px 0 0", fontSize: 10, color: "var(--text-dim)", lineHeight: 1.45 }}>
-        {verb.usesSein ? "⬤ gehen → sein" : "⬤ machen / sprechen → haben"} in zusammengesetzten Zeitformen
+        {verb.usesSein ? "⬤ Motion/change → sein" : "⬤ Default → haben"} in compound tenses
       </p>
+      </>
+      )}
     </div>
   );
 }
