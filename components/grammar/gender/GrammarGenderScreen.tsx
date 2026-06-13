@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { BookOpen, LayoutGrid, BarChart3, Sparkles } from "lucide-react";
 import { ExerciseBackLink, ExerciseShell } from "@/components/layout/ExerciseShell";
-import { stopExerciseSpeech } from "@/lib/exercise-speech";
 import type { GenderTab } from "@/lib/gender/types";
 import { GENDER_TAB_THEMES } from "@/lib/gender/theme";
+import { speakMayaGenderSentence } from "@/lib/gender/speakMaya";
 import { useGermanGender } from "@/hooks/useGermanGender";
 import { GenderPracticeTab } from "./GenderPracticeTab";
 import { GenderPatternsTab } from "./GenderPatternsTab";
@@ -20,26 +20,26 @@ const TABS: { id: GenderTab; label: string; icon: React.ReactNode }[] = [
   { id: "progress", label: "Progress", icon: <BarChart3 size={16} /> },
 ];
 
-function speakEnglish(text: string) {
-  stopExerciseSpeech();
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  utterance.rate = 0.88;
-  window.speechSynthesis.speak(utterance);
-}
-
 export function GrammarGenderScreen() {
   const [tab, setTab] = useState<GenderTab>("practice");
+  const [speaking, setSpeaking] = useState(false);
   const gender = useGermanGender();
   const theme = GENDER_TAB_THEMES[tab];
 
   const level = Math.floor(gender.xp / 100) + 1;
   const xpInLevel = gender.xp % 100;
 
-  const onSpeak = useCallback((text: string) => {
-    speakEnglish(text);
-  }, []);
+  const onSpeak = useCallback(async (text: string) => {
+    if (speaking) return;
+    setSpeaking(true);
+    try {
+      await speakMayaGenderSentence(text);
+    } catch {
+      // ignore — button returns to idle
+    } finally {
+      setSpeaking(false);
+    }
+  }, [speaking]);
 
   const tabStyle = useMemo(
     () =>
@@ -165,7 +165,7 @@ export function GrammarGenderScreen() {
         </div>
 
         {tab === "practice" && (
-          <GenderPracticeTab theme={theme} gender={gender} onSpeak={onSpeak} />
+          <GenderPracticeTab theme={theme} gender={gender} onSpeak={onSpeak} speaking={speaking} />
         )}
         {tab === "patterns" && <GenderPatternsTab theme={theme} />}
         {tab === "sort" && <GenderSortTab theme={theme} gender={gender} />}
