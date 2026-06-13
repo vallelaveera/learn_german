@@ -108,6 +108,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showJetztDuNudge, setShowJetztDuNudge] = useState(false);
+  const [showMayaReplyNudge, setShowMayaReplyNudge] = useState(false);
   const [jetztDuActive, setJetztDuActive] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -157,8 +158,12 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const setJetztDu = useCallback((active: boolean) => {
     jetztDuRef.current = active;
     setJetztDuActive(active);
-    if (active) setShowJetztDuNudge(true);
-    else setShowJetztDuNudge(false);
+    if (active) {
+      setShowJetztDuNudge(true);
+      setShowMayaReplyNudge(false);
+    } else {
+      setShowJetztDuNudge(false);
+    }
   }, []);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -368,6 +373,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   // ── TTS ───────────────────────────────────────────────
   const streamTTS = useCallback(async (text: string) => {
+    setShowMayaReplyNudge(false);
     setCallState("speaking");
     setJetztDu(false);
     setTtsError(null);
@@ -534,6 +540,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   const sendToTutor = useCallback(async (text: string, audioBlob?: Blob | null) => {
     if (!text.trim() || _cm_sending) return;
+    setShowJetztDuNudge(false);
+    setShowMayaReplyNudge(true);
+    setLiveText("");
     const userMsg: Message = {
       role: "user",
       content: text.replace(/<end>/g, "").trim(),
@@ -572,6 +581,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     awaitingConfirmRef.current = false;
 
     if (AFFIRMATIVE_RE.test(lower)) {
+      setShowMayaReplyNudge(true);
+      setLiveText("");
       const confirmAnswer: Message = {
         role: "user",
         content: text,
@@ -983,12 +994,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         </div>
       )}
 
-      {cachedOpening && contextReady && (
-        <p style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", lineHeight: 1.6, maxWidth: 300, marginBottom: 16, padding: "0 16px" }}>
-          &ldquo;{cachedOpening}&rdquo;
-        </p>
-      )}
-
       <CallPreCallSetup onSettingsChange={s => { callSettingsRef.current = s; }} />
 
       <div style={{ position: "relative", width: 80, height: 80, marginBottom: pendingHomework ? 12 : 32, marginTop: contextReady && limitReached ? 0 : 8 }}>
@@ -1041,22 +1046,30 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   );
 
   // ── ACTIVE ────────────────────────────────────────────
+  const callControlsBottom = embedded
+    ? "calc(82px + env(safe-area-inset-bottom, 0px))"
+    : "env(safe-area-inset-bottom, 0px)";
+
   return (
     <div
       style={{
-        flex: embedded ? 1 : undefined,
-        minHeight: embedded ? 0 : "100dvh",
-        height: embedded ? "100%" : undefined,
+        position: "fixed",
+        top: embedded ? "calc(env(safe-area-inset-top, 0px) + 58px)" : 0,
+        right: 0,
+        bottom: callControlsBottom,
+        left: 0,
+        maxWidth: 390,
+        margin: "0 auto",
+        zIndex: 90,
         background: "var(--bg)",
         display: "flex",
         flexDirection: "column",
-        paddingTop: "calc(env(safe-area-inset-top,0px) + 16px)",
         overflow: "hidden",
       }}
     >
 
       {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px", borderBottom: "0.5px solid #e8e0f0", gap: 12, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid #e8e0f0", gap: 12, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s", flexShrink: 0 }} />
           <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
@@ -1128,6 +1141,27 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           </div>
         )}
 
+        {showMayaReplyNudge && callState === "thinking" && (
+          <div style={{ maxWidth: "85%", alignSelf: "flex-end", animation: "fade-in 0.25s ease-out" }}>
+            <div
+              style={{
+                padding: "8px 14px",
+                borderRadius: 20,
+                background: "rgba(29,158,117,0.12)",
+                border: "1px solid rgba(29,158,117,0.35)",
+                boxShadow: "0 2px 8px rgba(29,158,117,0.1)",
+              }}
+            >
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#1D9E75", margin: 0, lineHeight: 1.4 }}>
+                ✓ Verstanden — Maya antwortet
+              </p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0", lineHeight: 1.35 }}>
+                Got it — Maya is replying
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Live text while speaking */}
         {liveText && callState === "listening" && jetztDuActive && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
@@ -1153,20 +1187,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         </div>
       </div>
 
-      {/* Bottom — always visible controls */}
+      {/* Bottom — pinned controls (never scroll away) */}
       <div
         style={{
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 14,
-          padding: "12px 16px",
-          paddingBottom: embedded
-            ? "calc(12px + env(safe-area-inset-bottom, 0px))"
-            : "calc(16px + env(safe-area-inset-bottom, 0px))",
+          gap: 12,
+          padding: "10px 16px 12px",
           borderTop: "0.5px solid #e8e0f0",
           background: "var(--bg)",
+          boxShadow: "0 -4px 16px rgba(45, 32, 24, 0.06)",
         }}
       >
 

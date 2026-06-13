@@ -163,24 +163,26 @@ function ModePageInner() {
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setFeedbackOpen(true)}
-          style={{
-            width: "100%",
-            marginTop: 12,
-            minHeight: 44,
-            borderRadius: 12,
-            border: "1px solid rgba(127, 119, 221, 0.3)",
-            background: "rgba(127, 119, 221, 0.08)",
-            color: "#7F77DD",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Feedback · Testphase
-        </button>
+        <div className="ui-home-footer">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            style={{
+              width: "100%",
+              minHeight: 48,
+              borderRadius: 12,
+              border: "1px solid rgba(127, 119, 221, 0.45)",
+              background: "rgba(127, 119, 221, 0.1)",
+              color: "#534AB7",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            Feedback geben · Give feedback
+          </button>
+        </div>
       </div>
 
       <BetaWelcomeModal
