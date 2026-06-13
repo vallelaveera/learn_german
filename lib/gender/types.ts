@@ -12,6 +12,7 @@ export interface GenderPattern {
   character: string;
   frameParts: string[];
   keys: string[];
+  decoys: string[];
   hints: string[];
   rules: GenderRule[];
 }

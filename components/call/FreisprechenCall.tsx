@@ -108,6 +108,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const [topics, setTopics] = useState<string[]>([]);
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showSilenceHint, setShowSilenceHint] = useState(false);
+  const [jetztDuActive, setJetztDuActive] = useState(false);
+  const [ttsError, setTtsError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const isMutedRef = useRef(false);
   const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +130,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   // Refs
   const speechBufferRef = useRef("");
+  const nonFinalRef = useRef("");
   const isSpeakingRef = useRef(false);
   const speechFramesRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,7 +151,14 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
   const restartMicRef = useRef<() => Promise<void>>(async () => {});
   const streamTTSRef = useRef<((text: string) => Promise<void>) | null>(null);
+  const lastTtsTextRef = useRef("");
+  const jetztDuRef = useRef(false);
   const router = useRouter();
+
+  const setJetztDu = useCallback((active: boolean) => {
+    jetztDuRef.current = active;
+    setJetztDuActive(active);
+  }, []);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
@@ -254,7 +264,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (!_cm_active || !_cm_sending || _cm_mic_running || micLiveRef.current) return;
     _cm_mic_running = true;
     try {
-      setTranscriptPausedRef.current(true);
       await startRef.current();
       micPrewarmedRef.current = true;
       micLiveRef.current = true;
@@ -274,21 +283,27 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (!_cm_active) return;
 
     if (micPrewarmedRef.current && micLiveRef.current) {
-      setTranscriptPausedRef.current(false);
-      speechBufferRef.current = "";
-      isSpeakingRef.current = false;
-      speechFramesRef.current = 0;
-      setLiveText("");
-      _cm_mic_start = Date.now() - Math.min(MIC_WARMUP_MS - 150, callSettingsRef.current.earlyMicMs);
       _cm_sending = false;
       micPrewarmedRef.current = false;
+      const hasEarlySpeech =
+        speechBufferRef.current.trim().length > 0 || nonFinalRef.current.trim().length > 0;
+      if (hasEarlySpeech) {
+        isSpeakingRef.current = true;
+        speechFramesRef.current = SPEECH_FRAMES_MIN;
+      } else {
+        isSpeakingRef.current = false;
+        speechFramesRef.current = 0;
+      }
+      _cm_mic_start = Date.now() - Math.min(MIC_WARMUP_MS - 150, callSettingsRef.current.earlyMicMs);
+      setJetztDu(true);
+      setLiveText(speechBufferRef.current + nonFinalRef.current);
       setCallState("listening");
       return;
     }
 
     _cm_sending = false;
     await restartMicRef.current();
-  }, [clearPrewarmTimer]);
+  }, [clearPrewarmTimer, setJetztDu]);
 
   const restartMic = useCallback(async () => {
     if (!_cm_active || _cm_mic_running) return;
@@ -301,17 +316,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       speechBufferRef.current = "";
       isSpeakingRef.current = false;
       speechFramesRef.current = 0;
+      nonFinalRef.current = "";
       setLiveText("");
       _cm_mic_start = Date.now();
+      setJetztDu(true);
       setCallState("listening");
-      setTranscriptPausedRef.current(false);
       await startRef.current();
       micLiveRef.current = true;
       if (isMutedRef.current) setMutedRef.current(true);
     } finally {
       _cm_mic_running = false;
     }
-  }, []);
+  }, [setJetztDu]);
 
   const finishTTSPlayback = useCallback(() => {
     if (_cm_tts_done_fired || !_cm_active) return;
@@ -352,6 +368,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   // ── TTS ───────────────────────────────────────────────
   const streamTTS = useCallback(async (text: string) => {
     setCallState("speaking");
+    setJetztDu(false);
+    setTtsError(null);
+    lastTtsTextRef.current = text;
+    speechBufferRef.current = "";
+    nonFinalRef.current = "";
     stopAudio();
     clearPrewarmTimer();
     nextStartRef.current = 0;
@@ -367,7 +388,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
-      if (!res.ok || !res.body) throw new Error();
+      if (!res.ok || !res.body) throw new Error(`TTS ${res.status}`);
       const reader = res.body.getReader();
 
       // Both voices — stream MP3 chunks so playback starts immediately (live call feel)
@@ -393,9 +414,16 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       if (!dispatched) finishTTSPlaybackRef.current();
     } catch (e) {
       console.error("TTS error:", e);
-      finishTTSPlaybackRef.current();
+      setTtsError("Maya konnte nicht sprechen — Verbindung prüfen.");
+      _cm_sending = true;
+      setCallState("speaking");
     }
-  }, [playChunk, stopAudio, clearPrewarmTimer]);
+  }, [playChunk, stopAudio, clearPrewarmTimer, setJetztDu]);
+
+  const retryTTS = useCallback(() => {
+    if (!lastTtsTextRef.current.trim()) return;
+    void streamTTS(lastTtsTextRef.current);
+  }, [streamTTS]);
 
   useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 
@@ -411,14 +439,16 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setMessages(updated);
     messagesRef.current = updated;
     _cm_sending = true;
+    setJetztDu(false);
     setCallState("speaking");
     setLiveText("");
     await streamTTS(text);
-  }, [streamTTS]);
+  }, [streamTTS, setJetztDu]);
 
   // ── Send to Claude ────────────────────────────────────
   const submitToClaude = useCallback(async (history: Message[]) => {
     _cm_sending = true;
+    setJetztDu(false);
     setCallState("thinking");
     setShowSilenceHint(false);
     if (silenceHintRef.current) { clearTimeout(silenceHintRef.current); silenceHintRef.current = null; }
@@ -501,7 +531,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       _cm_sending = false;
       if (_cm_active) restartMicRef.current();
     }
-  }, [streamTTS, sessionId, sessionStart]);
+  }, [streamTTS, sessionId, sessionStart, setJetztDu]);
 
   const sendToTutor = useCallback(async (text: string, audioBlob?: Blob | null) => {
     if (!text.trim() || _cm_sending) return;
@@ -678,10 +708,22 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, [clearSilenceTimer, scheduleSilenceSend]);
 
   // ── Transcript callbacks ──────────────────────────────
-  const nonFinalRef = useRef("");
 
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
-    if (isMutedRef.current || !isSpeakingRef.current) return;
+    if (isMutedRef.current) return;
+
+    // Mic prewarmed while Maya still talking — capture silently until JETZT DU
+    if (!jetztDuRef.current && _cm_sending) {
+      if (isFinal) {
+        speechBufferRef.current += text;
+        nonFinalRef.current = "";
+      } else {
+        nonFinalRef.current = text;
+      }
+      return;
+    }
+    if (!jetztDuRef.current) return;
+
     if (isFinal) {
       speechBufferRef.current += text;
       nonFinalRef.current = "";
@@ -696,9 +738,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, [clearSilenceTimer]);
 
   const handleFinished = useCallback(() => {
-    if (!_cm_active || _cm_sending || isMutedRef.current) return;
+    if (!_cm_active || _cm_sending || isMutedRef.current || !jetztDuRef.current) return;
     sttEndpointRef.current = true;
-    if (speechBufferRef.current.trim() && isSpeakingRef.current) {
+    if (speechBufferRef.current.trim()) {
       clearSilenceTimer();
       scheduleSilenceSend();
     }
@@ -786,6 +828,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     isMutedRef.current = false;
     setIsMuted(false);
     setError(null);
+    setTtsError(null);
+    setJetztDu(false);
     setLiveText("");
     setDuration(0);
 
@@ -851,6 +895,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     micLiveRef.current = false;
     micPrewarmedRef.current = false;
     isMutedRef.current = false;
+    setJetztDu(false);
     setIsMuted(false);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (silenceHintRef.current) clearTimeout(silenceHintRef.current);
@@ -883,7 +928,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setPhase("idle");
     setMessages([]);
     setDuration(0);
-  }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded, clearPrewarmTimer]);
+  }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded, clearPrewarmTimer, setJetztDu]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
@@ -1015,7 +1060,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s", flexShrink: 0 }} />
           <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-            {isMuted && callState === "listening" ? "STUMM" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
+            {isMuted && callState === "listening" ? "STUMM" : callState === "listening" && jetztDuActive ? "JETZT DU" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : ttsError ? "FEHLER" : "SPRICHT"}
           </span>
         </div>
         <CallGrammarProgressHud messages={messages} compact />
@@ -1049,7 +1094,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         ))}
 
         {/* Live text while speaking */}
-        {liveText && callState === "listening" && (
+        {liveText && callState === "listening" && jetztDuActive && (
           <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, rgba(124,77,170,0.08), rgba(232,100,58,0.08))", border: "0.5px solid rgba(124,77,170,0.2)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
@@ -1108,11 +1153,34 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
             textAlign: "center", animation: "fade-in 0.3s ease-out",
           }}>
             <p style={{ fontSize: 12, color: "#7c4daa", marginBottom: 4 }}>
-              🎙️ Sprich laut — Maya hört zu
+              🎙️ JETZT DU — sprich laut
             </p>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
               Sag einen ganzen Satz auf Deutsch
             </p>
+          </div>
+        )}
+
+        {ttsError && (
+          <div style={{ textAlign: "center", maxWidth: 300 }}>
+            <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 8 }}>{ttsError}</p>
+            <button
+              type="button"
+              onClick={retryTTS}
+              style={{
+                minHeight: 36,
+                padding: "0 16px",
+                borderRadius: 8,
+                border: "0.5px solid var(--accent-dim)",
+                background: "var(--surface)",
+                color: "var(--accent)",
+                fontSize: 12,
+                cursor: "pointer",
+                marginBottom: 8,
+              }}
+            >
+              Maya erneut abspielen
+            </button>
           </div>
         )}
 

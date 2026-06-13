@@ -24,6 +24,7 @@ export const GERMAN_PATTERNS: GenderPattern[] = [
       ".",
     ],
     keys: ["teacher", "darling", "optimismus", "day", "month", "season"],
+    decoys: ["queen", "freedom", "nation", "eating", "learning", "girlchen"],
     hints: [
       "-er = doer",
       "-ling = loved one",
@@ -51,6 +52,7 @@ export const GERMAN_PATTERNS: GenderPattern[] = [
       ".",
     ],
     keys: ["freiheit", "freundschaft", "solution", "opportunity", "nation"],
+    decoys: ["teacher", "darling", "optimismus", "girlchen", "eating", "learning"],
     hints: [
       "-heit = quality",
       "-schaft = group",
@@ -77,6 +79,7 @@ export const GERMAN_PATTERNS: GenderPattern[] = [
       ".",
     ],
     keys: ["girlchen", "gestures", "instruments", "eating", "learning"],
+    decoys: ["teacher", "freiheit", "nation", "darling", "optimismus", "freundschaft"],
     hints: [
       "-chen = neuter",
       "Ge- = neuter",
@@ -100,4 +103,13 @@ export function getPatternForRound(roundNum: number): GenderPattern {
 
 export function patternFullSentence(pattern: GenderPattern): string {
   return buildFull(pattern.frameParts, pattern.keys);
+}
+
+export function practiceWordPool(pattern: GenderPattern): string[] {
+  const all = [...pattern.keys, ...pattern.decoys];
+  for (let i = all.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j]!, all[i]!];
+  }
+  return all;
 }

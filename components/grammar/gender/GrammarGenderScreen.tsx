@@ -167,7 +167,7 @@ export function GrammarGenderScreen() {
         {tab === "practice" && (
           <GenderPracticeTab theme={theme} gender={gender} onSpeak={onSpeak} speaking={speaking} />
         )}
-        {tab === "patterns" && <GenderPatternsTab theme={theme} />}
+        {tab === "patterns" && <GenderPatternsTab theme={theme} onSpeak={text => void onSpeak(text)} />}
         {tab === "sort" && <GenderSortTab theme={theme} gender={gender} />}
         {tab === "progress" && <GenderProgressTab theme={theme} gender={gender} />}
       </div>

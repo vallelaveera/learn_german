@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Volume2 } from "lucide-react";
-import { getPatternForRound, patternFullSentence } from "@/lib/gender/germanPatterns";
+import { getPatternForRound, patternFullSentence, practiceWordPool } from "@/lib/gender/germanPatterns";
 import { pickRandomNouns } from "@/lib/gender/germanNouns";
 import type { GenderNoun } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
@@ -20,15 +20,6 @@ interface GenderPracticeTabProps {
 
 type Phase = 0 | 1 | 2;
 
-function shuffleWords(words: string[]): string[] {
-  const copy = words.slice();
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j]!, copy[i]!];
-  }
-  return copy;
-}
-
 export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: GenderPracticeTabProps) {
   const pattern = useMemo(() => getPatternForRound(gender.roundNum), [gender.roundNum]);
   const fullSentence = useMemo(() => patternFullSentence(pattern), [pattern]);
@@ -37,7 +28,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
   const [phase, setPhase] = useState<Phase>(gender.graduated ? 2 : 0);
   const autoSpokeRound = useRef<number | null>(null);
   const [fills, setFills] = useState<(string | null)[]>(() => pattern.keys.map(() => null));
-  const [pool, setPool] = useState<string[]>(() => shuffleWords(pattern.keys));
+  const [pool, setPool] = useState<string[]>(() => practiceWordPool(pattern));
   const [checkState, setCheckState] = useState<"idle" | "correct" | "wrong">("idle");
 
   const nextBlankIdx = useMemo(() => {
@@ -57,10 +48,10 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
     }
     setPhase(0);
     setFills(pattern.keys.map(() => null));
-    setPool(shuffleWords(pattern.keys));
+    setPool(practiceWordPool(pattern));
     setCheckState("idle");
     autoSpokeRound.current = null;
-  }, [gender.roundNum, gender.graduated, pattern.keys]);
+  }, [gender.roundNum, gender.graduated, pattern]);
 
   useEffect(() => {
     if (gender.graduated || phase !== 0) return;
@@ -76,7 +67,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
 
   const resetPhase1 = () => {
     setFills(pattern.keys.map(() => null));
-    setPool(shuffleWords(pattern.keys));
+    setPool(practiceWordPool(pattern));
     setCheckState("idle");
   };
 
@@ -94,7 +85,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
     gender.advanceRound();
     const nextPattern = getPatternForRound(nextRound);
     setFills(nextPattern.keys.map(() => null));
-    setPool(shuffleWords(nextPattern.keys));
+    setPool(practiceWordPool(nextPattern));
     setCheckState("idle");
     if (gender.graduated || skipWarmup) {
       setPhase(2);

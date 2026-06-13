@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { GenderArticle, GenderNoun } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
+import { FigIcon } from "@/lib/gender/kingStoryArt";
 
 interface GenderArticleDragSortProps {
   words: GenderNoun[];
@@ -233,6 +234,8 @@ export function GenderArticleDragSort({
       {(["der", "die", "das"] as const).map(article => {
         const color = GENDER_ARTICLE_COLORS[article];
         const inZone = words.filter(w => zones[w.id] === article);
+        const figKind = article === "der" ? "king" : article === "die" ? "father" : "kid";
+        const figFrame = article === "der" ? "square" : article === "die" ? "circle" : "triangle";
         return (
           <div
             key={article}
@@ -258,17 +261,10 @@ export function GenderArticleDragSort({
               gap: 10,
             }}
           >
-            <span
-              style={{
-                fontWeight: 800,
-                color,
-                fontSize: 16,
-                minWidth: 36,
-                paddingTop: 6,
-              }}
-            >
-              {article}
-            </span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <FigIcon kind={figKind} frame={figFrame} color={color} size={40} />
+              <span style={{ fontWeight: 800, color, fontSize: 14 }}>{article}</span>
+            </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, flex: 1 }}>
               {inZone.map(w => {
                 const style = chipStyle(w, article);

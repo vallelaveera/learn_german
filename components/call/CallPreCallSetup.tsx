@@ -18,12 +18,15 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
   const [settings, setSettings] = useState<CallSettings>(DEFAULT_CALL_SETTINGS);
   const [testing, setTesting] = useState(false);
   const [testUrl, setTestUrl] = useState<string | null>(null);
+  const [mayaTesting, setMayaTesting] = useState(false);
+  const [mayaTestError, setMayaTestError] = useState<string | null>(null);
   const [volume, setVolume] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const animRef = useRef<number>(0);
   const testUrlRef = useRef<string | null>(null);
+  const mayaTestUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const loaded = loadCallSettings();
@@ -37,6 +40,7 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
       recorderRef.current?.stop();
       streamRef.current?.getTracks().forEach(t => t.stop());
       if (testUrlRef.current) URL.revokeObjectURL(testUrlRef.current);
+      if (mayaTestUrlRef.current) URL.revokeObjectURL(mayaTestUrlRef.current);
     };
   }, []);
 
@@ -125,6 +129,45 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
     const audio = new Audio(testUrl);
     void audio.play();
   };
+
+  const testMaya = useCallback(async () => {
+    setMayaTestError(null);
+    setMayaTesting(true);
+    try {
+      const res = await fetch("/api/tts-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: "Hallo! Ich bin Maya. Kannst du mich hören?",
+          provider: "soniox",
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error("TTS failed");
+      const reader = res.body.getReader();
+      const parts: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) parts.push(value);
+      }
+      const total = parts.reduce((n, p) => n + p.length, 0);
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const part of parts) {
+        merged.set(part, offset);
+        offset += part.length;
+      }
+      if (mayaTestUrlRef.current) URL.revokeObjectURL(mayaTestUrlRef.current);
+      const url = URL.createObjectURL(new Blob([merged], { type: "audio/mpeg" }));
+      mayaTestUrlRef.current = url;
+      const audio = new Audio(url);
+      await audio.play();
+    } catch {
+      setMayaTestError("Maya nicht hörbar — Internet prüfen.");
+    } finally {
+      setMayaTesting(false);
+    }
+  }, []);
 
   return (
     <div style={{ width: "100%", maxWidth: 300, marginBottom: 20 }}>
@@ -218,6 +261,41 @@ export function CallPreCallSetup({ onSettingsChange }: CallPreCallSetupProps) {
             </div>
             <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "8px 0 0", lineHeight: 1.4 }}>
               {testing ? "Sprich 3 Sekunden…" : "Kurz testen, dann anhören"}
+            </p>
+          </div>
+
+          <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "0.5px solid var(--border)" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
+              Maya testen
+            </div>
+            <button
+              type="button"
+              onClick={() => void testMaya()}
+              disabled={mayaTesting}
+              style={{
+                minHeight: 40,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: "0.5px solid var(--border)",
+                background: "#fff",
+                fontSize: 12,
+                cursor: mayaTesting ? "wait" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                opacity: mayaTesting ? 0.7 : 1,
+              }}
+            >
+              <Volume2 size={14} />
+              {mayaTesting ? "Lädt…" : "Stimme anhören"}
+            </button>
+            {mayaTestError && (
+              <p style={{ fontSize: 10, color: "var(--red)", margin: "8px 0 0", lineHeight: 1.4 }}>
+                {mayaTestError}
+              </p>
+            )}
+            <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "8px 0 0", lineHeight: 1.4 }}>
+              Gleicher Ton wie im Anruf — vor dem Start prüfen
             </p>
           </div>
 
