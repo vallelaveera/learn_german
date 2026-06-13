@@ -77,10 +77,10 @@ export function GrammarGenderScreen() {
                 margin: "0 0 4px",
               }}
             >
-              A1 · Genus & Artikel
+              A1–C1 · Genus & Artikel
             </p>
             <h1 className="ui-title-serif" style={{ fontSize: 22, margin: 0, color: theme.tc }}>
-              Gender patterns
+              DER DIE DAS Üben
             </h1>
           </div>
           <div
