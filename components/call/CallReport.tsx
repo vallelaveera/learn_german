@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { Message } from "@/lib/types";
 import { nextGermanLevel } from "@/lib/levels";
@@ -9,6 +9,7 @@ import { SuccessIllustration } from "@/components/illustrations/SuccessIllustrat
 import { CallReplayPanel } from "@/components/call/CallReplayPanel";
 import { CallGrammarTurnBadge, CallGrammarTurnStrip } from "@/components/call/CallGrammarProgress";
 import { grammarScoreColor } from "@/lib/call-grammar-progress";
+import { FeedbackSheet } from "@/components/feedback/FeedbackSheet";
 
 export interface CallReportStats {
   durationLabel: string;
@@ -25,6 +26,7 @@ interface CallReportProps {
   userName?: string;
   currentLevel?: string;
   completedCalls?: number;
+  callMode?: string;
   onCallAgain: () => void;
   onClose: () => void;
 }
@@ -35,16 +37,33 @@ export function CallReport({
   userName,
   currentLevel = "A1",
   completedCalls = 0,
+  callMode,
   onCallAgain,
   onClose,
 }: CallReportProps) {
+  const [feedbackOpen, setFeedbackOpen] = useState(true);
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+  const messageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToMessage = useCallback((messageIndex: number) => {
+    const el = messageRefs.current[messageIndex];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedIndex(messageIndex);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightedIndex(null), 2200);
+  }, []);
 
   useEffect(() => {
-    return () => revokeMessageAudioUrls(messages);
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      revokeMessageAudioUrls(messages);
+    };
   }, [messages]);
 
   const suggestedLevel = nextGermanLevel(currentLevel);
@@ -89,11 +108,20 @@ export function CallReport({
           maxHeight: "92dvh",
           background: "var(--bg)",
           borderRadius: "16px 16px 0 0",
-          padding: "20px 18px calc(env(safe-area-inset-bottom, 0px) + 20px)",
-          overflowY: "auto",
-          overflowX: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            overflowX: "hidden",
+            padding: "20px 18px 16px",
+          }}
+        >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", margin: 0 }}>
             Bericht
@@ -231,7 +259,11 @@ export function CallReport({
 
         <CallReplayPanel messages={messages} />
 
-        <CallGrammarTurnStrip messages={messages} />
+        <CallGrammarTurnStrip
+          messages={messages}
+          onTurnClick={scrollToMessage}
+          activeMessageIndex={highlightedIndex}
+        />
 
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
@@ -241,6 +273,7 @@ export function CallReport({
             {messages.map((msg, i) => (
               <div
                 key={i}
+                ref={el => { messageRefs.current[i] = el; }}
                 style={{
                   padding: "10px 14px",
                   borderRadius: 12,
@@ -248,7 +281,12 @@ export function CallReport({
                   alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
                   marginLeft: msg.role === "user" ? "auto" : 0,
                   background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff",
-                  border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`,
+                  border:
+                    highlightedIndex === i
+                      ? "2px solid #7F77DD"
+                      : `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`,
+                  boxShadow: highlightedIndex === i ? "0 0 0 3px rgba(127, 119, 221, 0.18)" : undefined,
+                  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                   display: "flex",
                   gap: 8,
                   alignItems: "flex-start",
@@ -298,48 +336,87 @@ export function CallReport({
             ))}
           </div>
         </div>
+        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            type="button"
-            onClick={onCallAgain}
-            style={{
-              width: "100%",
-              minHeight: 48,
-              padding: "14px",
-              borderRadius: 14,
-              border: "none",
-              background: "#7F77DD",
-              color: "#fff",
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: "pointer",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            Nochmal anrufen
-          </button>
-          <Link
-            href="/mode"
-            style={{
-              width: "100%",
-              minHeight: 48,
-              padding: "14px",
-              borderRadius: 14,
-              border: "0.5px solid var(--border)",
-              background: "var(--surface)",
-              color: "var(--text)",
-              fontSize: 14,
-              textAlign: "center",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            Fertig
-          </Link>
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: "1px solid var(--border)",
+            background: "var(--bg)",
+            padding: "12px 18px calc(env(safe-area-inset-bottom, 0px) + 16px)",
+          }}
+        >
+          <FeedbackSheet
+            open={feedbackOpen}
+            onClose={() => setFeedbackOpen(false)}
+            source="post_call"
+            callMode={callMode}
+            overlay={false}
+            onSubmitted={() => setFeedbackOpen(false)}
+          />
+          {!feedbackOpen && (
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              style={{
+                width: "100%",
+                minHeight: 44,
+                borderRadius: 12,
+                border: "1px solid rgba(127, 119, 221, 0.35)",
+                background: "rgba(127, 119, 221, 0.08)",
+                color: "#7F77DD",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                marginBottom: 10,
+              }}
+            >
+              Feedback geben · Give feedback
+            </button>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              type="button"
+              onClick={onCallAgain}
+              style={{
+                width: "100%",
+                minHeight: 48,
+                padding: "14px",
+                borderRadius: 14,
+                border: "none",
+                background: "#7F77DD",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              Nochmal anrufen
+            </button>
+            <Link
+              href="/mode"
+              style={{
+                width: "100%",
+                minHeight: 48,
+                padding: "14px",
+                borderRadius: 14,
+                border: "0.5px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                fontSize: 14,
+                textAlign: "center",
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              Fertig
+            </Link>
+          </div>
         </div>
       </div>
     </div>

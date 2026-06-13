@@ -4,6 +4,7 @@ import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, getPendin
 import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, isProfileComplete, getMissingFields, generateTopicSuggestions, generateHomeworkNagOpening } from "@/lib/memory-agent";
 import { resolveNativeLanguage } from "@/lib/native-languages";
 import { getUsageStats } from "@/lib/kv";
+import { isBillingEnabled } from "@/lib/billing-config";
 import { isHomeworkEnabledForUser, summarizeHomeworkList } from "@/lib/homework";
 import { getScenario, parseScenarioId } from "@/lib/exercises/scenarios";
 import {
@@ -39,9 +40,9 @@ export async function GET(req: NextRequest) {
       .flatMap(s => s.extractedFacts?.personalDetails ?? [])
       .slice(0, 5);
 
-    // Check usage limit
+    // Check usage limit (skipped when billing disabled)
     const usage = await getUsageStats(user.userId);
-    if (usage.remaining <= 0) {
+    if (isBillingEnabled() && usage.remaining <= 0) {
       return NextResponse.json({
         limitReached: true,
         used: usage.used,
@@ -56,11 +57,12 @@ export async function GET(req: NextRequest) {
 
     if (!profileComplete) {
       const isFirstEver = user.totalSessions === 0;
+      const nativeLanguage = resolveNativeLanguage(user);
       const opening = isFirstEver
         ? buildOnboardingOpening(user.name)
         : `Hallo ${user.name}! Schön, dass du wieder da bist. ${missingFields.length > 0 ? "Ich würde dich noch etwas besser kennenlernen — " + getNextQuestion(missingFields) : ""}`;
       const systemPrompt = buildOnboardingPrompt(user.name, missingFields, {
-        nativeLanguage: resolveNativeLanguage(user),
+        nativeLanguage,
         germanLevel: user.germanLevel ?? user.facts.germanLevel,
       });
       return NextResponse.json({

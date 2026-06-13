@@ -64,11 +64,7 @@ export function GenderPatternsTab({ theme }: GenderPatternsTabProps) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {pattern.rules.map(rule => (
-          <div
-            key={rule.tag}
-            className="ui-card"
-            style={{ padding: "12px 14px", border: `1px solid ${theme.tbd}` }}
-          >
+          <div key={rule.tag} className="ui-card" style={{ padding: "12px 14px", border: `1px solid ${theme.tbd}` }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
               <code
                 style={{

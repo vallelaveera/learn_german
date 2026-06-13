@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Table2, Sparkles } from "lucide-react";
+import { BookOpen, Table2, Sparkles, Hammer, Clock } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarDetailSheet } from "@/components/grammar/GrammarDetailSheet";
@@ -192,9 +192,8 @@ export default function GrammarPage() {
             alignItems: "center",
             gap: 12,
             padding: "12px 14px",
-            marginBottom: 16,
+            marginBottom: 10,
             marginTop: articleTableHref ? 0 : 4,
-            textDecoration: "none",
             border: "1px solid rgba(60, 52, 137, 0.28)",
             background: "rgba(60, 52, 137, 0.08)",
           }}
@@ -234,6 +233,108 @@ export default function GrammarPage() {
             Öffnen →
           </span>
         </Link>
+
+        <Link
+          href="/grammar/tenses"
+          className="ui-card"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "12px 14px",
+            marginBottom: ["B1", "B2", "C1", "C2"].includes(levelId) ? 10 : 16,
+            textDecoration: "none",
+            border: "1px solid rgba(107, 79, 160, 0.28)",
+            background: "rgba(107, 79, 160, 0.08)",
+          }}
+        >
+          <span
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              background: "#fff",
+              color: "#6B4FA0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Clock size={18} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#6B4FA0",
+                marginBottom: 2,
+              }}
+            >
+              Zeiten verstehen
+            </span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+              Zeitstraße · 6 Zeitformen · Verbklammer
+            </span>
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#6B4FA0", flexShrink: 0 }}>
+            Üben →
+          </span>
+        </Link>
+
+        {(["B1", "B2", "C1", "C2"] as const).includes(levelId as "B1" | "B2" | "C1" | "C2") && (
+          <Link
+            href="/grammar/cases"
+            className="ui-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              marginBottom: 16,
+              textDecoration: "none",
+              border: "1px solid rgba(8, 80, 65, 0.28)",
+              background: "rgba(8, 80, 65, 0.08)",
+            }}
+          >
+            <span
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: "#fff",
+                color: "#085041",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Hammer size={18} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#085041",
+                  marginBottom: 2,
+                }}
+              >
+                Fälle meistern
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+                Nom · Akk · Dat · Gen · Präpositionen
+              </span>
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#085041", flexShrink: 0 }}>
+              Üben →
+            </span>
+          </Link>
+        )}
 
         {explainer && level && !explainerCollapsed && (
           <GrammarLevelExplainer

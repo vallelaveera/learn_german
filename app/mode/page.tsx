@@ -13,6 +13,9 @@ import {
   WordsActivityIcon,
 } from "@/components/ui/ActivityIcons";
 import { normalizeGermanLevel, type GermanLevel } from "@/lib/levels";
+import { BetaWelcomeModal } from "@/components/feedback/BetaWelcomeModal";
+import { FeedbackSheet } from "@/components/feedback/FeedbackSheet";
+import { hasSeenBetaWelcome } from "@/lib/feedback/storage";
 
 export default function ModePage() {
   return (
@@ -28,6 +31,8 @@ function ModePageInner() {
   const [user, setUser] = useState<{ name: string; germanLevel?: string } | null>(null);
   const [level, setLevel] = useState<string>("A1");
   const [recentMistakes, setRecentMistakes] = useState<string[]>([]);
+  const [betaWelcomeOpen, setBetaWelcomeOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const urlLevel = searchParams.get("level");
@@ -41,6 +46,7 @@ function ModePageInner() {
         if (d?.user) {
           setUser(d.user);
           setLevel(normalizeGermanLevel(d.user.germanLevel));
+          if (!hasSeenBetaWelcome()) setBetaWelcomeOpen(true);
         }
       });
 
@@ -156,7 +162,35 @@ function ModePageInner() {
             onClick={() => router.push("/exercises/words")}
           />
         </div>
+
+        <div className="ui-home-footer">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            style={{
+              width: "100%",
+              minHeight: 48,
+              borderRadius: 12,
+              border: "1px solid rgba(127, 119, 221, 0.45)",
+              background: "rgba(127, 119, 221, 0.1)",
+              color: "#534AB7",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            Feedback geben · Give feedback
+          </button>
+        </div>
       </div>
+
+      <BetaWelcomeModal
+        open={betaWelcomeOpen}
+        onClose={() => setBetaWelcomeOpen(false)}
+        onGiveFeedback={() => setFeedbackOpen(true)}
+      />
+      <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} source="home" />
     </PageShell>
   );
 }

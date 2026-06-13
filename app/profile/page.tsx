@@ -2,15 +2,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, Check, Flame, MessageSquare, TrendingUp, ChevronRight } from "lucide-react";
+import { LogOut, Check, Flame, MessageSquare, TrendingUp, ChevronRight, MessageCircle } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { StatTile } from "@/components/ui/StatTile";
+import { FeedbackSheet } from "@/components/feedback/FeedbackSheet";
+import { isBillingEnabledClient } from "@/lib/billing-config-client";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -116,6 +119,81 @@ export default function ProfilePage() {
             <StatTile label="Streak" value={user.streak ?? 0} icon={<Flame size={18} />} accent="var(--green)" />
           </div>
 
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className="ui-card ui-card-padded"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              textAlign: "left",
+              width: "100%",
+              cursor: "pointer",
+              border: "1px solid rgba(127, 119, 221, 0.28)",
+              background: "rgba(127, 119, 221, 0.06)",
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "rgba(127, 119, 221, 0.14)",
+                color: "#7F77DD",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MessageCircle size={20} />
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Feedback geben · Give feedback</span>
+              <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+                Testphase — Verbesserungen mitteilen · Share improvements
+              </span>
+            </span>
+            <ChevronRight size={18} color="var(--text-dim)" />
+          </button>
+
+          {isBillingEnabledClient() && (
+          <Link
+            href="/subscribe"
+            className="ui-card ui-card-padded"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "rgba(255, 107, 53, 0.12)",
+                color: "var(--accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 18,
+              }}
+            >
+              €
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Abo & Minuten</span>
+              <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+                Free · Basic · Pro — Razorpay
+              </span>
+            </span>
+            <ChevronRight size={18} color="var(--text-dim)" />
+          </Link>
+          )}
+
           <Link
             href="/progress"
             className="ui-card ui-card-padded"
@@ -161,6 +239,7 @@ export default function ProfilePage() {
           </button>
         </div>
       )}
+      <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} source="profile" />
     </PageShell>
   );
 }

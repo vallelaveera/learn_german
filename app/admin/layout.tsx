@@ -15,8 +15,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         pathname.startsWith("/admin/content") ? "Inhalt"
           : pathname.startsWith("/admin/generate") ? "Generieren"
             : pathname.startsWith("/admin/illustrations") ? "Illustrationen"
-            : isUserDetail ? "Nutzerprofil"
-              : undefined
+              : pathname.startsWith("/admin/feedback") ? "Feedback"
+                : isUserDetail ? "Nutzerprofil"
+                  : undefined
       }
     >
       {children}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { updateUserFacts, saveVocabWords, markWordsUsedByUser, addMinutes, updateCareerVocabProgress, getUsageStats, saveHomework } from "@/lib/kv";
+import { updateUserFacts, saveVocabWords, markWordsUsedByUser, updateCareerVocabProgress, getUsageStats, saveHomework } from "@/lib/kv";
 import { matchCareerVocabFromMessages } from "@/lib/career-vocab/match";
 import { extractFacts, extractProfileFacts, extractAskedTopics, extractAskedQuestionsFromMessages, mergeAskedQuestions, generateHomework, isProfileComplete } from "@/lib/memory-agent";
 import { isHomeworkEnabledForUser } from "@/lib/homework";
@@ -70,12 +70,7 @@ export async function POST(req: NextRequest) {
       updateCareerVocabProgress(user.userId, careerMatches.userMatched, careerMatches.mayaMatched),
     ];
 
-    // Track minutes — only called once at session end
-    if (sessionStart && sessionEnd) {
-      const mins = (sessionEnd - sessionStart) / 60000;
-      if (mins > 0 && mins < 120) promises.push(addMinutes(user.userId, mins));
-    }
-
+    // Minutes billed live via /api/usage/tick + /api/usage/settle
     await Promise.all(promises);
 
     let homeworkId: string | undefined;

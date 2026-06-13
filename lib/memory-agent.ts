@@ -3,6 +3,7 @@ import { homeworkSentencesFromMessages } from "./corrections";
 import {
   buildBeginnerSpeechBlock,
   buildHintLanguageBlock,
+  buildTeluguMayaPromptBlock,
   resolveNativeLanguage,
 } from "./native-languages";
 
@@ -352,6 +353,7 @@ export function buildOnboardingPrompt(
   const nativeKnown = nativeLanguage
     ? `Learner's native language: ${nativeLanguage} (already known — do NOT ask again).`
     : "";
+  const teluguBlock = buildTeluguMayaPromptBlock("onboarding");
 
   return `You are Maya — ${userName}'s new personal German tutor and friend.
 This is your FIRST conversation with ${userName}.
@@ -377,6 +379,7 @@ Question bank — pick naturally based on conversation flow:
 - Was ist dein Ziel — fließend sprechen oder nur Grundlagen?
 - Hast du deutsche Kollegen oder Freunde?
 ${nativeLanguage ? "" : "- Welche Sprache sprichst du zu Hause?\n"}
+${teluguBlock}
 
 RULES:
 - Speak simple German — A1/A2 level
@@ -413,7 +416,7 @@ export function getMissingFields(profile: ProfileLike): string[] {
 }
 
 export function buildOnboardingOpening(userName: string): string {
-  return `Hallo ${userName}! Ich bin Maya — deine neue Deutschfreundin. Ich rufe dich jeden Tag an und wir üben zusammen Deutsch, ganz entspannt. Aber zuerst — bist du Student oder berufstätig?`;
+  return `Hallo ${userName}! Ich bin Maya — deine neue Deutsche Lehrerin. Ich rufe dich an und wir üben zusammen Deutsch, ganz entspannt. Aber zuerst — bist du Student oder berufstätig?`;
 }
 
 export async function generateHomework(
@@ -486,6 +489,7 @@ export function buildSystemPrompt(
   const scenarioBlock = practiceScenario
     ? `PRACTICE SCENARIO — "${practiceScenario.label}": ${practiceScenario.prompt} Stay in this setting for the whole call. Use vocabulary natural to this situation.`
     : "";
+  const teluguBlock = buildTeluguMayaPromptBlock("call");
 
   const spokenOutput = speechBlock
     ? `SPOKEN OUTPUT (this is read aloud — brevity is critical):${speechBlock}`
@@ -509,6 +513,7 @@ ${unpracticedWords.length > 0 ? `Words to practice naturally: ${unpracticedWords
 ${askedTopicsBlock}
 ${askedQuestionsBlock}
 ${scenarioBlock ? `\n${scenarioBlock}\n` : ""}
+${teluguBlock}
 
 ${spokenOutput}
 

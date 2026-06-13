@@ -9,6 +9,7 @@ import { CallGrammarProgressHud, CallGrammarTurnBadge } from "@/components/call/
 import { useRouter } from "next/navigation";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import styles from "@/app/call/call.module.css";
 
 type CallState = "idle" | "listening" | "thinking" | "speaking";
@@ -66,6 +67,14 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
   const messagesRef = useRef<Message[]>([]);
   const router = useRouter();
   const { acquire: acquireWakeLock, release: releaseWakeLock } = useWakeLock();
+  const finishSessionRef = useRef<() => void>(() => {});
+
+  useCallUsageBilling({
+    sessionId,
+    sessionStart,
+    active: callState !== "idle",
+    onLimitReached: () => finishSessionRef.current(),
+  });
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
@@ -329,7 +338,9 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
     setMessages([]);
     setLiveText("");
     finalBufferRef.current = "";
-  }, [stop, stopAudio, releaseWakeLock, sessionStart, onCallEnded]);
+  }, [stop, stopAudio, releaseWakeLock, sessionStart, onCallEnded, sessionId]);
+
+  useEffect(() => { finishSessionRef.current = finishSession; }, [finishSession]);
 
   useEffect(() => {
     if (callState !== "idle") return;
@@ -466,7 +477,7 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
         <div className={styles.avatarInfo}>
           <div className={styles.avatarName}>Maya{user ? ` · ${user.name}` : ""}</div>
           <div className={styles.avatarSub}>
-            {user?.streak ? `${user.streak} Tage` : "Deutschfreundin"}
+            {user?.streak ? `${user.streak} Tage` : "Deutsche Lehrerin"}
             {daysSince >= 3 ? ` · ${daysSince}d Pause` : ""}
           </div>
         </div>

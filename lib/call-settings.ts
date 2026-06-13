@@ -7,7 +7,7 @@ export interface CallSettings {
 
 export const DEFAULT_CALL_SETTINGS: CallSettings = {
   pauseBetweenTurnsMs: 400,
-  earlyMicMs: 1000,
+  earlyMicMs: 500,
 };
 
 const STORAGE_KEY = "maya_call_settings";

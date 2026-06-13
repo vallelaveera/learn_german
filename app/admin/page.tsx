@@ -181,6 +181,13 @@ export default function AdminPage() {
                 <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Liste →</div>
               </AdminCard>
             </button>
+            <Link href="/admin/feedback" style={{ textDecoration: "none" }}>
+              <AdminCard style={{ height: "100%", cursor: "pointer" }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Feedback</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Beta-Bewertungen & Verbesserungsvorschläge</div>
+                <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Ansehen →</div>
+              </AdminCard>
+            </Link>
           </div>
         </>
       )}
