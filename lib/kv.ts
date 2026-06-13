@@ -1,4 +1,6 @@
 import { Redis } from "@upstash/redis";
+import type { PlanId } from "./plans";
+import { PLANS } from "./plans";
 import type { CallCorrection } from "./corrections";
 import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssignment, HomeworkRep, HomeworkSentence } from "./types";
 import type { CareerVocabUserProgress } from "./career-vocab/types";
@@ -242,6 +244,23 @@ export async function getDaysSinceLastCall(userId: string): Promise<number> {
 
 // ── Usage limits ─────────────────────────────────────────
 
+async function getEffectivePlanForUser(profile: UserProfile): Promise<PlanId> {
+  let subject = profile;
+  if (profile.proOwnerId) {
+    const owner = await getUserProfile(profile.proOwnerId);
+    if (!owner) return "free";
+    subject = owner;
+  }
+  const plan = subject.plan ?? "free";
+  if (plan === "free") return "free";
+  if ((subject.subscriptionExpiresAt ?? 0) > Date.now()) return plan;
+  return "free";
+}
+
+export async function getEffectivePlanAsync(profile: UserProfile): Promise<PlanId> {
+  return getEffectivePlanForUser(profile);
+}
+
 export async function getMonthlyMinutes(userId: string): Promise<number> {
   const key = `minutes:${userId}:${new Date().toISOString().slice(0, 7)}`; // e.g. minutes:xxx:2026-06
   try {
@@ -262,9 +281,15 @@ export async function addMinutes(userId: string, minutes: number): Promise<numbe
 
 export async function getUserLimit(userId: string): Promise<number> {
   try {
-    const val = await redis.get<number>(`limit:${userId}`);
-    return val ?? 30; // default 30 minutes
-  } catch { return 30; }
+    const override = await redis.get<number>(`limit:${userId}`);
+    if (override != null && override > 0) return override;
+    const profile = await getUserProfile(userId);
+    if (!profile) return PLANS.free.monthlyMinutes;
+    const plan = await getEffectivePlanAsync(profile);
+    return PLANS[plan].monthlyMinutes;
+  } catch {
+    return PLANS.free.monthlyMinutes;
+  }
 }
 
 export async function setUserLimit(userId: string, minutes: number): Promise<void> {
@@ -282,6 +307,94 @@ export async function getUsageStats(userId: string): Promise<{ used: number; lim
 export async function isUsageAllowed(userId: string): Promise<boolean> {
   const usage = await getUsageStats(userId);
   return usage.remaining > 0;
+}
+
+export async function getSessionBilledMinutes(
+  userId: string,
+  sessionId: string,
+): Promise<number> {
+  try {
+    const val = await redis.get<number>(`session_billed:${userId}:${sessionId}`);
+    return val ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function incrementSessionBilledMinutes(
+  userId: string,
+  sessionId: string,
+  minutes: number,
+): Promise<number> {
+  const key = `session_billed:${userId}:${sessionId}`;
+  try {
+    const next = await redis.incrbyfloat(key, minutes);
+    await redis.expire(key, 48 * 60 * 60);
+    return next;
+  } catch {
+    return 0;
+  }
+}
+
+export async function clearSessionBilledMinutes(
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  try {
+    await redis.del(`session_billed:${userId}:${sessionId}`);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function tickUsageMinute(
+  userId: string,
+  sessionId: string,
+): Promise<{ used: number; limit: number; remaining: number; limitReached: boolean }> {
+  await addMinutes(userId, 1);
+  await incrementSessionBilledMinutes(userId, sessionId, 1);
+  const usage = await getUsageStats(userId);
+  return { ...usage, limitReached: usage.remaining <= 0 };
+}
+
+export async function settleCallUsage(
+  userId: string,
+  sessionId: string,
+  sessionStart: number,
+): Promise<{ used: number; limit: number; remaining: number }> {
+  const elapsedMs = Math.max(0, Date.now() - sessionStart);
+  const totalMinutes = Math.ceil(elapsedMs / 60000);
+  const billed = await getSessionBilledMinutes(userId, sessionId);
+  const delta = Math.max(0, totalMinutes - Math.round(billed));
+  if (delta > 0) await addMinutes(userId, delta);
+  await clearSessionBilledMinutes(userId, sessionId);
+  return getUsageStats(userId);
+}
+
+export async function listProShareMemberIds(ownerId: string): Promise<string[]> {
+  try {
+    return (await redis.get<string[]>(`pro_share:${ownerId}`)) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addProShareMember(ownerId: string, memberId: string): Promise<void> {
+  const existing = await listProShareMemberIds(ownerId);
+  await redis.set(`pro_share:${ownerId}`, [...existing, memberId]);
+  await redis.set(`pro_owner:${memberId}`, ownerId);
+}
+
+export async function removeProShareMemberId(
+  ownerId: string,
+  memberId: string,
+): Promise<void> {
+  const existing = await listProShareMemberIds(ownerId);
+  await redis.set(
+    `pro_share:${ownerId}`,
+    existing.filter(id => id !== memberId),
+  );
+  await redis.del(`pro_owner:${memberId}`);
 }
 
 export async function saveWordExamples(word: string, sentences: string[]): Promise<void> {

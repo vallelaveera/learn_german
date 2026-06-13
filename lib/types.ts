@@ -68,6 +68,14 @@ export interface UserProfile {
   lastCallDate?: number;
   totalSessions: number;
   facts: UserFacts;
+  /** Own subscription tier (defaults to free). */
+  plan?: "free" | "basic" | "pro";
+  /** Unix ms — paid plan active until this time. */
+  subscriptionExpiresAt?: number;
+  /** Pro owner userId when this user is on a shared Pro seat. */
+  proOwnerId?: string;
+  lastRazorpayPaymentId?: string;
+  razorpayOrderId?: string;
 }
 
 export interface UserFeatures {

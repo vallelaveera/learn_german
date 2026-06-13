@@ -11,6 +11,7 @@ import { loadCallSettings, type CallSettings } from "@/lib/call-settings";
 import { parseTutorResponse, attachCorrectionToLastUser, markLastUserGrammarCorrect } from "@/lib/tutor-response";
 import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
+import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
 
 // ── Module-level flags ─────────────────────────────────────
@@ -112,6 +113,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const silenceHintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
+  const endCallRef = useRef<() => void>(() => {});
+
+  useCallUsageBilling({
+    sessionId,
+    sessionStart,
+    active: phase === "active",
+    onLimitReached: () => {
+      setLimitReached(true);
+      endCallRef.current();
+    },
+    onUsageUpdate: setUsage,
+  });
 
   // Refs
   const speechBufferRef = useRef("");
@@ -135,7 +148,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
   const restartMicRef = useRef<() => Promise<void>>(async () => {});
   const streamTTSRef = useRef<((text: string) => Promise<void>) | null>(null);
-  const endCallRef = useRef<() => void>(() => {});
   const router = useRouter();
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);

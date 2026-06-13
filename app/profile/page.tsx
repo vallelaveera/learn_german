@@ -117,6 +117,41 @@ export default function ProfilePage() {
           </div>
 
           <Link
+            href="/subscribe"
+            className="ui-card ui-card-padded"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "rgba(255, 107, 53, 0.12)",
+                color: "var(--accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 18,
+              }}
+            >
+              €
+            </span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>Abo & Minuten</span>
+              <span style={{ display: "block", fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+                Free · Basic · Pro — Razorpay
+              </span>
+            </span>
+            <ChevronRight size={18} color="var(--text-dim)" />
+          </Link>
+
+          <Link
             href="/progress"
             className="ui-card ui-card-padded"
             style={{
