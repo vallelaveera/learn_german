@@ -24,6 +24,15 @@ import {
   probeCallConnectivity,
 } from "@/lib/call-network";
 import { playCallNetworkMessage, prefetchCallNetworkMessage } from "@/lib/call-network-audio";
+import {
+  KEEP_BROWSER_ACTIVE_BANNER,
+  playCallBrowserActiveMessage,
+  prefetchCallBrowserActiveMessage,
+} from "@/lib/call-browser-active-audio";
+import {
+  playCallOnboardingPracticeQuestion,
+  prefetchCallOnboardingPracticeQuestion,
+} from "@/lib/call-onboarding-audio";
 
 // ── Module-level flags ─────────────────────────────────────
 let _cm_sending = false;
@@ -41,8 +50,6 @@ const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 const TTS_CHUNK = 16384;
 const COLLAPSE_AFTER_USER_TURNS = 5;
-const KEEP_BROWSER_ACTIVE_TEXT =
-  "Bitte lass den Browser aktiv. Please keep the browser active.";
 const TAB_REMINDER_COOLDOWN_MS = 25000;
 const MANUAL_SEND_VISIBLE_AFTER_MS = 2_000; // show manual send after ~2 s of live text
 const VOLUME_UI_INTERVAL_MS = 250;
@@ -246,6 +253,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         setUser({ name: data.user.name });
         systemPromptRef.current = data.systemPrompt;
         isOnboardingRef.current = !!data.isOnboarding;
+        if (data.isOnboarding) {
+          void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+        }
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
         if (data.opening) {
@@ -272,6 +282,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       });
   }, [router, scenarioId, grammarId]);
 
+  useEffect(() => {
+    if (!contextReady) return;
+    void prefetchCallBrowserActiveMessage(ttsProviderRef.current);
+    void prefetchCallNetworkMessage(ttsProviderRef.current);
+    if (isOnboardingRef.current) {
+      void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+    }
+  }, [contextReady]);
+
   // ── Audio playback ─────────────────────────────────────
   const getAudioCtx = () => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
@@ -279,54 +298,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     return audioCtxRef.current;
   };
 
-  const playCallAnnouncement = useCallback(async (text: string) => {
-    if (!_cm_active || tabReminderPlayingRef.current || !text.trim()) return;
+  const playBrowserActiveReminder = useCallback(async () => {
+    if (!_cm_active || tabReminderPlayingRef.current) return;
     tabReminderPlayingRef.current = true;
     try {
-      const ctx = getAudioCtx();
-      if (ctx.state === "suspended") await ctx.resume();
-      const res = await fetch("/api/tts-stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, provider: ttsProviderRef.current }),
-      });
-      if (!res.ok || !res.body) throw new Error("TTS failed");
-      const reader = res.body.getReader();
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value?.length) chunks.push(value);
-      }
-      if (!chunks.length) return;
-      const total = chunks.reduce((n, c) => n + c.length, 0);
-      const merged = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of chunks) {
-        merged.set(chunk, offset);
-        offset += chunk.length;
-      }
-      const decoded = await ctx.decodeAudioData(
-        merged.buffer.slice(merged.byteOffset, merged.byteOffset + merged.byteLength),
-      );
-      const source = ctx.createBufferSource();
-      source.buffer = decoded;
-      source.connect(ctx.destination);
-      await new Promise<void>(resolve => {
-        source.onended = () => resolve();
-        source.start();
-      });
-    } catch {
-      if (typeof window !== "undefined" && window.speechSynthesis) {
-        await new Promise<void>(resolve => {
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = "en-US";
-          utterance.rate = 0.95;
-          utterance.onend = () => resolve();
-          utterance.onerror = () => resolve();
-          window.speechSynthesis.speak(utterance);
-        });
-      }
+      await playCallBrowserActiveMessage(getAudioCtx);
     } finally {
       tabReminderPlayingRef.current = false;
     }
@@ -615,6 +591,34 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     await streamTTS(text);
   }, [streamTTS, setJetztDu]);
 
+  const speakOnboardingPracticeQuestion = useCallback(async (appendMsg: Message) => {
+    const text = appendMsg.content;
+    const updated = [...messagesRef.current, appendMsg];
+    setMessages(updated);
+    messagesRef.current = updated;
+    setShowMayaReplyNudge(false);
+    setCallState("speaking");
+    setJetztDu(false);
+    setTtsError(null);
+    setTranscriptPausedRef.current(true);
+    speechBufferRef.current = "";
+    nonFinalRef.current = "";
+    setLiveText("");
+    stopAudio();
+    clearPrewarmTimer();
+    nextStartRef.current = 0;
+    _cm_tts_done_fired = false;
+    _cm_sending = true;
+    lastTtsTextRef.current = text;
+    void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+    const usedCache = await playCallOnboardingPracticeQuestion(getAudioCtx);
+    if (usedCache) {
+      finishTTSPlaybackRef.current();
+      return;
+    }
+    await streamTTS(text);
+  }, [streamTTS, stopAudio, clearPrewarmTimer, setJetztDu]);
+
   // ── Send to Claude ────────────────────────────────────
   const submitToClaude = useCallback(async (history: Message[]) => {
     _cm_sending = true;
@@ -727,7 +731,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
     if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
-      const reply = `${englishIntro} Okay — let's begin. Bist du Student oder berufstätig?`;
+      const reply = `${englishIntro} Was möchtest du heute üben — Grammatik, Rollenspiel, oder frei quatschen?`;
       await speakLocal(reply, {
         role: "assistant",
         content: reply,
@@ -1035,13 +1039,13 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       ) {
         tabLeftRef.current = false;
         lastTabReminderRef.current = Date.now();
-        void playCallAnnouncement(KEEP_BROWSER_ACTIVE_TEXT);
+        void playBrowserActiveReminder();
       }
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [phase, playCallAnnouncement]);
+  }, [phase, playBrowserActiveReminder]);
 
   useEffect(() => {
     if (phase !== "active") return;
@@ -1098,6 +1102,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     liveTextSinceRef.current = null;
     setHistoryExpanded(false);
     void prefetchCallNetworkMessage(ttsProviderRef.current);
+    void prefetchCallBrowserActiveMessage(ttsProviderRef.current);
+    if (isOnboardingRef.current) {
+      void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+    }
 
     try {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
@@ -1120,7 +1128,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     }
 
     lastTabReminderRef.current = Date.now();
-    await playCallAnnouncement(KEEP_BROWSER_ACTIVE_TEXT);
+    await playBrowserActiveReminder();
 
     let opening = skipNag
       ? (normalOpeningRef.current ?? openingRef.current ?? cachedOpening)
@@ -1153,7 +1161,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
     const followUp = openingFollowUpRef.current;
     if (followUp && isOnboardingRef.current) {
-      await speakLocal(followUp, {
+      await speakOnboardingPracticeQuestion({
         role: "assistant",
         content: followUp,
         timestamp: Date.now() + 1,
@@ -1370,7 +1378,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           ? networkIssue
           : tabInactiveWarning
             ? "Tab inaktiv — bitte zurück zum Browser · Please return and keep the browser active"
-            : "Bitte Browser aktiv lassen · Please keep the browser active"}
+            : KEEP_BROWSER_ACTIVE_BANNER}
       </div>
 
       {/* Conversation — bubble panel */}
