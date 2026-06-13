@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
-import { getUserProfile, listSessions, getVocab, getUsageStats } from "@/lib/kv";
+import { deleteUserAccount, getUserProfile, listSessions, getVocab, getUsageStats } from "@/lib/kv";
 
 export const runtime = "nodejs";
 
@@ -51,6 +51,30 @@ export async function GET(req: NextRequest) {
         })),
       },
     });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const userId = req.nextUrl.searchParams.get("userId");
+  if (!userId) return NextResponse.json({ error: "No userId" }, { status: 400 });
+
+  try {
+    const profile = await getUserProfile(userId);
+    if (!profile) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
+    if (adminEmail && profile.email.toLowerCase() === adminEmail) {
+      return NextResponse.json({ error: "Cannot delete admin account" }, { status: 400 });
+    }
+
+    const deleted = await deleteUserAccount(userId);
+    if (!deleted) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

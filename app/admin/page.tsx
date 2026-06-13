@@ -86,6 +86,18 @@ export default function AdminPage() {
       : true,
   );
 
+  const deleteUser = async (userId: string, name: string) => {
+    if (!window.confirm(`Nutzer „${name}“ wirklich löschen? Alle Daten werden unwiderruflich entfernt.`)) return;
+    const res = await fetch(`/api/admin/user?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      window.alert(typeof data.error === "string" ? data.error : "Löschen fehlgeschlagen");
+      return;
+    }
+    setUsers(prev => prev.filter(u => u.userId !== userId));
+    setStats(prev => prev ? { ...prev, totalUsers: Math.max(0, prev.totalUsers - 1) } : prev);
+  };
+
   const fmt = (ts: number) =>
     new Date(ts).toLocaleDateString("de-DE", {
       day: "2-digit",
@@ -284,47 +296,67 @@ export default function AdminPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {filtered.map(u => (
-              <Link key={u.userId} href={`/admin/user?id=${u.userId}`} style={{ textDecoration: "none" }}>
-                <AdminCard style={{ padding: "12px 14px", display: "flex", gap: 12, alignItems: "center" }}>
-                  <div style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "50%",
-                    background: "color-mix(in srgb, #7F77DD 15%, var(--bg))",
-                    border: "1px solid color-mix(in srgb, #7F77DD 30%, var(--border))",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+              <div key={u.userId} style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                <Link href={`/admin/user?id=${u.userId}`} style={{ textDecoration: "none", flex: 1, minWidth: 0 }}>
+                  <AdminCard style={{ padding: "12px 14px", display: "flex", gap: 12, alignItems: "center", height: "100%" }}>
+                    <div style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      background: "color-mix(in srgb, #7F77DD 15%, var(--bg))",
+                      border: "1px solid color-mix(in srgb, #7F77DD 30%, var(--border))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}>
+                      <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, color: PURPLE }}>{u.name[0]?.toUpperCase()}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 14, color: "var(--text)", fontWeight: 500 }}>{u.name}</span>
+                        {u.streak > 0 && <span style={{ fontSize: 11, color: PURPLE }}>🔥 {u.streak}</span>}
+                        <span style={{
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          background: "var(--bg)",
+                          border: "0.5px solid var(--border)",
+                          padding: "2px 7px",
+                          borderRadius: 4,
+                          fontFamily: "var(--font-mono)",
+                        }}>
+                          {u.germanLevel ?? "?"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{u.email}</div>
+                      <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
+                        <span>{u.totalSessions} Sessions</span>
+                        <span>{u.totalMinutes} min</span>
+                        <span>Zuletzt {fmt(u.lastActiveAt)}</span>
+                      </div>
+                    </div>
+                    <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
+                  </AdminCard>
+                </Link>
+                <button
+                  type="button"
+                  title={`${u.name} löschen`}
+                  aria-label={`${u.name} löschen`}
+                  onClick={() => void deleteUser(u.userId, u.name)}
+                  style={{
                     flexShrink: 0,
-                  }}>
-                    <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, color: PURPLE }}>{u.name[0]?.toUpperCase()}</span>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 14, color: "var(--text)", fontWeight: 500 }}>{u.name}</span>
-                      {u.streak > 0 && <span style={{ fontSize: 11, color: PURPLE }}>🔥 {u.streak}</span>}
-                      <span style={{
-                        fontSize: 10,
-                        color: "var(--text-muted)",
-                        background: "var(--bg)",
-                        border: "0.5px solid var(--border)",
-                        padding: "2px 7px",
-                        borderRadius: 4,
-                        fontFamily: "var(--font-mono)",
-                      }}>
-                        {u.germanLevel ?? "?"}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{u.email}</div>
-                    <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
-                      <span>{u.totalSessions} Sessions</span>
-                      <span>{u.totalMinutes} min</span>
-                      <span>Zuletzt {fmt(u.lastActiveAt)}</span>
-                    </div>
-                  </div>
-                  <span style={{ color: "var(--text-dim)", fontSize: 18 }}>→</span>
-                </AdminCard>
-              </Link>
+                    width: 44,
+                    borderRadius: 10,
+                    border: "0.5px solid rgba(226,75,74,0.35)",
+                    background: "rgba(226,75,74,0.06)",
+                    color: "var(--red)",
+                    fontSize: 16,
+                    cursor: "pointer",
+                  }}
+                >
+                  🗑
+                </button>
+              </div>
             ))}
           </div>
         </>

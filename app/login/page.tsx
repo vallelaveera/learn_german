@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { LevelCardGrid } from "@/components/level/LevelCardGrid";
 import { NativeLanguageSelect } from "@/components/onboarding/NativeLanguageSelect";
 import { LoginIllustration } from "@/components/login/LoginIllustration";
-import { LearningIllustration } from "@/components/illustrations/LearningIllustration";
 import { DecorativeBackground } from "@/components/ui/DecorativeBackground";
 import { shouldSkipLevelOnLogin, isBeginnerLevel, type GermanLevel } from "@/lib/levels";
 
@@ -201,12 +200,6 @@ export default function LoginPage() {
             margin: "16px 0",
           }}>
             <LoginIllustration userName={illustrationName} />
-          </div>
-        )}
-
-        {step === "level" && (
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-            <LearningIllustration width={220} height={170} />
           </div>
         )}
 

@@ -212,6 +212,65 @@ export async function getUserIdByEmail(email: string): Promise<string | null> {
   return redis.get<string>(`email:${email}`);
 }
 
+/** Permanently remove a user and all associated Redis data. */
+export async function deleteUserAccount(userId: string): Promise<boolean> {
+  const profile = await getUserProfile(userId);
+  if (!profile) return false;
+
+  const sessions = await listSessions(userId, 9999);
+  for (const session of sessions) {
+    await redis.del(`session:${session.id}`);
+    await clearSessionBilledMinutes(userId, session.id);
+  }
+  await redis.del(`sessions:${userId}`);
+
+  const legacyActiveId = await redis.get<string>(`homework:active:${userId}`);
+  const pendingIds = (await redis.zrange<string[]>(`homework:pending:${userId}`, 0, -1)) ?? [];
+  const historyIds = (await redis.zrange<string[]>(`homework:history:${userId}`, 0, -1)) ?? [];
+  const homeworkIds = Array.from(new Set([
+    ...pendingIds,
+    ...historyIds,
+    ...(legacyActiveId ? [legacyActiveId] : []),
+  ]));
+  for (const homeworkId of homeworkIds) {
+    await redis.del(`homework:${homeworkId}`);
+  }
+  await redis.del(
+    `homework:pending:${userId}`,
+    `homework:history:${userId}`,
+    `homework:active:${userId}`,
+  );
+
+  const audioKeys = await redis.keys(`homework:audio:${userId}:*`);
+  if (audioKeys.length > 0) await redis.del(...audioKeys);
+
+  const ownerId = await redis.get<string>(`pro_owner:${userId}`);
+  if (ownerId) await removeProShareMemberId(ownerId, userId);
+  const shareMembers = await listProShareMemberIds(userId);
+  for (const memberId of shareMembers) {
+    await removeProShareMemberId(userId, memberId);
+  }
+  await redis.del(`pro_share:${userId}`, `pro_owner:${userId}`);
+
+  const minuteKeys = await redis.keys(`minutes:${userId}:*`);
+  const billedKeys = await redis.keys(`session_billed:${userId}:*`);
+
+  await redis.del(
+    `user:${userId}`,
+    `email:${profile.email}`,
+    `vocab:${userId}`,
+    `limit:${userId}`,
+    `features:${userId}`,
+    `exercise_results:${userId}`,
+    `career_vocab:${userId}`,
+    `call_corrections:${userId}`,
+    ...minuteKeys,
+    ...billedKeys,
+  );
+
+  return true;
+}
+
 export async function updateUserFacts(userId: string, facts: Partial<UserFacts>): Promise<void> {
   const profile = await getUserProfile(userId);
   if (!profile) return;

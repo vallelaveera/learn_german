@@ -78,6 +78,7 @@ function AdminUserContent() {
   const [homeworkEnabled, setHomeworkEnabled] = useState(false);
   const [homeworkInfo, setHomeworkInfo] = useState<HomeworkInfo | null>(null);
   const [homeworkSaved, setHomeworkSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
   const userId = params.get("id");
@@ -120,6 +121,23 @@ function AdminUserContent() {
       setIconRefreshKeys(prev => ({ ...prev, [word]: (prev[word] ?? 0) + 1 }));
     } finally {
       setRegeneratingWord(null);
+    }
+  };
+
+  const deleteUser = async () => {
+    if (!userId || !profile) return;
+    if (!window.confirm(`Nutzer „${profile.name}“ wirklich löschen? Alle Sessions und Daten werden unwiderruflich entfernt.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/user?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(typeof data.error === "string" ? data.error : "Löschen fehlgeschlagen");
+        return;
+      }
+      router.push("/admin");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -357,6 +375,29 @@ function AdminUserContent() {
                 )}
               </button>
             ))}
+          </div>
+
+          <div style={{ marginTop: 24, padding: 14, borderRadius: 12, border: "0.5px solid rgba(226,75,74,0.35)", background: "rgba(226,75,74,0.06)" }}>
+            <div style={{ fontSize: 11, color: "var(--red)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>Gefahrenzone</div>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+              Nutzer dauerhaft löschen — inkl. Sessions, Vokabeln und Hausaufgaben.
+            </p>
+            <button
+              type="button"
+              onClick={() => void deleteUser()}
+              disabled={deleting}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 8,
+                border: "0.5px solid var(--red)",
+                background: "transparent",
+                color: "var(--red)",
+                fontSize: 13,
+                cursor: deleting ? "wait" : "pointer",
+              }}
+            >
+              {deleting ? "Wird gelöscht…" : "Nutzer löschen"}
+            </button>
           </div>
         </div>
       )}
