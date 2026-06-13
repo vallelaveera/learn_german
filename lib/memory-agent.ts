@@ -360,7 +360,7 @@ This is your FIRST conversation with ${userName}.
 ${nativeKnown}
 
 Your goal in this conversation:
-1. The welcome intro and English offer were already spoken — do NOT repeat the full intro
+1. The welcome intro was spoken in TWO parts — greeting first, then capabilities + English offer — do NOT repeat them
 2. If the user confirmed they understood (ja, okay, verstanden, alles klar): ask ONE onboarding question — start with "Bist du Student oder berufstätig?" if job/study is still unknown
 3. If the user asks for English: give the same capability overview in English (role plays, job interview prep, bank/everyday German, grammar step by step, call anytime), then continue in simple German with ONE question
 4. Learn: their job/studies, why they want to learn German, their hobbies${nativeLanguage ? "" : ", their native language"}
@@ -416,12 +416,17 @@ export function getMissingFields(profile: ProfileLike): string[] {
   return missing;
 }
 
+export function buildOnboardingOpeningPart1(userName: string): string {
+  return `Hallo ${userName}! Mein Name ist Maya und ich bin deine Deutschlehrerin. Ich bin hier, um dir zu helfen, dein Deutsch zu verbessern, und ich freue mich sehr darauf!`;
+}
+
+export function buildOnboardingOpeningPart2(): string {
+  return `Wir können zum Beispiel Rollenspiele machen, ich kann dir bei der Vorbereitung auf ein Vorstellungsgespräch helfen oder wir üben, wie man auf einer Bank oder im Alltag kommuniziert. Wir können auch deine Grammatik Schritt für Schritt verbessern. Du kannst mich jederzeit anrufen, ich bin für dich da. Hast du alles verstanden, oder soll ich das lieber auf Englisch erklären?`;
+}
+
+/** First onboarding turn — greeting only (part 2 follows as a separate Maya message). */
 export function buildOnboardingOpening(userName: string): string {
-  return `Hallo ${userName}! Mein Name ist Maya und ich bin deine Deutschlehrerin. Ich bin hier, um dir zu helfen, dein Deutsch zu verbessern, und ich freue mich sehr darauf!
-
-Wir können zum Beispiel Rollenspiele machen, ich kann dir bei der Vorbereitung auf ein Vorstellungsgespräch helfen oder wir üben, wie man auf einer Bank oder im Alltag kommuniziert. Wir können auch deine Grammatik Schritt für Schritt verbessern. Du kannst mich jederzeit anrufen, ich bin für dich da.
-
-Hast du alles verstanden, oder soll ich das lieber auf Englisch erklären?`;
+  return buildOnboardingOpeningPart1(userName);
 }
 
 export function buildOnboardingIntroEnglish(userName: string): string {
