@@ -7,6 +7,7 @@ import { AdminCard, AdminStatGrid } from "@/components/admin/AdminShell";
 import type {
   CategoryStats,
   IllustrationBatchResult,
+  IllustrationKind,
   SentenceIllustrationRow,
 } from "@/lib/content/illustration-batch";
 import { ILLUSTRATION_BATCH_LIMIT } from "@/lib/content/illustration-lookup";
@@ -37,6 +38,7 @@ export default function AdminIllustrationsPage() {
 
   const [categories, setCategories] = useState<CategoryStats[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("transport");
+  const [illustrationKind, setIllustrationKind] = useState<IllustrationKind>("sentences");
   const [sentences, setSentences] = useState<SentenceIllustrationRow[]>([]);
   const [stats, setStats] = useState<CategoryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,11 +50,13 @@ export default function AdminIllustrationsPage() {
   const [lastResult, setLastResult] = useState<IllustrationBatchResult | null>(null);
   const [error, setError] = useState("");
 
-  const loadCategory = useCallback(async (category: string) => {
+  const loadCategory = useCallback(async (category: string, kind: IllustrationKind) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/illustrations?category=${encodeURIComponent(category)}`);
+      const res = await fetch(
+        `/api/admin/illustrations?category=${encodeURIComponent(category)}&kind=${kind}`,
+      );
       if (res.status === 401) {
         router.push("/mode");
         return;
@@ -74,8 +78,8 @@ export default function AdminIllustrationsPage() {
   }, [router]);
 
   useEffect(() => {
-    void loadCategory(selectedCategory);
-  }, [selectedCategory, loadCategory]);
+    void loadCategory(selectedCategory, illustrationKind);
+  }, [selectedCategory, illustrationKind, loadCategory]);
 
   async function runGeneration() {
     setRunning(true);
@@ -89,6 +93,7 @@ export default function AdminIllustrationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category: selectedCategory,
+          kind: illustrationKind,
           retry,
           limit: ILLUSTRATION_BATCH_LIMIT,
         }),
@@ -186,9 +191,40 @@ export default function AdminIllustrationsPage() {
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 16px", lineHeight: 1.5 }}>
           Generate animated Maya SVGs per category via Claude Haiku. On Vercel, SVGs are stored in Redis (
           <code>KV_REST_API_URL</code>); locally they also save to <code>data/illustrations/</code>.
-          Includes batch sentences plus matching flashcard/corpus entries.
-          Generates up to <strong>{ILLUSTRATION_BATCH_LIMIT}</strong> SVGs per batch — use &quot;Generate all&quot; to run every batch automatically.
+          {illustrationKind === "sentences"
+            ? " Includes batch sentences plus matching flashcard/corpus entries."
+            : " Includes vocabulary words from flashcards, placement deck, career vocab, and corpus (max 4 words, no questions)."}
+          {" "}Generates up to <strong>{ILLUSTRATION_BATCH_LIMIT}</strong> SVGs per batch — use &quot;Generate all&quot; to run every batch automatically.
         </p>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {(
+            [
+              ["sentences", "Sätze · Sentences"],
+              ["words", "Wörter · Words"],
+            ] as const
+          ).map(([kind, label]) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => setIllustrationKind(kind)}
+              disabled={running}
+              style={{
+                flex: 1,
+                minHeight: 40,
+                borderRadius: 10,
+                border: illustrationKind === kind ? `2px solid ${PURPLE}` : "1px solid var(--border)",
+                background: illustrationKind === kind ? "rgba(127, 119, 221, 0.1)" : "var(--bg)",
+                color: illustrationKind === kind ? PURPLE : "var(--text-muted)",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: running ? "wait" : "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 180 }}>
@@ -310,7 +346,7 @@ export default function AdminIllustrationsPage() {
 
       <AdminCard>
         <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
-          Sentences
+          {illustrationKind === "words" ? "Words" : "Sentences"}
         </div>
         {loading ? (
           <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading…</p>
