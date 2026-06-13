@@ -73,6 +73,24 @@ export function TensesPatternsTab({ theme, tenses, onSpeak }: TensesPatternsTabP
         ))}
       </div>
 
+      {view === "timeline" && (
+        <TenseTimeline
+          level={tenses.level}
+          verbId={verbId}
+          tenseId={tenseId}
+          subjectId={subjectId}
+          onVerbChange={setVerbId}
+          onTenseChange={setTenseId}
+          onSubjectChange={setSubjectId}
+          hideVerbPicker
+          hideSubjectRow
+          onSpeak={(text, lang) => void onSpeak(text)}
+          compact
+        />
+      )}
+
+      {view === "timeline" && (
+      <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
         {verbs.slice(0, 8).map(v => (
           <button
@@ -116,21 +134,7 @@ export function TensesPatternsTab({ theme, tenses, onSpeak }: TensesPatternsTabP
           </button>
         ))}
       </div>
-
-      {view === "timeline" && (
-        <TenseTimeline
-          level={tenses.level}
-          verbId={verbId}
-          tenseId={tenseId}
-          subjectId={subjectId}
-          onVerbChange={setVerbId}
-          onTenseChange={setTenseId}
-          onSubjectChange={setSubjectId}
-          hideVerbPicker
-          hideSubjectRow
-          onSpeak={(text, lang) => void onSpeak(text)}
-          compact
-        />
+      </>
       )}
 
       {view === "structure" && (

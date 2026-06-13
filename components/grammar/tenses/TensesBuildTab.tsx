@@ -17,6 +17,7 @@ import type { BuildMode } from "@/lib/tenses/types";
 import type { TenseTabTheme } from "@/lib/tenses/theme";
 import type { UseGermanTensesReturn } from "@/hooks/useGermanTenses";
 import { VerbBracketView } from "./VerbBracketView";
+import { TenseTimeline } from "@/components/TenseTimeline";
 
 interface TensesBuildTabProps {
   theme: TenseTabTheme;
@@ -118,6 +119,19 @@ export function TensesBuildTab({ theme, tenses, onSpeak, speaking = false }: Ten
           </button>
         ))}
       </div>
+
+      <TenseTimeline
+        level={tenses.level}
+        verbId={verbId}
+        tenseId={tenseId}
+        subjectId={subjectId}
+        onTenseChange={setTenseId}
+        hideVerbPicker
+        hideTensePicker
+        hideSubjectRow
+        hideSentence
+        compact
+      />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
         {tenseOptions.map(t => (

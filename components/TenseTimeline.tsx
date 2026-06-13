@@ -5,13 +5,10 @@ import { Check, Flag, Maximize2, Minimize2, RotateCw, Volume2 } from "lucide-rea
 import {
   GLIDE_MS,
   JETZT_POS,
-  ROAD_H,
   SUBJECTS,
-  TOKEN,
   VERBS,
   parts,
   posToPx,
-  posToTokenPx,
   tenseById,
   timelineTensesForLevel,
   verbsForLevel,
@@ -20,6 +17,15 @@ import {
   type VerbId,
 } from "@/constants/germanTenses";
 import type { TenseLevel } from "@/lib/tenses/types";
+import { FigSvg, HorseSvg, TreeSvg } from "@/lib/tenses/timelineArt";
+
+const SCENE_TOKEN = 52;
+const SCENE_H = 118;
+
+function sceneTokenPx(pos: number, roadW: number): number {
+  if (roadW <= 0) return 0;
+  return (pos / 100) * roadW - SCENE_TOKEN / 2;
+}
 
 export interface TenseTimelineProps {
   onSpeak?: (text: string, lang?: string) => void;
@@ -33,6 +39,7 @@ export interface TenseTimelineProps {
   hideVerbPicker?: boolean;
   hideSubjectRow?: boolean;
   hideSentence?: boolean;
+  hideTensePicker?: boolean;
   compact?: boolean;
   expanded?: boolean;
   onExpand?: () => void;
@@ -65,6 +72,7 @@ export function TenseTimeline({
   hideVerbPicker = false,
   hideSubjectRow = false,
   hideSentence = false,
+  hideTensePicker = false,
   compact = false,
   expanded = false,
   onExpand,
@@ -103,9 +111,7 @@ export function TenseTimeline({
   const verb = VERBS[verbId] ?? VERBS.machen!;
   const { segments, full } = useMemo(() => parts(verbId, tenseId, subjectId), [verbId, tenseId, subjectId]);
 
-  const targetPx = posToTokenPx(tense.pos, roadW);
   const [tokenPx, setTokenPx] = useState(0);
-  const tokenPxRef = useRef(0);
 
   useEffect(() => {
     const el = roadRef.current;
@@ -119,13 +125,7 @@ export function TenseTimeline({
 
   useEffect(() => {
     if (roadW <= 0) return;
-    const next = posToTokenPx(tense.pos, roadW);
-    if (reducedMotion) {
-      tokenPxRef.current = next;
-      setTokenPx(next);
-      return;
-    }
-    tokenPxRef.current = next;
+    const next = sceneTokenPx(tense.pos, roadW);
     setTokenPx(next);
   }, [tense.pos, roadW, reducedMotion]);
 
@@ -243,177 +243,218 @@ export function TenseTimeline({
       </div>
       )}
 
-      {/* Time road */}
+      {/* King timeline scene — glides on tense selection */}
       <div
-        ref={roadRef}
+        className="ui-card"
         style={{
-          position: "relative",
-          height: ROAD_H + 36,
+          background: "#faf7f2",
+          borderRadius: 16,
+          border: "1px solid rgba(0,0,0,0.06)",
+          padding: "12px 12px 14px",
           marginBottom: 12,
-          userSelect: "none",
         }}
       >
         <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 18,
-            height: ROAD_H,
-            borderRadius: ROAD_H / 2,
-            background: "linear-gradient(90deg, #E8EAF6 0%, #D1FAE5 50%, #FFEDD5 100%)",
-            border: "1px solid var(--border-light)",
-            overflow: "hidden",
-          }}
+          ref={roadRef}
+          style={{ position: "relative", height: SCENE_H, userSelect: "none" }}
         >
-          {/* JETZT pin */}
+          <div className="edge" style={{ position: "absolute", left: 4, bottom: 38, opacity: 0.9 }}>
+            <FigSvg kind="father" size={40} />
+          </div>
+          <div className="edge" style={{ position: "absolute", right: 4, bottom: 38, opacity: 0.9 }}>
+            <FigSvg kind="kid" size={36} />
+          </div>
+          <div style={{ position: "absolute", left: "42%", bottom: 36, display: "flex", gap: 4 }}>
+            <TreeSvg size={36} />
+            <TreeSvg size={42} />
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 28,
+              height: 14,
+              borderRadius: 999,
+              background: "linear-gradient(180deg, #7cb66f 0%, #5a944f 100%)",
+              boxShadow: "inset 0 2px 4px rgba(255,255,255,0.25)",
+            }}
+          />
           <div
             style={{
               position: "absolute",
               left: `${JETZT_POS}%`,
-              top: 0,
-              bottom: 0,
-              width: 2,
-              background: "#1F7A5C",
+              bottom: 52,
               transform: "translateX(-50%)",
-              opacity: 0.55,
-            }}
-          />
-        </div>
-
-        {/* Perfekt dotted thread */}
-        {tense.showThread && roadW > 0 && (
-          <svg
-            style={{ position: "absolute", left: 0, top: 18, width: roadW, height: ROAD_H, pointerEvents: "none" }}
-            aria-hidden
-          >
-            <line
-              x1={threadFrom}
-              y1={ROAD_H / 2}
-              x2={threadTo}
-              y2={ROAD_H / 2}
-              stroke="#5B6ABF"
-              strokeWidth={2}
-              strokeDasharray="4 5"
-              opacity={0.75}
-            />
-          </svg>
-        )}
-
-        {/* Reference flag (Plusqu / Futur II) */}
-        {flagPx != null && roadW > 0 && (
-          <div
-            key={tenseId}
-            className={reducedMotion ? undefined : "tense-flag-drop"}
-            style={{
-              position: "absolute",
-              left: flagPx,
-              top: 2,
-              transform: "translateX(-50%)",
-              color: tense.color,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               gap: 2,
             }}
           >
-            <Flag size={14} fill="currentColor" />
-            <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.04em" }}>REF</span>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #FFE566, #FFB800)",
+                boxShadow: "0 0 12px rgba(255,184,0,0.5)",
+              }}
+            />
+            <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.1em", color: "#B45309" }}>JETZT</span>
           </div>
-        )}
 
-        <div
-          style={{
-            position: "absolute",
-            left: `${JETZT_POS}%`,
-            top: ROAD_H + 22,
-            transform: "translateX(-50%)",
-            fontSize: 9,
-            fontWeight: 800,
-            letterSpacing: "0.12em",
-            color: "#1F7A5C",
-          }}
-        >
-          JETZT
-        </div>
+          {availableTenses.map(t => (
+            <div
+              key={t.id}
+              style={{
+                position: "absolute",
+                left: `${t.pos}%`,
+                bottom: 34,
+                transform: "translateX(-50%)",
+                fontSize: 9,
+                fontWeight: 800,
+                color: t.color,
+                opacity: tenseId === t.id ? 1 : 0.45,
+              }}
+            >
+              {t.short}
+            </div>
+          ))}
 
-        {/* ONE persistent token — translateX only */}
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 18 + (ROAD_H - TOKEN) / 2,
-            width: TOKEN,
-            height: TOKEN,
-            ...glideStyle,
-            zIndex: 3,
-            pointerEvents: "none",
-          }}
-        >
+          {tense.showThread && roadW > 0 && (
+            <svg
+              style={{ position: "absolute", left: 0, bottom: 34, width: roadW, height: 20, pointerEvents: "none" }}
+              aria-hidden
+            >
+              <line
+                x1={threadFrom}
+                y1={10}
+                x2={threadTo}
+                y2={10}
+                stroke={tense.color}
+                strokeWidth={1.5}
+                strokeDasharray="3 4"
+                opacity={0.65}
+              />
+            </svg>
+          )}
+
+          {flagPx != null && roadW > 0 && (
+            <div
+              key={`${tenseId}-flag`}
+              className={reducedMotion ? undefined : "tense-flag-drop"}
+              style={{
+                position: "absolute",
+                left: flagPx,
+                bottom: 58,
+                transform: "translateX(-50%)",
+                color: tense.color,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Flag size={14} fill="currentColor" />
+              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.04em" }}>REF</span>
+            </div>
+          )}
+
           <div
-            className={showBob ? "tense-token-bob" : undefined}
             style={{
-              position: "relative",
-              width: TOKEN,
-              height: TOKEN,
-              borderRadius: TOKEN / 2,
-              background: "#fff",
-              border: dashed ? `2px dashed ${tense.color}` : `2.5px solid ${tense.color}`,
-              opacity: faded ? 0.7 : 1,
+              position: "absolute",
+              left: 0,
+              bottom: 38,
+              width: SCENE_TOKEN,
+              height: SCENE_TOKEN,
+              ...glideStyle,
+              zIndex: 4,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-              color: tense.color,
-              fontSize: 18,
+              justifyContent: "flex-end",
+              opacity: faded ? 0.75 : 1,
             }}
           >
-            {showPulse && <span className="tense-pulse-ring" aria-hidden />}
-            <span>{verb.emoji}</span>
-            {showCheck && (
+            <div
+              className={showBob ? "tense-token-bob" : undefined}
+              style={{ position: "relative", display: "flex", alignItems: "flex-end" }}
+            >
+              {showPulse && <span className="tense-pulse-ring" style={{ color: tense.color }} aria-hidden />}
+              <HorseSvg size={28} />
+              <div style={{ marginBottom: 4, marginLeft: -6 }}>
+                <FigSvg kind="king" size={34} />
+              </div>
               <span
                 style={{
                   position: "absolute",
-                  right: -4,
-                  bottom: -4,
-                  width: 18,
-                  height: 18,
-                  borderRadius: 999,
-                  background: tense.color,
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: "2px solid #fff",
+                  top: -6,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  fontSize: 16,
+                  lineHeight: 1,
                 }}
               >
-                <Check size={10} strokeWidth={3} />
+                {verb.emoji}
               </span>
+              {showCheck && (
+                <span
+                  style={{
+                    position: "absolute",
+                    right: -6,
+                    bottom: 2,
+                    width: 18,
+                    height: 18,
+                    borderRadius: 999,
+                    background: tense.color,
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "2px solid #fff",
+                  }}
+                >
+                  <Check size={10} strokeWidth={3} />
+                </span>
+              )}
+            </div>
+            {dashed && (
+              <span
+                style={{
+                  position: "absolute",
+                  inset: -4,
+                  borderRadius: 999,
+                  border: `2px dashed ${tense.color}`,
+                  pointerEvents: "none",
+                }}
+                aria-hidden
+              />
             )}
           </div>
-        </div>
 
-        {/* Road labels */}
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: ROAD_H + 36,
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 9,
-            fontWeight: 700,
-            color: "var(--text-dim)",
-            padding: "0 4px",
-          }}
-        >
-          <span>Vergangenheit</span>
-          <span>Zukunft</span>
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 4,
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 9,
+              fontWeight: 700,
+              color: "var(--text-dim)",
+              padding: "0 4px",
+            }}
+          >
+            <span>Vergangenheit</span>
+            <span>Zukunft</span>
+          </div>
         </div>
       </div>
 
       {/* Tense chips */}
+      {!hideTensePicker && (
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
         {availableTenses.map(t => {
           const active = tenseId === t.id;
@@ -439,6 +480,7 @@ export function TenseTimeline({
           );
         })}
       </div>
+      )}
 
       {!hideSentence && (
       <div
