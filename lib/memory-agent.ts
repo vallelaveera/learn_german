@@ -360,10 +360,11 @@ This is your FIRST conversation with ${userName}.
 ${nativeKnown}
 
 Your goal in this conversation:
-1. Warmly introduce yourself in simple German (A1/A2 level)
-2. Ask questions to get to know them — ONE at a time
-3. Learn: their job/studies, why they want to learn German, their hobbies${nativeLanguage ? "" : ", their native language"}
-4. Keep the conversation going with follow-up questions — never wrap up or imply the call is ending
+1. The welcome intro and English offer were already spoken — do NOT repeat the full intro
+2. If the user confirmed they understood (ja, okay, verstanden, alles klar): ask ONE onboarding question — start with "Bist du Student oder berufstätig?" if job/study is still unknown
+3. If the user asks for English: give the same capability overview in English (role plays, job interview prep, bank/everyday German, grammar step by step, call anytime), then continue in simple German with ONE question
+4. Learn: their job/studies, why they want to learn German, their hobbies${nativeLanguage ? "" : ", their native language"}
+5. Keep the conversation going with follow-up questions — never wrap up or imply the call is ending
 
 Question bank — pick naturally based on conversation flow:
 - Bist du Student oder berufstätig?
@@ -386,7 +387,7 @@ RULES:
 - Ask ONE question at a time
 - Be warm and friendly like a new friend
 - NEVER say goodbye or suggest ending the call UNLESS the user clearly wants to stop — then give a short goodbye and point them to Hausaufgaben in Üben
-- Speak ONLY German. Never switch to English mid-sentence.
+- Default: speak German. ONLY repeat the capability intro in full English when the user explicitly asks for English
 ${speechBlock}
 ${hintBlock}
 - No emojis in spoken German
@@ -416,7 +417,33 @@ export function getMissingFields(profile: ProfileLike): string[] {
 }
 
 export function buildOnboardingOpening(userName: string): string {
-  return `Hallo ${userName}! Ich bin Maya — deine neue Deutsche Lehrerin. Ich rufe dich an und wir üben zusammen Deutsch, ganz entspannt. Aber zuerst — bist du Student oder berufstätig?`;
+  return `Hallo ${userName}! Mein Name ist Maya und ich bin deine Deutschlehrerin. Ich bin hier, um dir zu helfen, dein Deutsch zu verbessern, und ich freue mich sehr darauf!
+
+Wir können zum Beispiel Rollenspiele machen, ich kann dir bei der Vorbereitung auf ein Vorstellungsgespräch helfen oder wir üben, wie man auf einer Bank oder im Alltag kommuniziert. Wir können auch deine Grammatik Schritt für Schritt verbessern. Du kannst mich jederzeit anrufen, ich bin für dich da.
+
+Hast du alles verstanden, oder soll ich das lieber auf Englisch erklären?`;
+}
+
+export function buildOnboardingIntroEnglish(userName: string): string {
+  return `Hi ${userName}! My name is Maya and I'm your German teacher. I'm here to help you improve your German, and I'm really looking forward to it!
+
+We can do role plays, for example. I can help you prepare for a job interview, or we can practice how to communicate at a bank or in everyday life. We can also improve your grammar step by step. You can call me anytime — I'm here for you.`;
+}
+
+/** True when the learner asks for the onboarding intro in English. */
+export function userWantsEnglishIntro(text: string): boolean {
+  const t = text.toLowerCase().replace(/[.!?]/g, "").trim();
+  if (!t) return false;
+  if (/\b(ja|yes|nein|no|okay|ok)\b/.test(t) && !/\b(english|englisch)\b/.test(t)) return false;
+  if (/\b(english|englisch)\b/.test(t)) {
+    if (/\b(ja|yes|bitte|please|gerne|ok|okay|explain|erkl[aä]r|lieber|sag|sprich|in english|auf englisch)\b/.test(t)) {
+      return true;
+    }
+    if (/^(english|englisch)$/.test(t)) return true;
+  }
+  if (/\b(nicht verstanden|verstehe nicht|don't understand|didn't understand|no english)\b/.test(t)) return true;
+  if (/soll.*englisch|lieber.*englisch|english please|auf englisch bitte/.test(t)) return true;
+  return false;
 }
 
 export async function generateHomework(

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useCallRecorder } from "@/components/CallRecorder";
@@ -9,10 +9,21 @@ import { FISH_SPOKEN_RULES, prepareFishTTS } from "@/lib/fish-tts";
 import { computeCallReportStats } from "@/lib/call-report-stats";
 import { loadCallSettings, type CallSettings } from "@/lib/call-settings";
 import { parseTutorResponse, attachCorrectionToLastUser, markLastUserGrammarCorrect } from "@/lib/tutor-response";
+import {
+  buildOnboardingIntroEnglish,
+  userWantsEnglishIntro,
+} from "@/lib/memory-agent";
 import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import {
+  isBrowserOffline,
+  isLikelyNetworkError,
+  isLikelyNetworkMessage,
+  probeCallConnectivity,
+} from "@/lib/call-network";
+import { playCallNetworkMessage, prefetchCallNetworkMessage } from "@/lib/call-network-audio";
 
 // ── Module-level flags ─────────────────────────────────────
 let _cm_sending = false;
@@ -29,9 +40,12 @@ const SILENCE_DURATION_FALLBACK = 3000; // ms without endpoint
 const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 const TTS_CHUNK = 16384;
+const COLLAPSE_AFTER_USER_TURNS = 5;
 const KEEP_BROWSER_ACTIVE_TEXT =
   "Bitte lass den Browser aktiv. Please keep the browser active.";
 const TAB_REMINDER_COOLDOWN_MS = 25000;
+const MANUAL_SEND_VISIBLE_AFTER_MS = 2_000; // show manual send after ~2 s of live text
+const VOLUME_UI_INTERVAL_MS = 250;
 
 const AFFIRMATIVE_RE = /^(ja|genau|stimmt|richtig|fertig|doch)([\s,].*)?$/i;
 const NEGATIVE_RE = /^(nein|nee|nö|nicht|noch nicht)([\s,].*)?$/i;
@@ -112,10 +126,13 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const [topicQuestionShown, setTopicQuestionShown] = useState(false);
   const [showJetztDuNudge, setShowJetztDuNudge] = useState(false);
   const [showMayaReplyNudge, setShowMayaReplyNudge] = useState(false);
+  const [showManualSend, setShowManualSend] = useState(false);
   const [jetztDuActive, setJetztDuActive] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [tabInactiveWarning, setTabInactiveWarning] = useState(false);
+  const [networkIssue, setNetworkIssue] = useState<string | null>(null);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const isMutedRef = useRef(false);
   const tabLeftRef = useRef(false);
   const lastTabReminderRef = useRef(0);
@@ -143,11 +160,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sttEndpointRef = useRef(false);
   const sttTimedOutWhileMutedRef = useRef(false);
+  const networkAlertAtRef = useRef(0);
+  const announceNetworkIssueRef = useRef<() => void>(() => {});
+  const NETWORK_ALERT_COOLDOWN_MS = 45000;
   const pendingShortReplyRef = useRef<string | null>(null);
   const awaitingConfirmRef = useRef(false);
   const tryCommitTurnRef = useRef<(force?: boolean) => void>(() => {});
   const messagesRef = useRef<Message[]>([]);
   const systemPromptRef = useRef<string | undefined>();
+  const isOnboardingRef = useRef(false);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceQueueRef = useRef<AudioBufferSourceNode[]>([]);
@@ -158,6 +179,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
   const restartMicRef = useRef<() => Promise<void>>(async () => {});
+  const callStateRef = useRef<CallState>("listening");
+  const lastVolumeUiAtRef = useRef(0);
+  const liveTextSinceRef = useRef<number | null>(null);
   const streamTTSRef = useRef<((text: string) => Promise<void>) | null>(null);
   const lastTtsTextRef = useRef("");
   const jetztDuRef = useRef(false);
@@ -175,6 +199,21 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, []);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const { visibleMessages, hiddenMessageCount } = useMemo(() => {
+    const indexed = messages.map((msg, messageIndex) => ({ msg, messageIndex }));
+    const userIndices = messages
+      .map((m, i) => (m.role === "user" ? i : -1))
+      .filter(i => i >= 0);
+    if (historyExpanded || userIndices.length <= COLLAPSE_AFTER_USER_TURNS) {
+      return { visibleMessages: indexed, hiddenMessageCount: 0 };
+    }
+    const cutIndex = userIndices[userIndices.length - COLLAPSE_AFTER_USER_TURNS];
+    return {
+      visibleMessages: indexed.slice(cutIndex),
+      hiddenMessageCount: cutIndex,
+    };
+  }, [messages, historyExpanded]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -205,6 +244,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         }
         setUser({ name: data.user.name });
         systemPromptRef.current = data.systemPrompt;
+        isOnboardingRef.current = !!data.isOnboarding;
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
         if (data.opening) {
@@ -396,6 +436,36 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     }
   }, [setJetztDu]);
 
+  const announceNetworkIssue = useCallback(async () => {
+    if (!_cm_active) return;
+    const now = Date.now();
+    if (now - networkAlertAtRef.current < NETWORK_ALERT_COOLDOWN_MS) return;
+
+    const offline = isBrowserOffline();
+    if (!offline) {
+      const reachable = await probeCallConnectivity();
+      if (reachable) return;
+    }
+
+    networkAlertAtRef.current = now;
+    setNetworkIssue("Verbindungsproblem — bitte Internet prüfen · Check your connection");
+    setError(null);
+    setTtsError(null);
+    _cm_sending = false;
+    stopAudio();
+    setCallState("speaking");
+    try {
+      await playCallNetworkMessage(getAudioCtx);
+    } catch {
+      /* banner still visible */
+    }
+    if (!_cm_active) return;
+    setCallState("listening");
+    if (micLiveRef.current) void restartMicRef.current();
+  }, [stopAudio]);
+
+  useEffect(() => { announceNetworkIssueRef.current = () => { void announceNetworkIssue(); }; }, [announceNetworkIssue]);
+
   const finishTTSPlayback = useCallback(() => {
     if (_cm_tts_done_fired || !_cm_active) return;
     _cm_tts_done_fired = true;
@@ -482,11 +552,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       if (!dispatched) finishTTSPlaybackRef.current();
     } catch (e) {
       console.error("TTS error:", e);
-      setTtsError("Maya konnte nicht sprechen — Verbindung prüfen.");
-      _cm_sending = true;
-      setCallState("speaking");
+      if (isLikelyNetworkError(e)) {
+        void announceNetworkIssue();
+      } else {
+        setTtsError("Maya konnte nicht sprechen — Verbindung prüfen.");
+        _cm_sending = true;
+        setCallState("speaking");
+      }
     }
-  }, [playChunk, stopAudio, clearPrewarmTimer, setJetztDu]);
+  }, [playChunk, stopAudio, clearPrewarmTimer, setJetztDu, announceNetworkIssue]);
 
   const retryTTS = useCallback(() => {
     if (!lastTtsTextRef.current.trim()) return;
@@ -494,6 +568,26 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, [streamTTS]);
 
   useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
+
+  useEffect(() => { callStateRef.current = callState; }, [callState]);
+
+  useEffect(() => {
+    if (!liveText.trim() || callState !== "listening" || !jetztDuActive || isMuted) {
+      liveTextSinceRef.current = null;
+      setShowManualSend(false);
+      return;
+    }
+    if (!liveTextSinceRef.current) {
+      liveTextSinceRef.current = Date.now();
+    }
+    const elapsed = Date.now() - liveTextSinceRef.current;
+    if (elapsed >= MANUAL_SEND_VISIBLE_AFTER_MS) {
+      setShowManualSend(true);
+      return;
+    }
+    const timer = setTimeout(() => setShowManualSend(true), MANUAL_SEND_VISIBLE_AFTER_MS - elapsed);
+    return () => clearTimeout(timer);
+  }, [liveText, callState, jetztDuActive, isMuted]);
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -593,11 +687,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
       await streamTTS(german);
-    } catch {
+    } catch (err) {
       _cm_sending = false;
-      if (_cm_active) restartMicRef.current();
+      if (isLikelyNetworkError(err) || isBrowserOffline()) {
+        void announceNetworkIssue();
+      } else if (_cm_active) {
+        restartMicRef.current();
+      }
     }
-  }, [streamTTS, sessionId, sessionStart, setJetztDu]);
+  }, [streamTTS, sessionId, sessionStart, setJetztDu, announceNetworkIssue]);
 
   const sendToTutor = useCallback(async (text: string, audioBlob?: Blob | null) => {
     if (!text.trim() || _cm_sending) return;
@@ -613,8 +711,25 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
+
+    const isFirstOnboardingReply =
+      isOnboardingRef.current
+      && updated.filter(m => m.role === "user").length === 1
+      && updated.filter(m => m.role === "assistant").length === 1;
+
+    if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
+      const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
+      const reply = `${englishIntro} Okay — let's begin. Bist du Student oder berufstätig?`;
+      await speakLocal(reply, {
+        role: "assistant",
+        content: reply,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
     await submitToClaude(updated);
-  }, [submitToClaude]);
+  }, [submitToClaude, speakLocal, user?.name]);
 
   const askShortConfirm = useCallback(async (shortText: string, audioBlob?: Blob | null) => {
     pendingShortReplyRef.current = shortText;
@@ -750,10 +865,20 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   // ── VAD — silence detection (hysteresis + sustained speech gate) ──
   const handleVolume = useCallback((vol: number) => {
     if (isMutedRef.current) {
-      setVolume(0);
+      if (lastVolumeUiAtRef.current !== 0) {
+        lastVolumeUiAtRef.current = 0;
+        setVolume(0);
+      }
       return;
     }
-    setVolume(vol);
+    const uiState = callStateRef.current;
+    if (uiState === "listening") {
+      const now = Date.now();
+      if (now - lastVolumeUiAtRef.current >= VOLUME_UI_INTERVAL_MS) {
+        lastVolumeUiAtRef.current = now;
+        setVolume(vol);
+      }
+    }
     if (!_cm_active || _cm_sending) return;
     if (Date.now() - _cm_mic_start < MIC_WARMUP_MS) return;
 
@@ -839,6 +964,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       sttTimedOutWhileMutedRef.current = true;
       return;
     }
+    if (isLikelyNetworkMessage(e)) {
+      announceNetworkIssueRef.current();
+      return;
+    }
     setError(e);
   }, []);
 
@@ -917,6 +1046,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [phase, playCallAnnouncement]);
 
+  useEffect(() => {
+    if (phase !== "active") return;
+
+    const onOffline = () => { announceNetworkIssueRef.current(); };
+    const onOnline = () => {
+      setNetworkIssue(null);
+      networkAlertAtRef.current = 0;
+    };
+
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [phase]);
+
   // ── Start call ────────────────────────────────────────
   const startCall = async (skipNag = false) => {
     if (navigator.vibrate) navigator.vibrate(40);
@@ -949,6 +1095,12 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setDuration(0);
     setTabInactiveWarning(false);
     tabLeftRef.current = false;
+    setNetworkIssue(null);
+    networkAlertAtRef.current = 0;
+    setShowManualSend(false);
+    liveTextSinceRef.current = null;
+    setHistoryExpanded(false);
+    void prefetchCallNetworkMessage(ttsProviderRef.current);
 
     try {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
@@ -1019,7 +1171,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setIsMuted(false);
     setTabInactiveWarning(false);
     tabLeftRef.current = false;
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    setNetworkIssue(null);
+    networkAlertAtRef.current = 0;
+    setShowManualSend(false);
+    liveTextSinceRef.current = null;
+    setHistoryExpanded(false);
     void stop();
     stopAudio();
     if (durationRef.current) clearInterval(durationRef.current);
@@ -1191,12 +1347,16 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid #e8e0f0", gap: 12, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: "all 0.3s", flexShrink: 0 }} />
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)", boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none", transition: callState === "speaking" || callState === "thinking" ? "none" : "all 0.3s", flexShrink: 0 }} />
           <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
             {isMuted && callState === "listening" ? "STUMM" : callState === "listening" && jetztDuActive ? "JETZT DU" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : ttsError ? "FEHLER" : "SPRICHT"}
           </span>
         </div>
-        <CallGrammarProgressHud messages={messages} compact />
+        <CallGrammarProgressHud
+          messages={messages}
+          compact
+          paused={callState === "speaking" || callState === "thinking"}
+        />
         <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{fmt(duration)}</span>
       </div>
 
@@ -1207,14 +1367,16 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           textAlign: "center",
           fontSize: 11,
           lineHeight: 1.35,
-          color: tabInactiveWarning ? "#8a4a20" : "#7c6a58",
-          background: tabInactiveWarning ? "rgba(212,168,67,0.18)" : "rgba(127,119,221,0.08)",
-          borderBottom: `0.5px solid ${tabInactiveWarning ? "rgba(212,168,67,0.35)" : "rgba(127,119,221,0.15)"}`,
+          color: networkIssue ? "#7a3030" : tabInactiveWarning ? "#8a4a20" : "#7c6a58",
+          background: networkIssue ? "rgba(180,60,60,0.15)" : tabInactiveWarning ? "rgba(212,168,67,0.18)" : "rgba(127,119,221,0.08)",
+          borderBottom: `0.5px solid ${networkIssue ? "rgba(180,60,60,0.35)" : tabInactiveWarning ? "rgba(212,168,67,0.35)" : "rgba(127,119,221,0.15)"}`,
         }}
       >
-        {tabInactiveWarning
-          ? "Tab inaktiv — bitte zurück zum Browser · Please return and keep the browser active"
-          : "Bitte Browser aktiv lassen · Please keep the browser active"}
+        {networkIssue
+          ? networkIssue
+          : tabInactiveWarning
+            ? "Tab inaktiv — bitte zurück zum Browser · Please return and keep the browser active"
+            : "Bitte Browser aktiv lassen · Please keep the browser active"}
       </div>
 
       {/* Conversation — bubble panel */}
@@ -1242,7 +1404,52 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           </div>
         )}
 
-        {messages.map((msg, i) => (
+        {hiddenMessageCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setHistoryExpanded(true)}
+            style={{
+              alignSelf: "center",
+              marginBottom: 4,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(127, 119, 221, 0.35)",
+              background: "rgba(127, 119, 221, 0.1)",
+              color: "#7F77DD",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            ↑ {hiddenMessageCount} frühere {hiddenMessageCount === 1 ? "Nachricht" : "Nachrichten"} anzeigen
+          </button>
+        )}
+
+        {historyExpanded && messages.filter(m => m.role === "user").length > COLLAPSE_AFTER_USER_TURNS && (
+          <button
+            type="button"
+            onClick={() => {
+              setHistoryExpanded(false);
+              transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
+            }}
+            style={{
+              alignSelf: "center",
+              marginBottom: 4,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "1px solid var(--border)",
+              background: "#fff",
+              color: "var(--text-muted)",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Verlauf einklappen · Show less
+          </button>
+        )}
+
+        {visibleMessages.map(({ msg, messageIndex: i }) => (
           <div key={i} style={{ maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start", animation: "fade-in 0.2s ease-out" }}>
             <div style={{ padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff", border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}` }}>
               <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
@@ -1309,7 +1516,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
                 <span style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.85)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
               </p>
             </div>
-            {!isMuted && (
+            {!isMuted && showManualSend && (
               <button
                 type="button"
                 onClick={forceSendTurn}
@@ -1371,7 +1578,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
               : 3;
             return (
               <div key={i} style={{
-                width: 3, borderRadius: 2, transition: "height 0.1s",
+                width: 3, borderRadius: 2, transition: callState === "speaking" || callState === "thinking" ? "none" : "height 0.1s",
                 height: `${height}px`,
                 background: callState === "speaking"
                   ? `rgba(39,174,96,${0.4 + i * 0.06})`
