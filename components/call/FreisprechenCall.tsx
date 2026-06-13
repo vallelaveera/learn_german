@@ -31,7 +31,10 @@ import {
 } from "@/lib/call-browser-active-audio";
 import {
   playCallOnboardingPracticeQuestion,
+  playCallOnboardingStudentQuestion,
+  prefetchAllOnboardingLines,
   prefetchCallOnboardingPracticeQuestion,
+  prefetchCallOnboardingStudentQuestion,
 } from "@/lib/call-onboarding-audio";
 
 // ── Module-level flags ─────────────────────────────────────
@@ -183,6 +186,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const openingRef = useRef<string | null>(null);
   const openingFollowUpRef = useRef<string | null>(null);
+  const openingPracticeQuestionRef = useRef<string | null>(null);
+  const holdMicDuringIntroRef = useRef(false);
+  const mayaSpeechWaiterRef = useRef<(() => void) | null>(null);
   const normalOpeningRef = useRef<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
@@ -254,7 +260,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         systemPromptRef.current = data.systemPrompt;
         isOnboardingRef.current = !!data.isOnboarding;
         if (data.isOnboarding) {
-          void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+          void prefetchAllOnboardingLines(ttsProviderRef.current);
         }
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
@@ -264,6 +270,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         }
         if (data.openingFollowUp) {
           openingFollowUpRef.current = data.openingFollowUp;
+        }
+        if (data.openingPracticeQuestion) {
+          openingPracticeQuestionRef.current = data.openingPracticeQuestion;
         }
         if (data.normalOpening) {
           normalOpeningRef.current = data.normalOpening;
@@ -287,7 +296,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     void prefetchCallBrowserActiveMessage(ttsProviderRef.current);
     void prefetchCallNetworkMessage(ttsProviderRef.current);
     if (isOnboardingRef.current) {
-      void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+      void prefetchAllOnboardingLines(ttsProviderRef.current);
     }
   }, [contextReady]);
 
@@ -455,7 +464,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setTimeout(() => endCallRef.current(), 400);
       return;
     }
+    if (holdMicDuringIntroRef.current && mayaSpeechWaiterRef.current) {
+      const resolve = mayaSpeechWaiterRef.current;
+      mayaSpeechWaiterRef.current = null;
+      resolve();
+      return;
+    }
     void activateMicAfterTTSRef.current();
+  }, []);
+
+  const waitForMayaSpeechEnd = useCallback(() => {
+    return new Promise<void>(resolve => {
+      if (_cm_tts_done_fired) {
+        resolve();
+        return;
+      }
+      mayaSpeechWaiterRef.current = resolve;
+    });
   }, []);
 
   const playChunk = useCallback(async (chunk: ArrayBuffer) => {
@@ -591,7 +616,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     await streamTTS(text);
   }, [streamTTS, setJetztDu]);
 
-  const speakOnboardingPracticeQuestion = useCallback(async (appendMsg: Message) => {
+  const speakOnboardingLine = useCallback(async (
+    appendMsg: Message,
+    line: "student" | "practice",
+    isLastIntroLine: boolean,
+  ) => {
     const text = appendMsg.content;
     const updated = [...messagesRef.current, appendMsg];
     setMessages(updated);
@@ -609,15 +638,30 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     nextStartRef.current = 0;
     _cm_tts_done_fired = false;
     _cm_sending = true;
+    holdMicDuringIntroRef.current = !isLastIntroLine;
     lastTtsTextRef.current = text;
-    void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
-    const usedCache = await playCallOnboardingPracticeQuestion(getAudioCtx);
+    if (line === "student") {
+      void prefetchCallOnboardingStudentQuestion(ttsProviderRef.current);
+    } else {
+      void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+    }
+    const playFn = line === "student"
+      ? playCallOnboardingStudentQuestion
+      : playCallOnboardingPracticeQuestion;
+    const usedCache = await playFn(getAudioCtx);
     if (usedCache) {
       finishTTSPlaybackRef.current();
+      if (!isLastIntroLine) {
+        await waitForMayaSpeechEnd();
+      }
       return;
     }
     await streamTTS(text);
-  }, [streamTTS, stopAudio, clearPrewarmTimer, setJetztDu]);
+    if (!isLastIntroLine) {
+      await waitForMayaSpeechEnd();
+      _cm_tts_done_fired = false;
+    }
+  }, [streamTTS, stopAudio, clearPrewarmTimer, setJetztDu, waitForMayaSpeechEnd]);
 
   // ── Send to Claude ────────────────────────────────────
   const submitToClaude = useCallback(async (history: Message[]) => {
@@ -727,7 +771,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     const isFirstOnboardingReply =
       isOnboardingRef.current
       && updated.filter(m => m.role === "user").length === 1
-      && updated.filter(m => m.role === "assistant").length >= 2;
+      && updated.filter(m => m.role === "assistant").length >= 3;
 
     if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
@@ -1087,6 +1131,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
     userWantsEndRef.current = false;
+    holdMicDuringIntroRef.current = false;
+    mayaSpeechWaiterRef.current = null;
     isMutedRef.current = false;
     setIsMuted(false);
     setError(null);
@@ -1104,7 +1150,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     void prefetchCallNetworkMessage(ttsProviderRef.current);
     void prefetchCallBrowserActiveMessage(ttsProviderRef.current);
     if (isOnboardingRef.current) {
-      void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
+      void prefetchAllOnboardingLines(ttsProviderRef.current);
     }
 
     try {
@@ -1146,6 +1192,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         if (data?.openingFollowUp) {
           openingFollowUpRef.current = data.openingFollowUp;
         }
+        if (data?.openingPracticeQuestion) {
+          openingPracticeQuestionRef.current = data.openingPracticeQuestion;
+        }
         if (data?.normalOpening) normalOpeningRef.current = data.normalOpening;
         if (data?.systemPrompt) systemPromptRef.current = data.systemPrompt;
       } catch {}
@@ -1157,15 +1206,34 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     messagesRef.current = [msg];
     setCallState("speaking");
 
+    const studentQuestion = openingFollowUpRef.current;
+    const practiceQuestion = openingPracticeQuestionRef.current;
+    const onboardingIntroChain = isOnboardingRef.current && (studentQuestion || practiceQuestion);
+
+    if (onboardingIntroChain) {
+      holdMicDuringIntroRef.current = true;
+    }
+
     await streamTTSRef.current?.(opening);
 
-    const followUp = openingFollowUpRef.current;
-    if (followUp && isOnboardingRef.current) {
-      await speakOnboardingPracticeQuestion({
-        role: "assistant",
-        content: followUp,
-        timestamp: Date.now() + 1,
-      });
+    if (onboardingIntroChain) {
+      await waitForMayaSpeechEnd();
+      _cm_tts_done_fired = false;
+
+      if (studentQuestion) {
+        await speakOnboardingLine(
+          { role: "assistant", content: studentQuestion, timestamp: Date.now() + 1 },
+          "student",
+          !practiceQuestion,
+        );
+      }
+      if (practiceQuestion) {
+        await speakOnboardingLine(
+          { role: "assistant", content: practiceQuestion, timestamp: Date.now() + 2 },
+          "practice",
+          true,
+        );
+      }
     }
   };
 
@@ -1181,6 +1249,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
     userWantsEndRef.current = false;
+    holdMicDuringIntroRef.current = false;
+    mayaSpeechWaiterRef.current = null;
     micLiveRef.current = false;
     micPrewarmedRef.current = false;
     isMutedRef.current = false;
