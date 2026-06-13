@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { Message } from "@/lib/types";
 import {
   computeLiveGrammarProgress,
@@ -11,10 +12,24 @@ import {
 interface CallGrammarProgressHudProps {
   messages: Message[];
   compact?: boolean;
+  /** Freeze score/bar while Maya speaks so layout animation does not glitch audio. */
+  paused?: boolean;
 }
 
-export function CallGrammarProgressHud({ messages, compact = false }: CallGrammarProgressHudProps) {
-  const progress = computeLiveGrammarProgress(messages);
+export function CallGrammarProgressHud({ messages, compact = false, paused = false }: CallGrammarProgressHudProps) {
+  const live = computeLiveGrammarProgress(messages);
+  const frozenRef = useRef(live);
+  const wasPausedRef = useRef(false);
+
+  if (paused && !wasPausedRef.current) {
+    frozenRef.current = live;
+  }
+  if (!paused) {
+    frozenRef.current = live;
+  }
+  wasPausedRef.current = paused;
+
+  const progress = paused ? frozenRef.current : live;
   if (progress.total === 0) return null;
 
   const color = grammarScoreColor(progress.score);
@@ -45,7 +60,7 @@ export function CallGrammarProgressHud({ messages, compact = false }: CallGramma
             width: `${fill}%`,
             borderRadius: 999,
             background: color,
-            transition: "width 0.35s ease, background 0.25s ease",
+            transition: paused ? "none" : "width 0.35s ease, background 0.25s ease",
           }}
         />
       </div>

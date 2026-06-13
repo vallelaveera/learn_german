@@ -215,6 +215,7 @@ export function useCallRecorder({
       };
       ws.onclose = () => {
         if (intentionalStopRef.current || sessionGen !== sessionGenRef.current) return;
+        onError("Verbindungsfehler");
       };
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Mikrofon Fehler");
