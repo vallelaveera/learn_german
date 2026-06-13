@@ -136,7 +136,7 @@ export default function GrammarPage() {
               alignItems: "center",
               gap: 12,
               padding: "12px 14px",
-              marginBottom: levelId === "A1" ? 10 : 16,
+              marginBottom: 10,
               marginTop: 4,
               textDecoration: "none",
               border: `1px solid ${level.color}44`,
@@ -184,57 +184,56 @@ export default function GrammarPage() {
           </Link>
         )}
 
-        {levelId === "A1" && (
-          <Link
-            href="/grammar/gender"
-            className="ui-card"
+        <Link
+          href="/grammar/gender"
+          className="ui-card"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "12px 14px",
+            marginBottom: 16,
+            marginTop: articleTableHref ? 0 : 4,
+            textDecoration: "none",
+            border: "1px solid rgba(60, 52, 137, 0.28)",
+            background: "rgba(60, 52, 137, 0.08)",
+          }}
+        >
+          <span
             style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              background: "#fff",
+              color: "#3C3489",
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "12px 14px",
-              marginBottom: 16,
-              textDecoration: "none",
-              border: "1px solid rgba(60, 52, 137, 0.28)",
-              background: "rgba(60, 52, 137, 0.08)",
+              justifyContent: "center",
+              flexShrink: 0,
             }}
           >
+            <Sparkles size={18} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
             <span
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: "#fff",
+                display: "block",
+                fontSize: 14,
+                fontWeight: 700,
                 color: "#3C3489",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
+                marginBottom: 2,
               }}
             >
-              <Sparkles size={18} />
+              DER DIE DAS Üben
             </span>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#3C3489",
-                  marginBottom: 2,
-                }}
-              >
-                Gender patterns
-              </span>
-              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
-                Mnemonic sentences · fill gaps · sort der/die/das
-              </span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+              Merksätze · Lücken füllen · Artikel sortieren
             </span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#3C3489", flexShrink: 0 }}>
-              Üben →
-            </span>
-          </Link>
-        )}
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#3C3489", flexShrink: 0 }}>
+            Öffnen →
+          </span>
+        </Link>
 
         {explainer && level && !explainerCollapsed && (
           <GrammarLevelExplainer
