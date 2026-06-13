@@ -5,6 +5,7 @@ import { GERMAN_PATTERNS, patternFullSentence } from "@/lib/gender/germanPattern
 import type { GenderArticle } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
 import type { GenderTabTheme } from "@/lib/gender/theme";
+import { GenderHighlightedSentence } from "./GenderHighlightedSentence";
 
 interface GenderPatternsTabProps {
   theme: GenderTabTheme;
@@ -55,28 +56,7 @@ export function GenderPatternsTab({ theme }: GenderPatternsTabProps) {
         <p style={{ fontSize: 28, fontWeight: 900, color: GENDER_ARTICLE_COLORS[subTab], margin: "0 0 10px" }}>
           {subTab}
         </p>
-        <p style={{ fontSize: 14, lineHeight: 1.65, margin: 0 }}>
-          {pattern.keys.map((key, i) => (
-            <span key={key}>
-              {pattern.frameParts[i]}
-              <span
-                style={{
-                  display: "inline-block",
-                  padding: "1px 8px",
-                  borderRadius: 6,
-                  background: GENDER_ARTICLE_COLORS[subTab],
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 12,
-                  margin: "0 1px",
-                }}
-              >
-                {key}
-              </span>
-            </span>
-          ))}
-          {pattern.frameParts[pattern.keys.length]}
-        </p>
+        <GenderHighlightedSentence pattern={pattern} articleColor={GENDER_ARTICLE_COLORS[subTab]} />
         <p style={{ fontSize: 11, color: theme.tmid, margin: "10px 0 0", fontStyle: "italic" }}>
           {full}
         </p>

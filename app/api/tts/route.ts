@@ -4,11 +4,13 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  const { text } = await req.json();
+  const { text, language = "de" } = await req.json();
 
   if (!text?.trim()) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
   }
+
+  const lang = language === "en" ? "en" : "de";
 
   const apiKey = process.env.SONIOX_API_KEY;
   if (!apiKey) {
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       text: text.trim(),
       model: "tts-rt-v1",
-      language: "de",
+      language: lang,
       voice: "Maya",
       audio_format: "mp3",
     }),

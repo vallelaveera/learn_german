@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Volume2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Volume2 } from "lucide-react";
 import { getPatternForRound, patternFullSentence } from "@/lib/gender/germanPatterns";
 import { pickRandomNouns } from "@/lib/gender/germanNouns";
 import type { GenderNoun } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
 import type { GenderTabTheme } from "@/lib/gender/theme";
 import type { UseGermanGenderReturn } from "@/hooks/useGermanGender";
+import { GenderHighlightedSentence } from "./GenderHighlightedSentence";
 
 interface GenderPracticeTabProps {
   theme: GenderTabTheme;
   gender: UseGermanGenderReturn;
-  onSpeak: (text: string) => void;
+  onSpeak: (text: string) => Promise<void>;
+  speaking?: boolean;
 }
 
-type Phase = 1 | 2;
+type Phase = 0 | 1 | 2;
 
 function shuffleWords(words: string[]): string[] {
   const copy = words.slice();
@@ -26,15 +28,21 @@ function shuffleWords(words: string[]): string[] {
   return copy;
 }
 
-export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabProps) {
+export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: GenderPracticeTabProps) {
   const pattern = useMemo(() => getPatternForRound(gender.roundNum), [gender.roundNum]);
   const fullSentence = useMemo(() => patternFullSentence(pattern), [pattern]);
+  const articleColor = GENDER_ARTICLE_COLORS[pattern.article];
 
-  const [phase, setPhase] = useState<Phase>(gender.graduated ? 2 : 1);
-  const [selectedBlank, setSelectedBlank] = useState<number | null>(null);
+  const [phase, setPhase] = useState<Phase>(gender.graduated ? 2 : 0);
+  const autoSpokeRound = useRef<number | null>(null);
   const [fills, setFills] = useState<(string | null)[]>(() => pattern.keys.map(() => null));
   const [pool, setPool] = useState<string[]>(() => shuffleWords(pattern.keys));
   const [checkState, setCheckState] = useState<"idle" | "correct" | "wrong">("idle");
+
+  const nextBlankIdx = useMemo(() => {
+    const idx = fills.findIndex(f => f === null);
+    return idx === -1 ? null : idx;
+  }, [fills]);
 
   const [dragWords, setDragWords] = useState<GenderNoun[]>(() => pickRandomNouns(6));
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -43,8 +51,23 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
   const [dragResults, setDragResults] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (gender.graduated) setPhase(2);
-  }, [gender.graduated]);
+    if (gender.graduated) {
+      setPhase(2);
+      return;
+    }
+    setPhase(0);
+    setFills(pattern.keys.map(() => null));
+    setPool(shuffleWords(pattern.keys));
+    setCheckState("idle");
+    autoSpokeRound.current = null;
+  }, [gender.roundNum, gender.graduated, pattern.keys]);
+
+  useEffect(() => {
+    if (gender.graduated || phase !== 0) return;
+    if (autoSpokeRound.current === gender.roundNum) return;
+    autoSpokeRound.current = gender.roundNum;
+    void onSpeak(fullSentence);
+  }, [phase, gender.graduated, gender.roundNum, fullSentence, onSpeak]);
 
   const accuracyPct =
     gender.sentenceTotal > 0
@@ -52,7 +75,6 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
       : 0;
 
   const resetPhase1 = () => {
-    setSelectedBlank(null);
     setFills(pattern.keys.map(() => null));
     setPool(shuffleWords(pattern.keys));
     setCheckState("idle");
@@ -74,7 +96,6 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
     const nextPattern = getPatternForRound(nextRound);
     setFills(nextPattern.keys.map(() => null));
     setPool(shuffleWords(nextPattern.keys));
-    setSelectedBlank(null);
     setCheckState("idle");
     if (gender.graduated || skipWarmup) {
       setPhase(2);
@@ -84,36 +105,33 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
       setDragChecked(false);
       setDragResults({});
     } else {
-      setPhase(1);
+      setPhase(0);
+      autoSpokeRound.current = null;
     }
   };
 
   const handleBlankTap = (idx: number) => {
     if (checkState !== "idle") return;
     const word = fills[idx];
-    if (word) {
-      setFills(prev => {
-        const next = [...prev];
-        next[idx] = null;
-        return next;
-      });
-      setPool(prev => [...prev, word]);
-      setSelectedBlank(idx);
-      return;
-    }
-    setSelectedBlank(prev => (prev === idx ? null : idx));
+    if (!word) return;
+    setFills(prev => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
+    setPool(prev => [...prev, word]);
   };
 
   const handleWordTap = (word: string) => {
-    if (checkState !== "idle" || selectedBlank === null) return;
-    if (!pool.includes(word)) return;
+    if (checkState !== "idle" || !pool.includes(word)) return;
+    const targetIdx = fills.findIndex(f => f === null);
+    if (targetIdx === -1) return;
     setFills(prev => {
       const next = [...prev];
-      next[selectedBlank] = word;
+      next[targetIdx] = word;
       return next;
     });
     setPool(prev => prev.filter(w => w !== word));
-    setSelectedBlank(null);
   };
 
   const handleCheckPhase1 = () => {
@@ -179,7 +197,8 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
         </span>
         <button
           type="button"
-          onClick={() => onSpeak(fullSentence)}
+          onClick={() => void onSpeak(fullSentence)}
+          disabled={speaking}
           aria-label="Maya reads sentence"
           style={{
             minWidth: 44,
@@ -191,10 +210,15 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            cursor: "pointer",
+            cursor: speaking ? "default" : "pointer",
+            opacity: speaking ? 0.6 : 1,
           }}
         >
-          <Volume2 size={18} />
+          {speaking ? (
+            <Loader2 size={18} style={{ animation: "spin 0.8s linear infinite" }} />
+          ) : (
+            <Volume2 size={18} />
+          )}
         </button>
       </div>
 
@@ -225,10 +249,88 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
         </div>
       )}
 
+      {phase === 0 && (
+        <>
+          <p style={{ fontSize: 12, color: theme.tmid, margin: "0 0 10px", lineHeight: 1.5 }}>
+            Merksatz — endings underlined show the <strong style={{ color: theme.tc }}>{pattern.article}</strong> rules
+          </p>
+          <div
+            className="ui-card"
+            style={{
+              padding: "16px 14px",
+              marginBottom: 12,
+              border: `1.5px solid ${articleColor}`,
+              background: `${articleColor}0c`,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: theme.tmid,
+                margin: "0 0 4px",
+                textTransform: "uppercase",
+              }}
+            >
+              {pattern.character}
+            </p>
+            <GenderHighlightedSentence pattern={pattern} articleColor={articleColor} size="lg" />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {pattern.rules.map(rule => (
+              <div
+                key={rule.tag}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: `1px solid ${theme.tbd}`,
+                  background: "#fff",
+                }}
+              >
+                <code
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: theme.tc,
+                    background: theme.tbg,
+                    padding: "2px 7px",
+                    borderRadius: 5,
+                    marginRight: 8,
+                  }}
+                >
+                  {rule.tag}
+                </code>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{rule.note}</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPhase(1)}
+            style={{
+              width: "100%",
+              minHeight: 48,
+              borderRadius: 14,
+              border: "none",
+              background: theme.tc,
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            Jetzt Lücken üben →
+          </button>
+        </>
+      )}
+
       {phase === 1 && (
         <>
           <p style={{ fontSize: 12, color: theme.tmid, margin: "0 0 10px" }}>
-            Phase 1 — Fill the rule-words into the sentence
+            Tippe ein Wort — es füllt die nächste Lücke von links nach rechts
           </p>
           <div
             className="ui-card"
@@ -260,19 +362,19 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
                         ? "2px solid var(--red)"
                         : checkState === "correct"
                           ? "2px solid var(--green)"
-                          : selectedBlank === idx
+                          : nextBlankIdx === idx
                             ? `2px solid ${theme.tc}`
                             : `1.5px dashed ${theme.tmid}`,
                     background:
                       checkState === "correct"
                         ? "rgba(56, 161, 105, 0.15)"
-                        : selectedBlank === idx
+                        : nextBlankIdx === idx
                           ? theme.tbg
                           : "rgba(255,255,255,0.7)",
                     color: fills[idx] ? theme.tc : theme.tmid,
                     fontWeight: fills[idx] ? 700 : 500,
                     fontSize: 13,
-                    cursor: checkState === "idle" ? "pointer" : "default",
+                    cursor: fills[idx] && checkState === "idle" ? "pointer" : "default",
                     verticalAlign: "middle",
                   }}
                 >
@@ -283,7 +385,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
             {pattern.frameParts[pattern.keys.length]}
           </div>
 
-          {selectedBlank !== null && (
+          {nextBlankIdx !== null && (
             <p
               style={{
                 fontSize: 12,
@@ -293,7 +395,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
                 fontFamily: "var(--font-mono)",
               }}
             >
-              {pattern.hints[selectedBlank]}
+              {pattern.hints[nextBlankIdx]}
             </p>
           )}
 
@@ -303,7 +405,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
                 key={word}
                 type="button"
                 onClick={() => handleWordTap(word)}
-                disabled={selectedBlank === null || checkState !== "idle"}
+                disabled={checkState !== "idle"}
                 style={{
                   minHeight: 44,
                   padding: "8px 14px",
@@ -313,8 +415,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak }: GenderPracticeTabP
                   color: theme.tc,
                   fontWeight: 700,
                   fontSize: 13,
-                  cursor: selectedBlank !== null && checkState === "idle" ? "pointer" : "default",
-                  opacity: selectedBlank !== null ? 1 : 0.55,
+                  cursor: checkState === "idle" ? "pointer" : "default",
                 }}
               >
                 {word}
