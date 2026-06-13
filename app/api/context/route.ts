@@ -56,11 +56,12 @@ export async function GET(req: NextRequest) {
 
     if (!profileComplete) {
       const isFirstEver = user.totalSessions === 0;
+      const nativeLanguage = resolveNativeLanguage(user);
       const opening = isFirstEver
         ? buildOnboardingOpening(user.name)
         : `Hallo ${user.name}! Schön, dass du wieder da bist. ${missingFields.length > 0 ? "Ich würde dich noch etwas besser kennenlernen — " + getNextQuestion(missingFields) : ""}`;
       const systemPrompt = buildOnboardingPrompt(user.name, missingFields, {
-        nativeLanguage: resolveNativeLanguage(user),
+        nativeLanguage,
         germanLevel: user.germanLevel ?? user.facts.germanLevel,
       });
       return NextResponse.json({

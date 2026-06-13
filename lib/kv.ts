@@ -4,6 +4,7 @@ import { PLANS } from "./plans";
 import type { CallCorrection } from "./corrections";
 import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssignment, HomeworkRep, HomeworkSentence } from "./types";
 import type { CareerVocabUserProgress } from "./career-vocab/types";
+import type { UserFeedback } from "./feedback/types";
 import { normalizeGermanLevel } from "./levels";
 import { v4 as uuidv4 } from "uuid";
 import { getOrGenerateIcon } from "./vocab/icons";
@@ -862,4 +863,24 @@ export async function clearActiveHomework(userId: string): Promise<void> {
     await redis.zrem(`homework:pending:${userId}`, active.id);
   }
   await redis.del(`homework:active:${userId}`);
+}
+
+// ── Product feedback ──────────────────────────────────────
+
+export async function saveUserFeedback(feedback: UserFeedback): Promise<void> {
+  await redis.set(`feedback:${feedback.id}`, JSON.stringify(feedback));
+  await redis.zadd("feedback:all", { score: feedback.createdAt, member: feedback.id });
+}
+
+export async function listUserFeedback(limit = 100): Promise<UserFeedback[]> {
+  const ids = await redis.zrange<string[]>("feedback:all", 0, limit - 1, { rev: true });
+  if (!ids?.length) return [];
+  const rows = await Promise.all(
+    ids.map(async id => {
+      const data = await redis.get<string>(`feedback:${id}`);
+      if (!data) return null;
+      return (typeof data === "string" ? JSON.parse(data) : data) as UserFeedback;
+    }),
+  );
+  return rows.filter(Boolean) as UserFeedback[];
 }

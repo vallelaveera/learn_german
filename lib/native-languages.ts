@@ -5,6 +5,7 @@ export { isBeginnerLevel };
 
 export const COMMON_NATIVE_LANGUAGES = [
   "English",
+  "Telugu",
   "Türkisch",
   "Arabisch",
   "Hindi",
@@ -22,6 +23,20 @@ export function isEnglishNative(lang?: string): boolean {
   if (!lang) return false;
   const n = lang.trim().toLowerCase();
   return n === "english" || n === "englisch" || n === "en" || n.startsWith("english ");
+}
+
+/** Maya reacts when the learner says Telugu — not from signup/profile alone. */
+export function buildTeluguMayaPromptBlock(context: "onboarding" | "call" = "call"): string {
+  const after = context === "onboarding"
+    ? "Then continue onboarding with ONE short question (job, hobbies, etc.)."
+    : "Use at most once per call — then normal conversation.";
+
+  return `
+WHEN the learner says Telugu is their mother tongue (they must say it in this conversation — do NOT use profile/signup data alone):
+- React warmly once in simple German, e.g.:
+  "Oh, schön! Mein Chef Veera hat mich gebaut, damit du Deutsch lernst. Er redet immer über Telugu-Filme. Was ist dein Lieblings-Telugu-Film?"
+- Keep it brief, friendly, A1/A2 German. Veera built the app — light personal touch, not a long story.
+- ${after}`;
 }
 
 export function resolveNativeLanguage(profile: Pick<UserProfile, "nativeLanguage" | "facts">): string | undefined {

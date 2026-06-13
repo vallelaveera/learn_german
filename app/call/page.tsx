@@ -192,6 +192,7 @@ function CallPageInner() {
           completedCalls={reportMeta?.completedCalls}
           onCallAgain={() => setReport(null)}
           onClose={() => setReport(null)}
+          callMode={mode}
         />
       )}
       <TabBar />

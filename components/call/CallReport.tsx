@@ -9,6 +9,7 @@ import { SuccessIllustration } from "@/components/illustrations/SuccessIllustrat
 import { CallReplayPanel } from "@/components/call/CallReplayPanel";
 import { CallGrammarTurnBadge, CallGrammarTurnStrip } from "@/components/call/CallGrammarProgress";
 import { grammarScoreColor } from "@/lib/call-grammar-progress";
+import { FeedbackSheet } from "@/components/feedback/FeedbackSheet";
 
 export interface CallReportStats {
   durationLabel: string;
@@ -25,6 +26,7 @@ interface CallReportProps {
   userName?: string;
   currentLevel?: string;
   completedCalls?: number;
+  callMode?: string;
   onCallAgain: () => void;
   onClose: () => void;
 }
@@ -35,9 +37,11 @@ export function CallReport({
   userName,
   currentLevel = "A1",
   completedCalls = 0,
+  callMode,
   onCallAgain,
   onClose,
 }: CallReportProps) {
+  const [feedbackOpen, setFeedbackOpen] = useState(true);
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -297,6 +301,36 @@ export function CallReport({
               </div>
             ))}
           </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <FeedbackSheet
+            open={feedbackOpen}
+            onClose={() => setFeedbackOpen(false)}
+            source="post_call"
+            callMode={callMode}
+            overlay={false}
+            onSubmitted={() => setFeedbackOpen(false)}
+          />
+          {!feedbackOpen && (
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              style={{
+                width: "100%",
+                minHeight: 44,
+                borderRadius: 12,
+                border: "1px solid rgba(127, 119, 221, 0.35)",
+                background: "rgba(127, 119, 221, 0.08)",
+                color: "#7F77DD",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Feedback geben
+            </button>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

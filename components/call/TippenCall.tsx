@@ -477,7 +477,7 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
         <div className={styles.avatarInfo}>
           <div className={styles.avatarName}>Maya{user ? ` · ${user.name}` : ""}</div>
           <div className={styles.avatarSub}>
-            {user?.streak ? `${user.streak} Tage` : "Deutschfreundin"}
+            {user?.streak ? `${user.streak} Tage` : "Deutsche Lehrerin"}
             {daysSince >= 3 ? ` · ${daysSince}d Pause` : ""}
           </div>
         </div>
