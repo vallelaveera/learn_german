@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/razorpay";
 import { activatePlan } from "@/lib/subscription";
 import type { PlanId } from "@/lib/plans";
+import { isBillingEnabled } from "@/lib/billing-config";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  if (!isBillingEnabled()) {
+    return NextResponse.json({ error: "Billing not enabled" }, { status: 404 });
+  }
+
   const signature = req.headers.get("x-razorpay-signature") ?? "";
   const body = await req.text();
 

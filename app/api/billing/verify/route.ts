@@ -4,10 +4,13 @@ import { verifyPaymentSignature } from "@/lib/razorpay";
 import type { PlanId } from "@/lib/plans";
 import { isPaidPlan } from "@/lib/plans";
 import { activatePlan } from "@/lib/subscription";
+import { billingDisabledResponse, isBillingEnabled } from "@/lib/billing-config";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  if (!isBillingEnabled()) return billingDisabledResponse();
+
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

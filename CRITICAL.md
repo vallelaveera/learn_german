@@ -58,6 +58,16 @@
 
 ---
 
+## Billing kill-switch (`lib/billing-config.ts`)
+
+| Rule | Why |
+|------|-----|
+| Default OFF — no `BILLING_ENABLED` env var | Safe main deploy: no minute caps, no Razorpay |
+| Enable with `BILLING_ENABLED=true` + `NEXT_PUBLIC_BILLING_ENABLED=true` | Server enforcement + client UI (/subscribe, usage ticks) |
+| All limits flow through `getUsageStats` / `isBillingEnabled()` | Single gate — never check limits ad-hoc without the flag |
+
+---
+
 ## General Rules
 
 1. Read the FULL function before changing it

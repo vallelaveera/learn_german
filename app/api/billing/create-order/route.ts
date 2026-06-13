@@ -4,10 +4,13 @@ import { getRazorpayClient, getRazorpayKeyId, paidPlanAmount } from "@/lib/razor
 import type { PlanId } from "@/lib/plans";
 import { isPaidPlan } from "@/lib/plans";
 import { getUserProfile, saveUserProfile } from "@/lib/kv";
+import { billingDisabledResponse, isBillingEnabled } from "@/lib/billing-config";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  if (!isBillingEnabled()) return billingDisabledResponse();
+
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

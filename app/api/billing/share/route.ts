@@ -5,10 +5,13 @@ import {
   removeProShareMember,
   getBillingSummary,
 } from "@/lib/subscription";
+import { billingDisabledResponse, isBillingEnabled } from "@/lib/billing-config";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  if (!isBillingEnabled()) return billingDisabledResponse();
+
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const billing = await getBillingSummary(user.userId);
@@ -16,6 +19,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isBillingEnabled()) return billingDisabledResponse();
+
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -30,6 +35,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!isBillingEnabled()) return billingDisabledResponse();
+
   const user = await getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

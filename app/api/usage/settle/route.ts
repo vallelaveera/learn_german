@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { settleCallUsage } from "@/lib/kv";
+import { billingDisabledUsageStats, isBillingEnabled } from "@/lib/billing-config";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,10 @@ export async function POST(req: NextRequest) {
   };
   if (!sessionId || !sessionStart) {
     return NextResponse.json({ error: "sessionId and sessionStart required" }, { status: 400 });
+  }
+
+  if (!isBillingEnabled()) {
+    return NextResponse.json({ ok: true, ...billingDisabledUsageStats() });
   }
 
   const usage = await settleCallUsage(user.userId, sessionId, sessionStart);

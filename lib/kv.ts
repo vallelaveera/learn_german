@@ -1,6 +1,7 @@
 import { Redis } from "@upstash/redis";
 import type { PlanId } from "./plans";
 import { PLANS } from "./plans";
+import { isBillingEnabled, BILLING_DISABLED_LIMIT, billingDisabledUsageStats } from "./billing-config";
 import type { CallCorrection } from "./corrections";
 import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssignment, HomeworkRep, HomeworkSentence } from "./types";
 import type { CareerVocabUserProgress } from "./career-vocab/types";
@@ -281,6 +282,7 @@ export async function addMinutes(userId: string, minutes: number): Promise<numbe
 }
 
 export async function getUserLimit(userId: string): Promise<number> {
+  if (!isBillingEnabled()) return BILLING_DISABLED_LIMIT;
   try {
     const override = await redis.get<number>(`limit:${userId}`);
     if (override != null && override > 0) return override;
@@ -298,6 +300,7 @@ export async function setUserLimit(userId: string, minutes: number): Promise<voi
 }
 
 export async function getUsageStats(userId: string): Promise<{ used: number; limit: number; remaining: number }> {
+  if (!isBillingEnabled()) return billingDisabledUsageStats();
   const [used, limit] = await Promise.all([
     getMonthlyMinutes(userId),
     getUserLimit(userId),
@@ -306,6 +309,7 @@ export async function getUsageStats(userId: string): Promise<{ used: number; lim
 }
 
 export async function isUsageAllowed(userId: string): Promise<boolean> {
+  if (!isBillingEnabled()) return true;
   const usage = await getUsageStats(userId);
   return usage.remaining > 0;
 }
@@ -352,6 +356,9 @@ export async function tickUsageMinute(
   userId: string,
   sessionId: string,
 ): Promise<{ used: number; limit: number; remaining: number; limitReached: boolean }> {
+  if (!isBillingEnabled()) {
+    return { ...billingDisabledUsageStats(), limitReached: false };
+  }
   await addMinutes(userId, 1);
   await incrementSessionBilledMinutes(userId, sessionId, 1);
   const usage = await getUsageStats(userId);
@@ -363,6 +370,7 @@ export async function settleCallUsage(
   sessionId: string,
   sessionStart: number,
 ): Promise<{ used: number; limit: number; remaining: number }> {
+  if (!isBillingEnabled()) return billingDisabledUsageStats();
   const elapsedMs = Math.max(0, Date.now() - sessionStart);
   const totalMinutes = Math.ceil(elapsedMs / 60000);
   const billed = await getSessionBilledMinutes(userId, sessionId);

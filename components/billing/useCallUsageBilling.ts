@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { isBillingEnabledClient } from "@/lib/billing-config-client";
 
 interface UseCallUsageBillingOptions {
   sessionId: string;
@@ -31,6 +32,8 @@ export function useCallUsageBilling({
   }, [onUsageUpdate]);
 
   useEffect(() => {
+    if (!isBillingEnabledClient()) return;
+
     if (!active) {
       if (settledRef.current) return;
       settledRef.current = true;

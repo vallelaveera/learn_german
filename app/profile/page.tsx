@@ -6,6 +6,7 @@ import { LogOut, Check, Flame, MessageSquare, TrendingUp, ChevronRight, MessageC
 import { PageShell } from "@/components/layout/PageShell";
 import { StatTile } from "@/components/ui/StatTile";
 import { FeedbackSheet } from "@/components/feedback/FeedbackSheet";
+import { isBillingEnabledClient } from "@/lib/billing-config-client";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -156,6 +157,7 @@ export default function ProfilePage() {
             <ChevronRight size={18} color="var(--text-dim)" />
           </button>
 
+          {isBillingEnabledClient() && (
           <Link
             href="/subscribe"
             className="ui-card ui-card-padded"
@@ -190,6 +192,7 @@ export default function ProfilePage() {
             </span>
             <ChevronRight size={18} color="var(--text-dim)" />
           </Link>
+          )}
 
           <Link
             href="/progress"

@@ -43,7 +43,7 @@ export function SubscribePlans() {
     fetch("/api/billing/plan", { credentials: "include" })
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (!data) return;
+        if (!data?.enabled) return;
         setBilling({
           plan: data.billing?.plan ?? "free",
           usage: data.usage ?? { used: 0, limit: 30, remaining: 30 },
@@ -155,6 +155,14 @@ export function SubscribePlans() {
 
   const currentPlan = billing?.plan ?? "free";
   const usage = billing?.usage ?? { used: 0, limit: 30, remaining: 30 };
+
+  if (!loading && !billing) {
+    return (
+      <p style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6, textAlign: "center", padding: "24px 0" }}>
+        Abos sind derzeit nicht aktiv. · Subscriptions are not available yet.
+      </p>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
