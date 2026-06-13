@@ -9,6 +9,7 @@ import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
 import type { GenderTabTheme } from "@/lib/gender/theme";
 import type { UseGermanGenderReturn } from "@/hooks/useGermanGender";
 import { GenderHighlightedSentence } from "./GenderHighlightedSentence";
+import { GenderArticleDragSort } from "./GenderArticleDragSort";
 
 interface GenderPracticeTabProps {
   theme: GenderTabTheme;
@@ -45,7 +46,6 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
   }, [fills]);
 
   const [dragWords, setDragWords] = useState<GenderNoun[]>(() => pickRandomNouns(6));
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [zones, setZones] = useState<Record<string, "der" | "die" | "das" | null>>({});
   const [dragChecked, setDragChecked] = useState(false);
   const [dragResults, setDragResults] = useState<Record<string, boolean>>({});
@@ -83,7 +83,6 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
   const startPhase2 = () => {
     const words = pickRandomNouns(6);
     setDragWords(words);
-    setSelectedWord(null);
     setZones(Object.fromEntries(words.map(w => [w.id, null])));
     setDragChecked(false);
     setDragResults({});
@@ -148,15 +147,9 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
     }
   };
 
-  const handleZoneTap = (article: "der" | "die" | "das") => {
-    if (dragChecked || !selectedWord) return;
-    setZones(prev => ({ ...prev, [selectedWord]: article }));
-    setSelectedWord(null);
-  };
-
-  const handleWordSelect = (id: string) => {
+  const handleDragAssign = (wordId: string, article: "der" | "die" | "das" | null) => {
     if (dragChecked) return;
-    setSelectedWord(prev => (prev === id ? null : id));
+    setZones(prev => ({ ...prev, [wordId]: article }));
   };
 
   const handleCheckPhase2 = () => {
@@ -179,7 +172,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
     }
   };
 
-  const unassigned = dragWords.filter(w => !zones[w.id]);
+  const allAssigned = dragWords.every(w => zones[w.id]);
 
   return (
     <div>
@@ -448,7 +441,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <p style={{ fontSize: 12, color: theme.tmid, margin: 0 }}>
-              Phase 2 — Sort words by article
+              Phase 2 — Ziehe Wörter nach der · die · das
             </p>
             <button
               type="button"
@@ -468,101 +461,33 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
             </button>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-            {unassigned.map(w => (
-              <button
-                key={w.id}
-                type="button"
-                onClick={() => handleWordSelect(w.id)}
-                style={{
-                  minHeight: 44,
-                  padding: "8px 12px",
-                  borderRadius: 12,
-                  border:
-                    selectedWord === w.id
-                      ? `2px solid ${theme.tc}`
-                      : dragChecked
-                        ? `2px solid ${dragResults[w.id] ? "var(--green)" : "var(--red)"}`
-                        : `1.5px solid ${theme.tbd}`,
-                  background: selectedWord === w.id ? theme.tbg : "#fff",
-                  cursor: dragChecked ? "default" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                <span>{w.emoji}</span>
-                <span>{w.word}</span>
-              </button>
-            ))}
-          </div>
-
-          {(["der", "die", "das"] as const).map(article => (
-            <div key={article} style={{ marginBottom: 10 }}>
-              <button
-                type="button"
-                onClick={() => handleZoneTap(article)}
-                style={{
-                  width: "100%",
-                  minHeight: 52,
-                  borderRadius: 12,
-                  border: `2px solid ${GENDER_ARTICLE_COLORS[article]}`,
-                  background: `${GENDER_ARTICLE_COLORS[article]}14`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 12px",
-                  cursor: dragChecked ? "default" : "pointer",
-                }}
-              >
-                <span style={{ fontWeight: 800, color: GENDER_ARTICLE_COLORS[article], fontSize: 16 }}>
-                  {article}
-                </span>
-                <span style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
-                  {dragWords
-                    .filter(w => zones[w.id] === article)
-                    .map(w => (
-                      <span
-                        key={w.id}
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          padding: "4px 8px",
-                          borderRadius: 8,
-                          background: "#fff",
-                          border: dragChecked
-                            ? `1.5px solid ${dragResults[w.id] ? "var(--green)" : "var(--red)"}`
-                            : "1px solid rgba(0,0,0,0.08)",
-                        }}
-                      >
-                        {w.emoji} {w.word}
-                      </span>
-                    ))}
-                </span>
-              </button>
-            </div>
-          ))}
+          <GenderArticleDragSort
+            words={dragWords}
+            zones={zones}
+            onAssign={handleDragAssign}
+            checked={dragChecked}
+            results={dragResults}
+            disabled={dragChecked}
+          />
 
           <button
             type="button"
             onClick={handleCheckPhase2}
-            disabled={unassigned.length > 0 || dragChecked}
+            disabled={!allAssigned || dragChecked}
             style={{
               width: "100%",
               minHeight: 48,
               borderRadius: 14,
               border: "none",
               marginTop: 8,
-              background: unassigned.length === 0 && !dragChecked ? theme.tc : theme.tbg,
-              color: unassigned.length === 0 && !dragChecked ? "#fff" : theme.tmid,
+              background: allAssigned && !dragChecked ? theme.tc : theme.tbg,
+              color: allAssigned && !dragChecked ? "#fff" : theme.tmid,
               fontWeight: 700,
               fontSize: 14,
-              cursor: unassigned.length === 0 && !dragChecked ? "pointer" : "default",
+              cursor: allAssigned && !dragChecked ? "pointer" : "default",
             }}
           >
-            Check sorting
+            Sortierung prüfen
           </button>
 
           {dragChecked && (
