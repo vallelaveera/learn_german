@@ -3,30 +3,44 @@ import { isAdmin } from "@/lib/admin-auth";
 import {
   BATCH_CATEGORIES,
   getAllCategoryStats,
+  getAllWordCategoryStats,
   getCategoryStats,
   getSentenceStatus,
   getSentencesByCategory,
+  getWordCategoryStats,
+  getWordsByCategory,
   runIllustrationBatchForCategory,
+  runWordIllustrationBatchForCategory,
+  type IllustrationKind,
 } from "@/lib/content/illustration-batch";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+function parseKind(raw: string | null): IllustrationKind {
+  return raw === "words" ? "words" : "sentences";
+}
+
 export async function GET(req: NextRequest) {
   if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const category = req.nextUrl.searchParams.get("category");
-  const categories = await getAllCategoryStats();
+  const kind = parseKind(req.nextUrl.searchParams.get("kind"));
+  const categories =
+    kind === "words" ? await getAllWordCategoryStats() : await getAllCategoryStats();
 
   if (!category) {
-    return NextResponse.json({ categories, sentences: [] });
+    return NextResponse.json({ kind, categories, sentences: [] });
   }
 
-  const sentences = await getSentencesByCategory(category);
-  const rows = await Promise.all(sentences.map(getSentenceStatus));
-  const stats = await getCategoryStats(category);
+  const items =
+    kind === "words" ? await getWordsByCategory(category) : await getSentencesByCategory(category);
+  const rows = await Promise.all(items.map(getSentenceStatus));
+  const stats =
+    kind === "words" ? await getWordCategoryStats(category) : await getCategoryStats(category);
 
   return NextResponse.json({
+    kind,
     categories,
     stats,
     sentences: rows,
@@ -38,8 +52,9 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const body = await req.json() as { category?: string; retry?: boolean; limit?: number };
+    const body = await req.json() as { category?: string; retry?: boolean; limit?: number; kind?: IllustrationKind };
     const category = body.category?.trim();
+    const kind = body.kind === "words" ? "words" : "sentences";
     const limit = body.limit ?? 10;
 
     if (!category) {
@@ -50,20 +65,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unknown category" }, { status: 400 });
     }
 
-    const result = await runIllustrationBatchForCategory(category, {
-      retryPlaceholders: Boolean(body.retry),
-      limit: Math.min(Math.max(limit, 1), 10),
-    });
+    const result =
+      kind === "words"
+        ? await runWordIllustrationBatchForCategory(category, {
+            retryPlaceholders: Boolean(body.retry),
+            limit: Math.min(Math.max(limit, 1), 10),
+          })
+        : await runIllustrationBatchForCategory(category, {
+            retryPlaceholders: Boolean(body.retry),
+            limit: Math.min(Math.max(limit, 1), 10),
+          });
 
-    const sentences = await getSentencesByCategory(category);
-    const rows = await Promise.all(sentences.map(getSentenceStatus));
-    const stats = await getCategoryStats(category);
+    const items =
+      kind === "words" ? await getWordsByCategory(category) : await getSentencesByCategory(category);
+    const rows = await Promise.all(items.map(getSentenceStatus));
+    const stats =
+      kind === "words" ? await getWordCategoryStats(category) : await getCategoryStats(category);
 
     return NextResponse.json({
+      kind,
       result,
       stats,
       sentences: rows,
-      categories: await getAllCategoryStats(),
+      categories: kind === "words" ? await getAllWordCategoryStats() : await getAllCategoryStats(),
     });
   } catch (e) {
     console.error("Admin illustrations POST failed:", e);

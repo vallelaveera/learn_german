@@ -62,15 +62,15 @@ export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheet
         style={{
           position: "fixed",
           left: "50%",
-          bottom: 0,
+          bottom: "calc(82px + env(safe-area-inset-bottom, 0px))",
           transform: "translateX(-50%)",
           zIndex: 190,
           width: "100%",
           maxWidth: 390,
-          maxHeight: "88dvh",
+          maxHeight: "min(78dvh, calc(100dvh - 82px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))",
           background: "var(--bg)",
           borderRadius: "16px 16px 0 0",
-          padding: "18px 18px calc(env(safe-area-inset-bottom, 0px) + 18px)",
+          padding: "18px 18px 18px",
           overflowY: "auto",
         }}
       >

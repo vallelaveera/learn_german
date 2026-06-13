@@ -29,6 +29,9 @@ const SILENCE_DURATION_FALLBACK = 3000; // ms without endpoint
 const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 const TTS_CHUNK = 16384;
+const KEEP_BROWSER_ACTIVE_TEXT =
+  "Bitte lass den Browser aktiv. Please keep the browser active.";
+const TAB_REMINDER_COOLDOWN_MS = 25000;
 
 const AFFIRMATIVE_RE = /^(ja|genau|stimmt|richtig|fertig|doch)([\s,].*)?$/i;
 const NEGATIVE_RE = /^(nein|nee|nö|nicht|noch nicht)([\s,].*)?$/i;
@@ -112,7 +115,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const [jetztDuActive, setJetztDuActive] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [tabInactiveWarning, setTabInactiveWarning] = useState(false);
   const isMutedRef = useRef(false);
+  const tabLeftRef = useRef(false);
+  const lastTabReminderRef = useRef(0);
+  const tabReminderPlayingRef = useRef(false);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
   const endCallRef = useRef<() => void>(() => {});
@@ -226,6 +233,59 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
     return audioCtxRef.current;
   };
+
+  const playCallAnnouncement = useCallback(async (text: string) => {
+    if (!_cm_active || tabReminderPlayingRef.current || !text.trim()) return;
+    tabReminderPlayingRef.current = true;
+    try {
+      const ctx = getAudioCtx();
+      if (ctx.state === "suspended") await ctx.resume();
+      const res = await fetch("/api/tts-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, provider: ttsProviderRef.current }),
+      });
+      if (!res.ok || !res.body) throw new Error("TTS failed");
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value?.length) chunks.push(value);
+      }
+      if (!chunks.length) return;
+      const total = chunks.reduce((n, c) => n + c.length, 0);
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      const decoded = await ctx.decodeAudioData(
+        merged.buffer.slice(merged.byteOffset, merged.byteOffset + merged.byteLength),
+      );
+      const source = ctx.createBufferSource();
+      source.buffer = decoded;
+      source.connect(ctx.destination);
+      await new Promise<void>(resolve => {
+        source.onended = () => resolve();
+        source.start();
+      });
+    } catch {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        await new Promise<void>(resolve => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = "en-US";
+          utterance.rate = 0.95;
+          utterance.onend = () => resolve();
+          utterance.onerror = () => resolve();
+          window.speechSynthesis.speak(utterance);
+        });
+      }
+    } finally {
+      tabReminderPlayingRef.current = false;
+    }
+  }, []);
 
   const stopAudio = useCallback(() => {
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
@@ -804,6 +864,36 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   useEffect(() => { activateMicAfterTTSRef.current = activateMicAfterTTS; }, [activateMicAfterTTS]);
   useEffect(() => { finishTTSPlaybackRef.current = finishTTSPlayback; }, [finishTTSPlayback]);
 
+  useEffect(() => {
+    if (phase !== "active") return;
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        tabLeftRef.current = true;
+        setTabInactiveWarning(true);
+        return;
+      }
+
+      setTabInactiveWarning(false);
+      void getAudioCtx().resume();
+      if (recorderAudioCtxRef.current?.state === "suspended") {
+        void recorderAudioCtxRef.current.resume();
+      }
+
+      if (
+        tabLeftRef.current &&
+        Date.now() - lastTabReminderRef.current >= TAB_REMINDER_COOLDOWN_MS
+      ) {
+        tabLeftRef.current = false;
+        lastTabReminderRef.current = Date.now();
+        void playCallAnnouncement(KEEP_BROWSER_ACTIVE_TEXT);
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [phase, playCallAnnouncement]);
+
   // ── Start call ────────────────────────────────────────
   const startCall = async (skipNag = false) => {
     if (navigator.vibrate) navigator.vibrate(40);
@@ -834,6 +924,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setJetztDu(false);
     setLiveText("");
     setDuration(0);
+    setTabInactiveWarning(false);
+    tabLeftRef.current = false;
 
     try {
       if ("wakeLock" in navigator) await (navigator as any).wakeLock.request("screen");
@@ -854,6 +946,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setError("Mikrofon-Zugriff nötig — bitte erlauben und erneut starten.");
       return;
     }
+
+    lastTabReminderRef.current = Date.now();
+    await playCallAnnouncement(KEEP_BROWSER_ACTIVE_TEXT);
 
     let opening = skipNag
       ? (normalOpeningRef.current ?? openingRef.current ?? cachedOpening)
@@ -899,6 +994,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     isMutedRef.current = false;
     setJetztDu(false);
     setIsMuted(false);
+    setTabInactiveWarning(false);
+    tabLeftRef.current = false;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     void stop();
     stopAudio();
@@ -1080,6 +1177,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{fmt(duration)}</span>
       </div>
 
+      <div
+        style={{
+          flexShrink: 0,
+          padding: "7px 12px",
+          textAlign: "center",
+          fontSize: 11,
+          lineHeight: 1.35,
+          color: tabInactiveWarning ? "#8a4a20" : "#7c6a58",
+          background: tabInactiveWarning ? "rgba(212,168,67,0.18)" : "rgba(127,119,221,0.08)",
+          borderBottom: `0.5px solid ${tabInactiveWarning ? "rgba(212,168,67,0.35)" : "rgba(127,119,221,0.15)"}`,
+        }}
+      >
+        {tabInactiveWarning
+          ? "Tab inaktiv — bitte zurück zum Browser · Please return and keep the browser active"
+          : "Bitte Browser aktiv lassen · Please keep the browser active"}
+      </div>
+
       {/* Conversation — bubble panel */}
       <div
         style={{
@@ -1194,24 +1308,24 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 12,
-          padding: "10px 16px 12px",
+          gap: 8,
+          padding: "6px 16px 8px",
           borderTop: "0.5px solid #e8e0f0",
           background: "var(--bg)",
-          boxShadow: "0 -4px 16px rgba(45, 32, 24, 0.06)",
+          boxShadow: "0 -2px 10px rgba(45, 32, 24, 0.05)",
         }}
       >
 
         {/* Volume bars */}
-        <div style={{ display: "flex", alignItems: "center", gap: 3, height: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, height: 18 }}>
           {Array.from({ length: 9 }, (_, i) => {
             const height = isMuted
-              ? 4
+              ? 3
               : callState === "listening"
-              ? Math.max(4, Math.min(28, (volume / 50) * 28 * Math.abs(Math.sin((i + 1) * 0.7))))
+              ? Math.max(3, Math.min(18, (volume / 50) * 18 * Math.abs(Math.sin((i + 1) * 0.7))))
               : callState === "speaking"
-              ? 8 + Math.abs(Math.sin(i * 0.8)) * 12
-              : 4;
+              ? 5 + Math.abs(Math.sin(i * 0.8)) * 8
+              : 3;
             return (
               <div key={i} style={{
                 width: 3, borderRadius: 2, transition: "height 0.1s",
@@ -1259,27 +1373,27 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         )}
 
         {/* Mute + hang up */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 36 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22 }}>
           <button
             onClick={toggleMute}
             aria-label={isMuted ? "Mikrofon einschalten" : "Mikrofon stummschalten"}
             aria-pressed={isMuted}
             style={{
-              width: 52, height: 52, borderRadius: "50%",
+              width: 42, height: 42, borderRadius: "50%",
               background: isMuted ? "rgba(192,57,43,0.12)" : "var(--surface)",
-              border: `2px solid ${isMuted ? "rgba(192,57,43,0.45)" : "var(--accent-dim)"}`,
+              border: `1.5px solid ${isMuted ? "rgba(192,57,43,0.45)" : "var(--accent-dim)"}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", WebkitTapHighlightColor: "transparent",
             }}
           >
             {isMuted ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                 <line x1="1" y1="1" x2="23" y2="23" />
               </svg>
             ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                 <line x1="12" y1="19" x2="12" y2="23" />
@@ -1291,15 +1405,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           <button
             onClick={endCall}
             aria-label="Anruf beenden"
-            style={{ width: 68, height: 68, borderRadius: "50%", background: "rgba(192,57,43,0.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", WebkitTapHighlightColor: "transparent", boxShadow: "0 4px 20px rgba(192,57,43,0.3)" }}
+            style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(192,57,43,0.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", WebkitTapHighlightColor: "transparent", boxShadow: "0 3px 12px rgba(192,57,43,0.28)" }}
           >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="white" style={{ transform: "rotate(135deg)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ transform: "rotate(135deg)" }}>
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
             </svg>
           </button>
         </div>
         {isMuted && callState === "listening" && (
-          <p style={{ fontSize: 11, color: "#8a7060", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: -8 }}>Mikrofon stumm</p>
+          <p style={{ fontSize: 10, color: "#8a7060", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: -4 }}>Mikrofon stumm</p>
         )}
       </div>
     </div>

@@ -53,8 +53,7 @@ function ModePageInner() {
     fetch("/api/exercises/status", { cache: "no-store" })
       .then(r => (r.status === 401 ? null : r.ok ? r.json() : null))
       .then(d => {
-        if (d && !d.placementDone) router.push("/exercises/placement");
-        else if (d?.germanLevel) setLevel(normalizeGermanLevel(d.germanLevel));
+        if (d?.germanLevel) setLevel(normalizeGermanLevel(d.germanLevel));
       });
 
     fetch("/api/vocab", { cache: "no-store" })

@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
         ...profile.facts,
         germanLevel,
         levelOnboarded: true,
+        placementDone: true,
         lastUpdated: Date.now(),
       };
     }

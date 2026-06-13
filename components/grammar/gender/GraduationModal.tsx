@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import type { GenderTabTheme } from "@/lib/gender/theme";
 
 interface GraduationModalProps {
@@ -15,7 +17,20 @@ export function GraduationModal({
   onUnlock,
   onKeepWarmups,
 }: GraduationModalProps) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -23,7 +38,7 @@ export function GraduationModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 100,
+        zIndex: 220,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -90,6 +105,7 @@ export function GraduationModal({
           Keep doing warm-ups
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

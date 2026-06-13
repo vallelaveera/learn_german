@@ -17,6 +17,11 @@ export function resolveIllustrationId(id: string, german: string): string {
   return GERMAN_TO_ILLUSTRATION_ID.get(normalizeGerman(german)) ?? id;
 }
 
+/** Storage id for word scene SVGs (prefix avoids collision with sentence ids). */
+export function resolveWordIllustrationId(entryId: string): string {
+  return entryId.startsWith("word-") ? entryId : `word-${entryId}`;
+}
+
 export function batchCategoryMatchesExercise(
   batchCategory: string,
   exercise: SentenceExerciseCategory,

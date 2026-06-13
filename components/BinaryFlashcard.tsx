@@ -5,7 +5,7 @@ import { Volume2 } from "lucide-react";
 import type { BinaryCard } from "@/lib/exercises/types";
 import { DirectionToggle, type ExerciseDirection } from "@/components/DirectionToggle";
 import { WordExamplesPanel } from "@/components/exercises/WordExamplesPanel";
-import { VocabIcon } from "@/components/vocab/VocabIcon";
+import { WordIllustration } from "@/components/illustrations/WordIllustration";
 import { speakExercisePrompt, stopExerciseSpeech } from "@/lib/exercise-speech";
 
 interface Props {
@@ -83,9 +83,7 @@ export function BinaryFlashcard({
       </div>
 
       {showWordExamples && (
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <VocabIcon word={card.german} size={80} status="new" />
-        </div>
+        <WordIllustration wordId={card.id} german={card.german} height={130} />
       )}
 
       <div

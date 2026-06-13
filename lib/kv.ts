@@ -535,7 +535,7 @@ export async function getWarmupMasteredKeys(
 
 export async function isPlacementDone(userId: string): Promise<boolean> {
   const profile = await getUserProfile(userId);
-  return !!profile?.facts.placementDone;
+  return !!profile?.facts.placementDone || !!profile?.facts.levelOnboarded;
 }
 
 export async function completePlacement(

@@ -10,7 +10,7 @@ import { matchesWordCategory } from "./categories";
 import type { BinaryCard, FlashCardEntry } from "./types";
 import { getScenario, matchesScenario } from "./scenarios";
 import { prioritizeWithVisuals } from "./prioritize";
-import { hasWordIcon } from "./visual-assets";
+import { hasWordVisual } from "./visual-assets";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
@@ -63,7 +63,7 @@ export async function selectWarmupCards(
       );
       pool = [...pool, ...extra.filter(e => !pool.some(p => p.id === e.id))];
     }
-    const ranked = await prioritizeWithVisuals(pool, e => hasWordIcon(e.german));
+    const ranked = await prioritizeWithVisuals(pool, e => hasWordVisual(e.id, e.german));
     return toBinaryCards(ranked.slice(0, limit), "warmup");
   }
 
@@ -124,7 +124,7 @@ export async function selectWarmupCards(
     }
   }
 
-  const ranked = await prioritizeWithVisuals(entries, e => hasWordIcon(e.german));
+  const ranked = await prioritizeWithVisuals(entries, e => hasWordVisual(e.id, e.german));
   return toBinaryCards(ranked.slice(0, limit), "warmup");
 }
 
