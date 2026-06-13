@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Table2 } from "lucide-react";
+import { BookOpen, Table2, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarDetailSheet } from "@/components/grammar/GrammarDetailSheet";
@@ -136,7 +136,7 @@ export default function GrammarPage() {
               alignItems: "center",
               gap: 12,
               padding: "12px 14px",
-              marginBottom: 16,
+              marginBottom: levelId === "A1" ? 10 : 16,
               marginTop: 4,
               textDecoration: "none",
               border: `1px solid ${level.color}44`,
@@ -180,6 +180,58 @@ export default function GrammarPage() {
             </span>
             <span style={{ fontSize: 12, fontWeight: 600, color: level.color, flexShrink: 0 }}>
               Öffnen →
+            </span>
+          </Link>
+        )}
+
+        {levelId === "A1" && (
+          <Link
+            href="/grammar/gender"
+            className="ui-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              marginBottom: 16,
+              textDecoration: "none",
+              border: "1px solid rgba(60, 52, 137, 0.28)",
+              background: "rgba(60, 52, 137, 0.08)",
+            }}
+          >
+            <span
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: "#fff",
+                color: "#3C3489",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Sparkles size={18} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#3C3489",
+                  marginBottom: 2,
+                }}
+              >
+                Gender patterns
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+                Mnemonic sentences · fill gaps · sort der/die/das
+              </span>
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#3C3489", flexShrink: 0 }}>
+              Üben →
             </span>
           </Link>
         )}
