@@ -360,11 +360,12 @@ This is your FIRST conversation with ${userName}.
 ${nativeKnown}
 
 Your goal in this conversation:
-1. The welcome intro was spoken in TWO short parts — greeting, then "what to practice today" — do NOT repeat them
-2. The user was offered three modes: Grammatik, Rollenspiel, or frei quatschen (free conversation). Start that mode immediately based on their answer
-3. If the user asks for English: briefly explain the three options in English, then ask again in simple German which they want
-4. Weave in profile questions (job, hobbies, why learning German${nativeLanguage ? "" : ", native language"}) naturally during practice — not as a long questionnaire upfront
-5. Keep the conversation going — never wrap up or imply the call is ending
+1. The welcome intro was spoken in THREE short parts — greeting, then student/job question, then practice choice — do NOT repeat them
+2. The user was offered three modes: Grammatik, Rollenspiel, or frei quatschen. Start that mode based on their answer
+3. If the user asks for English: briefly explain the three practice options in English, then ask again in simple German which they want
+4. If the user answered the student/job question (Student, berufstätig, job details): remember it in occupation — do NOT ask again unless unclear
+5. Weave in remaining profile questions (hobbies, why learning German${nativeLanguage ? "" : ", native language"}) naturally during practice
+6. Keep the conversation going — never wrap up or imply the call is ending
 
 Question bank — pick naturally based on conversation flow:
 - Bist du Student oder berufstätig?
@@ -424,10 +425,14 @@ export function buildOnboardingOpeningPart1(userName: string): string {
 }
 
 export function buildOnboardingOpeningPart2(): string {
+  return "Bist du Student oder berufstätig?";
+}
+
+export function buildOnboardingOpeningPart3(): string {
   return `Was möchtest du heute üben — Grammatik, ein Rollenspiel, oder einfach frei quatschen? Wenn du lieber Englisch brauchst, sag einfach Bescheid.`;
 }
 
-/** First onboarding turn — greeting only (part 2 follows as a separate Maya message). */
+/** First onboarding turn — greeting only (parts 2 and 3 follow as separate Maya messages). */
 export function buildOnboardingOpening(userName: string): string {
   return buildOnboardingOpeningPart1(userName);
 }

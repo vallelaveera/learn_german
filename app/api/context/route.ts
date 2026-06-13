@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getRecentSessions, getUnpracticedWords, getDaysSinceLastCall, getPendingHomeworkList } from "@/lib/kv";
-import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, buildOnboardingOpeningPart2, isProfileComplete, getMissingFields, generateTopicSuggestions, generateHomeworkNagOpening } from "@/lib/memory-agent";
+import { generateOpening, buildSystemPrompt, buildOnboardingPrompt, buildOnboardingOpening, buildOnboardingOpeningPart2, buildOnboardingOpeningPart3, isProfileComplete, getMissingFields, generateTopicSuggestions, generateHomeworkNagOpening } from "@/lib/memory-agent";
 import { resolveNativeLanguage } from "@/lib/native-languages";
 import { getUsageStats } from "@/lib/kv";
 import { isBillingEnabled } from "@/lib/billing-config";
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
         ? buildOnboardingOpening(user.name)
         : `Hallo ${user.name}! Schön, dass du wieder da bist. ${missingFields.length > 0 ? "Ich würde dich noch etwas besser kennenlernen — " + getNextQuestion(missingFields) : ""}`;
       const openingFollowUp = isFirstEver ? buildOnboardingOpeningPart2() : undefined;
+      const openingPracticeQuestion = isFirstEver ? buildOnboardingOpeningPart3() : undefined;
       const systemPrompt = buildOnboardingPrompt(user.name, missingFields, {
         nativeLanguage,
         germanLevel: user.germanLevel ?? user.facts.germanLevel,
@@ -69,6 +70,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         opening,
         openingFollowUp,
+        openingPracticeQuestion,
         systemPrompt,
         user,
         daysSinceLastCall: daysSince,
