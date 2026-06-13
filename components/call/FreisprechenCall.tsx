@@ -142,6 +142,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const speechFramesRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sttEndpointRef = useRef(false);
+  const sttTimedOutWhileMutedRef = useRef(false);
   const pendingShortReplyRef = useRef<string | null>(null);
   const awaitingConfirmRef = useRef(false);
   const tryCommitTurnRef = useRef<(force?: boolean) => void>(() => {});
@@ -834,6 +835,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       endCallRef.current();
       return;
     }
+    if (e.includes("408") && isMutedRef.current) {
+      sttTimedOutWhileMutedRef.current = true;
+      return;
+    }
     setError(e);
   }, []);
 
@@ -855,6 +860,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setVolume(0);
     } else {
       _cm_mic_start = Date.now();
+      if (sttTimedOutWhileMutedRef.current && micLiveRef.current && !_cm_sending) {
+        sttTimedOutWhileMutedRef.current = false;
+        void restartMicRef.current();
+      }
     }
     if (navigator.vibrate) navigator.vibrate(20);
   }, [clearSilenceTimer]);
