@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Play, VolumeX } from "lucide-react";
 import type { Message } from "@/lib/types";
 import {
+  beginReplaySession,
+  isReplaySessionActive,
   playAudioUrl,
   replayMessages,
+  stopCallReplay,
   userMessagesWithAudio,
   type CallReplayMode,
 } from "@/lib/call-replay";
@@ -19,48 +22,71 @@ export function CallReplayPanel({ messages }: CallReplayPanelProps) {
   const [mode, setMode] = useState<CallReplayMode>("user-only");
   const [playingAll, setPlayingAll] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
-  const stopRef = useRef(false);
+  const sessionRef = useRef<number | null>(null);
 
   const stopPlayback = useCallback(() => {
-    stopRef.current = true;
+    stopCallReplay();
+    sessionRef.current = null;
     setPlayingAll(false);
     setPlayingIndex(null);
   }, []);
+
+  useEffect(() => () => stopCallReplay(), []);
 
   const playAll = useCallback(async () => {
     if (playingAll) {
       stopPlayback();
       return;
     }
-    stopRef.current = false;
+
+    const session = beginReplaySession();
+    sessionRef.current = session;
     setPlayingAll(true);
+
     try {
       if (mode === "user-only") {
         for (const msg of userClips) {
-          if (stopRef.current || !msg.audioUrl) break;
+          if (!isReplaySessionActive(session) || !msg.audioUrl) break;
           setPlayingIndex(messages.indexOf(msg));
-          await playAudioUrl(msg.audioUrl);
+          await playAudioUrl(msg.audioUrl, session);
         }
       } else {
-        await replayMessages(messages, "full");
+        await replayMessages(messages, "full", session);
       }
     } catch {
       /* ignore playback errors */
     } finally {
-      setPlayingAll(false);
-      setPlayingIndex(null);
+      if (sessionRef.current === session) {
+        sessionRef.current = null;
+        setPlayingAll(false);
+        setPlayingIndex(null);
+      }
     }
   }, [messages, mode, playingAll, stopPlayback, userClips]);
 
   const playOne = useCallback(async (msg: Message, index: number) => {
-    if (!msg.audioUrl || playingAll) return;
+    if (!msg.audioUrl) return;
+    if (playingAll) stopPlayback();
+
+    const session = beginReplaySession();
+    sessionRef.current = session;
     setPlayingIndex(index);
+
     try {
-      await playAudioUrl(msg.audioUrl);
+      await playAudioUrl(msg.audioUrl, session);
     } finally {
-      setPlayingIndex(null);
+      if (sessionRef.current === session) {
+        sessionRef.current = null;
+        setPlayingIndex(null);
+      }
     }
-  }, [playingAll]);
+  }, [playingAll, stopPlayback]);
+
+  const switchMode = useCallback((next: CallReplayMode) => {
+    if (next === mode) return;
+    stopPlayback();
+    setMode(next);
+  }, [mode, stopPlayback]);
 
   if (userClips.length === 0) return null;
 
@@ -88,7 +114,7 @@ export function CallReplayPanel({ messages }: CallReplayPanelProps) {
           <button
             key={id}
             type="button"
-            onClick={() => setMode(id)}
+            onClick={() => switchMode(id)}
             style={{
               flex: 1,
               minHeight: 36,
@@ -156,7 +182,6 @@ export function CallReplayPanel({ messages }: CallReplayPanelProps) {
                 type="button"
                 aria-label="Antwort anhören"
                 onClick={() => void playOne(msg, i)}
-                disabled={playingAll}
                 style={{
                   width: 32,
                   height: 32,
@@ -167,9 +192,8 @@ export function CallReplayPanel({ messages }: CallReplayPanelProps) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  cursor: playingAll ? "default" : "pointer",
+                  cursor: "pointer",
                   flexShrink: 0,
-                  opacity: playingAll ? 0.5 : 1,
                 }}
               >
                 <Play size={14} />

@@ -144,7 +144,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const sttEndpointRef = useRef(false);
   const pendingShortReplyRef = useRef<string | null>(null);
   const awaitingConfirmRef = useRef(false);
-  const tryCommitTurnRef = useRef<() => void>(() => {});
+  const tryCommitTurnRef = useRef<(force?: boolean) => void>(() => {});
   const messagesRef = useRef<Message[]>([]);
   const systemPromptRef = useRef<string | undefined>();
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -682,14 +682,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     await submitToClaude(updated);
   }, [askShortConfirm, speakLocal, submitToClaude]);
 
-  const tryCommitTurn = useCallback(async () => {
+  const tryCommitTurn = useCallback(async (force = false) => {
     if (_cm_sending || !_cm_active) return;
-    if (nonFinalRef.current.trim()) return;
+
+    if (nonFinalRef.current.trim()) {
+      speechBufferRef.current += nonFinalRef.current;
+      nonFinalRef.current = "";
+    }
 
     const text = speechBufferRef.current.trim();
     if (!text) return;
 
-    if (looksIncomplete(text)) {
+    if (!force && looksIncomplete(text)) {
       clearSilenceTimer();
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
@@ -721,7 +725,17 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     void sendToTutor(text, audioBlob);
   }, [askShortConfirm, clearSilenceTimer, handleConfirmResponse, sendToTutor]);
 
-  useEffect(() => { tryCommitTurnRef.current = () => { void tryCommitTurn(); }; }, [tryCommitTurn]);
+  useEffect(() => { tryCommitTurnRef.current = (force?: boolean) => { void tryCommitTurn(force); }; }, [tryCommitTurn]);
+
+  const forceSendTurn = useCallback(() => {
+    if (_cm_sending || !_cm_active || isMutedRef.current || !jetztDuRef.current) return;
+    if (!speechBufferRef.current.trim() && !nonFinalRef.current.trim() && !liveText.trim()) return;
+    clearSilenceTimer();
+    isSpeakingRef.current = false;
+    speechFramesRef.current = 0;
+    sttEndpointRef.current = true;
+    void tryCommitTurn(true);
+  }, [clearSilenceTimer, tryCommitTurn, liveText]);
 
   const scheduleSilenceSend = useCallback(() => {
     if (silenceTimerRef.current) return;
@@ -1278,7 +1292,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
         {/* Live text while speaking */}
         {liveText && callState === "listening" && jetztDuActive && (
-          <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
+          <div style={{ maxWidth: "85%", alignSelf: "flex-end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, #7c4daa, #e8643a)", border: "0.5px solid transparent" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
               <p style={{ fontSize: 14, color: "#ffffff", lineHeight: 1.6, margin: 0 }}>
@@ -1286,6 +1300,26 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
                 <span style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.85)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
               </p>
             </div>
+            {!isMuted && (
+              <button
+                type="button"
+                onClick={forceSendTurn}
+                aria-label="Antwort senden"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "5px 12px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(127, 119, 221, 0.45)",
+                  background: "rgba(127, 119, 221, 0.12)",
+                  color: "#7F77DD",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 4px rgba(45, 32, 24, 0.06)",
+                }}
+              >
+                Senden → · Send
+              </button>
+            )}
           </div>
         )}
         {/* Thinking dots */}
