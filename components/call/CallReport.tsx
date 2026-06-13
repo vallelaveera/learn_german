@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { Message } from "@/lib/types";
 import { nextGermanLevel } from "@/lib/levels";
-import { playAudioUrl, revokeMessageAudioUrls } from "@/lib/call-replay";
+import { beginReplaySession, playAudioUrl, revokeMessageAudioUrls, stopCallReplay } from "@/lib/call-replay";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
 import { CallReplayPanel } from "@/components/call/CallReplayPanel";
 import { CallGrammarTurnBadge, CallGrammarTurnStrip } from "@/components/call/CallGrammarProgress";
@@ -41,7 +41,8 @@ export function CallReport({
   onCallAgain,
   onClose,
 }: CallReportProps) {
-  const [feedbackOpen, setFeedbackOpen] = useState(true);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackDone, setFeedbackDone] = useState(false);
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -62,6 +63,7 @@ export function CallReport({
   useEffect(() => {
     return () => {
       if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      stopCallReplay();
       revokeMessageAudioUrls(messages);
     };
   }, [messages]);
@@ -122,17 +124,38 @@ export function CallReport({
             padding: "20px 18px 16px",
           }}
         >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 8 }}>
           <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", margin: 0 }}>
             Bericht
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", color: "var(--text-muted)", fontSize: 22, cursor: "pointer" }}
-          >
-            ×
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {!feedbackDone && (
+              <button
+                type="button"
+                onClick={() => setFeedbackOpen(true)}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(127, 119, 221, 0.35)",
+                  background: "rgba(127, 119, 221, 0.08)",
+                  color: "#7F77DD",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Feedback
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", color: "var(--text-muted)", fontSize: 22, cursor: "pointer" }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
@@ -298,8 +321,11 @@ export function CallReport({
                     aria-label="Antwort anhören"
                     onClick={() => {
                       if (!msg.audioUrl) return;
+                      const session = beginReplaySession();
                       setPlayingIndex(i);
-                      void playAudioUrl(msg.audioUrl).finally(() => setPlayingIndex(null));
+                      void playAudioUrl(msg.audioUrl, session).finally(() => {
+                        setPlayingIndex(prev => (prev === i ? null : prev));
+                      });
                     }}
                     style={{
                       width: 28,
@@ -346,35 +372,6 @@ export function CallReport({
             padding: "12px 18px calc(env(safe-area-inset-bottom, 0px) + 16px)",
           }}
         >
-          <FeedbackSheet
-            open={feedbackOpen}
-            onClose={() => setFeedbackOpen(false)}
-            source="post_call"
-            callMode={callMode}
-            overlay={false}
-            onSubmitted={() => setFeedbackOpen(false)}
-          />
-          {!feedbackOpen && (
-            <button
-              type="button"
-              onClick={() => setFeedbackOpen(true)}
-              style={{
-                width: "100%",
-                minHeight: 44,
-                borderRadius: 12,
-                border: "1px solid rgba(127, 119, 221, 0.35)",
-                background: "rgba(127, 119, 221, 0.08)",
-                color: "#7F77DD",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                marginBottom: 10,
-              }}
-            >
-              Feedback geben · Give feedback
-            </button>
-          )}
-
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button
               type="button"
@@ -419,6 +416,17 @@ export function CallReport({
           </div>
         </div>
       </div>
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        source="post_call"
+        callMode={callMode}
+        onSubmitted={() => {
+          setFeedbackDone(true);
+          setFeedbackOpen(false);
+        }}
+      />
     </div>
   );
 }

@@ -161,23 +161,31 @@ export function useCallRecorder({
         onReady?.();
         if (mutedRef.current) {
           stream.getAudioTracks().forEach(t => { t.enabled = false; });
-          if (mr.state === "recording") mr.pause();
           onVolume(0);
         }
 
         keepAliveRef.current = setInterval(() => {
-          if (mr.state === "recording") mr.requestData();
-          else if (keepAliveRef.current) {
-            clearInterval(keepAliveRef.current);
-            keepAliveRef.current = null;
+          const recorder = mediaRecorderRef.current;
+          if (!recorder || recorder.state === "inactive") {
+            if (keepAliveRef.current) {
+              clearInterval(keepAliveRef.current);
+              keepAliveRef.current = null;
+            }
+            return;
           }
+          if (recorder.state === "recording") recorder.requestData();
         }, 250);
       };
 
       ws.onmessage = (event) => {
         if (sessionGen !== sessionGenRef.current) return;
         const res = JSON.parse(event.data);
-        if (res.error_code) { onError(`${res.error_code}: ${res.error_message}`); return; }
+        if (res.error_code) {
+          // Soniox 408 = no audio stream — can happen if MediaRecorder was paused while muted.
+          if (res.error_code === 408 && mutedRef.current) return;
+          onError(`${res.error_code}: ${res.error_message}`);
+          return;
+        }
         if (transcriptPausedRef.current) return;
 
         let finalText = "";
@@ -216,11 +224,7 @@ export function useCallRecorder({
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
     streamRef.current?.getAudioTracks().forEach(t => { t.enabled = !muted; });
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== "inactive") {
-      if (muted && mr.state === "recording") mr.pause();
-      else if (!muted && mr.state === "paused") mr.resume();
-    }
+    // Keep MediaRecorder running — pausing stops audio to Soniox and triggers 408 timeouts.
     if (muted || transcriptPausedRef.current) onVolume(0);
   }, [onVolume]);
 
