@@ -370,6 +370,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const prewarmMic = useCallback(async () => {
     if (!_cm_active || !_cm_sending || _cm_mic_running || micLiveRef.current) return;
     _cm_mic_running = true;
+    setTranscriptPausedRef.current(true);
     try {
       await startRef.current();
       micPrewarmedRef.current = true;
@@ -392,18 +393,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (micPrewarmedRef.current && micLiveRef.current) {
       _cm_sending = false;
       micPrewarmedRef.current = false;
-      const hasEarlySpeech =
-        speechBufferRef.current.trim().length > 0 || nonFinalRef.current.trim().length > 0;
-      if (hasEarlySpeech) {
-        isSpeakingRef.current = true;
-        speechFramesRef.current = SPEECH_FRAMES_MIN;
-      } else {
-        isSpeakingRef.current = false;
-        speechFramesRef.current = 0;
-      }
-      _cm_mic_start = Date.now() - Math.min(MIC_WARMUP_MS - 150, callSettingsRef.current.earlyMicMs);
+      speechBufferRef.current = "";
+      nonFinalRef.current = "";
+      isSpeakingRef.current = false;
+      speechFramesRef.current = 0;
+      sttEndpointRef.current = false;
+      _cm_mic_start = Date.now();
+      setTranscriptPausedRef.current(false);
       setJetztDu(true);
-      setLiveText(speechBufferRef.current + nonFinalRef.current);
+      setLiveText("");
       setCallState("listening");
       return;
     }
@@ -424,8 +422,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       isSpeakingRef.current = false;
       speechFramesRef.current = 0;
       nonFinalRef.current = "";
+      sttEndpointRef.current = false;
       setLiveText("");
       _cm_mic_start = Date.now();
+      setTranscriptPausedRef.current(false);
       setJetztDu(true);
       setCallState("listening");
       await startRef.current();
@@ -508,6 +508,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setCallState("speaking");
     setJetztDu(false);
     setTtsError(null);
+    setTranscriptPausedRef.current(true);
+    speechBufferRef.current = "";
+    nonFinalRef.current = "";
+    setLiveText("");
     lastTtsTextRef.current = text;
     speechBufferRef.current = "";
     nonFinalRef.current = "";
@@ -911,17 +915,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   const handleTranscript = useCallback((text: string, isFinal: boolean) => {
     if (isMutedRef.current) return;
-
-    // Mic prewarmed while Maya still talking — capture silently until JETZT DU
-    if (!jetztDuRef.current && _cm_sending) {
-      if (isFinal) {
-        speechBufferRef.current += text;
-        nonFinalRef.current = "";
-      } else {
-        nonFinalRef.current = text;
-      }
-      return;
-    }
     if (!jetztDuRef.current) return;
 
     setShowJetztDuNudge(false);
@@ -1228,22 +1221,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   // ── IDLE ──────────────────────────────────────────────
   if (phase === "idle") return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)", paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
-      <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 11, fontWeight: 600, background: "var(--accent)", color: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>DE</span>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)" }}>CallMeDaily</span>
-        </div>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", letterSpacing: "0.06em" }}>CALL MODE · FREIHÄNDIG</p>
-      </div>
-
-      <div style={{ position: "relative", marginBottom: 32 }}>
-        <div style={{ width: 100, height: 100, borderRadius: "50%", background: "var(--surface)", border: "2px solid var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 42, color: "var(--accent)" }}>M</span>
-        </div>
-        <div style={{ position: "absolute", bottom: 2, right: 2, width: 18, height: 18, borderRadius: "50%", background: "var(--green)", border: "2px solid var(--bg)" }} />
-      </div>
-
-      <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", marginBottom: 8 }}>
+      <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", marginBottom: 8, textAlign: "center" }}>
         Maya ruft an{user ? `, ${user.name}` : ""}
       </p>
       <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 16, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
