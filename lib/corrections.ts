@@ -38,6 +38,40 @@ export function isSatzbauEligible(correct: string): boolean {
   return tokenizeSentence(correct).length >= MIN_SATZBAU_WORDS;
 }
 
+const GERMAN_STOPWORDS = new Set([
+  "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer",
+  "ist", "sind", "war", "waren", "bin", "bist", "hat", "habe", "haben",
+  "ich", "du", "er", "sie", "es", "wir", "ihr", "man",
+  "und", "oder", "aber", "auch", "nicht", "noch", "schon", "sehr", "halt", "mal",
+  "äh", "ähm", "ja", "nein", "mit", "von", "für", "auf", "in", "an", "zu", "bei",
+  "the", "a", "an",
+]);
+
+function tokenizeForOverlap(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-zäöüß\s-]/gi, " ")
+    .split(/\s+/)
+    .map(w => w.replace(/^-+|-+$/g, ""))
+    .filter(w => w.length > 2 && !GERMAN_STOPWORDS.has(w));
+}
+
+/** Skip Korrektur lines Maya attached to the wrong turn (e.g. Problem fix on "Das ist mein Favorit"). */
+export function correctionRelatesToSaid(said: string, correct: string): boolean {
+  const saidNorm = said.toLowerCase().trim();
+  const correctNorm = correct.toLowerCase().trim();
+  if (!saidNorm || !correctNorm) return false;
+  if (saidNorm.includes(correctNorm) || correctNorm.includes(saidNorm)) return true;
+
+  const saidTokens = tokenizeForOverlap(said);
+  const correctTokens = tokenizeForOverlap(correct);
+  if (correctTokens.length === 0) return true;
+  if (saidTokens.length === 0) return false;
+
+  const correctSet = new Set(correctTokens);
+  return saidTokens.some(t => correctSet.has(t));
+}
+
 function normalizeKey(said: string, correct: string): string {
   return `${said.toLowerCase().trim()}|${correct.toLowerCase().trim()}`;
 }
@@ -55,14 +89,12 @@ export function extractKorrekturFromHintBlock(hintBlock?: string): string | unde
   return undefined;
 }
 
-function resolveUserCorrection(msg: Message, messages: Message[], index: number): string | undefined {
+/** Only use Korrektur stored on the evaluated user turn — never from the next assistant hint. */
+function resolveUserCorrection(msg: Message): string | undefined {
   const direct = msg.correction?.trim();
-  if (direct) return direct;
-  const next = messages[index + 1];
-  if (next?.role === "assistant") {
-    return extractKorrekturFromHintBlock(next.translation);
-  }
-  return undefined;
+  if (!direct) return undefined;
+  if (msg.grammarEvaluated === false) return undefined;
+  return direct;
 }
 
 export function extractCorrectionsFromMessages(
@@ -76,13 +108,14 @@ export function extractCorrectionsFromMessages(
     const msg = messages[i];
     if (msg.role !== "user") continue;
 
-    const correctionRaw = resolveUserCorrection(msg, messages, i);
+    const correctionRaw = resolveUserCorrection(msg);
     if (!correctionRaw) continue;
 
     const { correct, note } = parseCorrectionField(correctionRaw);
     if (!correct) continue;
 
     const said = msg.content.replace(/<end>/g, "").trim();
+    if (!correctionRelatesToSaid(said, correct)) continue;
     const key = normalizeKey(said, correct);
     if (seen.has(key)) continue;
     seen.add(key);
