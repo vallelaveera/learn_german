@@ -13,11 +13,11 @@ import {
   type VerbId,
 } from "@/constants/germanTenses";
 import { SUBJECTS } from "@/constants/germanTenses";
-import type { BuildMode } from "@/lib/tenses/types";
 import type { TenseTabTheme } from "@/lib/tenses/theme";
 import type { UseGermanTensesReturn } from "@/hooks/useGermanTenses";
 import { VerbBracketView } from "./VerbBracketView";
 import { TenseTimeline } from "@/components/TenseTimeline";
+import { TenseVerbPickers } from "./TenseVerbPickers";
 
 interface TensesBuildTabProps {
   theme: TenseTabTheme;
@@ -32,7 +32,6 @@ export function TensesBuildTab({ theme, tenses, onSpeak, speaking = false }: Ten
   const [verbId, setVerbId] = useState<VerbId>("gehen");
   const [tenseId, setTenseId] = useState<BuildTenseId>("perf");
   const [subjectId, setSubjectId] = useState<SubjectId>("ich");
-  const [mode, setMode] = useState<BuildMode>("sandbox");
   const [v2Slot, setV2Slot] = useState<string | null>(null);
   const [endSlot, setEndSlot] = useState<string | null>(null);
   const [pieces, setPieces] = useState<BuildPiece[]>([]);
@@ -97,29 +96,6 @@ export function TensesBuildTab({ theme, tenses, onSpeak, speaking = false }: Ten
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {(["sandbox", "challenge"] as const).map(m => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            style={{
-              flex: 1,
-              minHeight: 40,
-              borderRadius: 10,
-              border: mode === m ? `2px solid ${theme.tc}` : `1px solid ${theme.tbd}`,
-              background: mode === m ? theme.tbg : "#fff",
-              color: mode === m ? theme.tc : "var(--text-muted)",
-              fontWeight: 600,
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-          >
-            {m === "sandbox" ? "Sandbox" : "Challenge"}
-          </button>
-        ))}
-      </div>
-
       <TenseTimeline
         level={tenses.level}
         verbId={verbId}
@@ -133,50 +109,15 @@ export function TensesBuildTab({ theme, tenses, onSpeak, speaking = false }: Ten
         compact
       />
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        {tenseOptions.map(t => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTenseId(t.id)}
-            style={{
-              minHeight: 34,
-              padding: "4px 10px",
-              borderRadius: 8,
-              border: tenseId === t.id ? `2px solid ${t.color}` : `1px solid ${theme.tbd}`,
-              background: tenseId === t.id ? `${t.color}14` : "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: "pointer",
-              color: tenseId === t.id ? t.color : "var(--text-muted)",
-            }}
-          >
-            {t.short}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10, maxHeight: 72, overflowY: "auto" }}>
-        {verbs.slice(0, 12).map(v => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setVerbId(v.id)}
-            style={{
-              minHeight: 34,
-              padding: "4px 10px",
-              borderRadius: 999,
-              border: verbId === v.id ? `2px solid ${theme.tc}` : `1px solid ${theme.tbd}`,
-              background: verbId === v.id ? theme.tbg : "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {v.emoji} {v.infinitive}
-          </button>
-        ))}
-      </div>
+      <TenseVerbPickers
+        theme={theme}
+        tenses={tenseOptions}
+        verbs={verbs}
+        tenseId={tenseId}
+        verbId={verbId}
+        onTenseChange={setTenseId}
+        onVerbChange={setVerbId}
+      />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
         {SUBJECTS.map(s => (

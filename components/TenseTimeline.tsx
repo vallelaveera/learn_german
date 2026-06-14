@@ -17,10 +17,10 @@ import {
   type VerbId,
 } from "@/constants/germanTenses";
 import type { TenseLevel } from "@/lib/tenses/types";
-import { FigSvg, HorseSvg, TreeSvg } from "@/lib/tenses/timelineArt";
+import { FigSvg, TreeSvg } from "@/lib/tenses/timelineArt";
 
-const SCENE_TOKEN = 52;
-const SCENE_H = 118;
+const SCENE_TOKEN = 44;
+const SCENE_H = 132;
 
 function sceneTokenPx(pos: number, roadW: number): number {
   if (roadW <= 0) return 0;
@@ -304,23 +304,39 @@ export function TenseTimeline({
             <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.1em", color: "#B45309" }}>JETZT</span>
           </div>
 
-          {availableTenses.map(t => (
-            <div
-              key={t.id}
-              style={{
-                position: "absolute",
-                left: `${t.pos}%`,
-                bottom: 34,
-                transform: "translateX(-50%)",
-                fontSize: 9,
-                fontWeight: 800,
-                color: t.color,
-                opacity: tenseId === t.id ? 1 : 0.45,
-              }}
-            >
-              {t.short}
-            </div>
-          ))}
+          {availableTenses.map(t => {
+            const active = tenseId === t.id;
+            return (
+              <div
+                key={t.id}
+                style={{
+                  position: "absolute",
+                  left: `${t.pos}%`,
+                  top: 2,
+                  transform: "translateX(-50%)",
+                  zIndex: 3,
+                  opacity: active ? 1 : 0.72,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: t.color,
+                    background: active ? "#fff" : "rgba(255,255,255,0.92)",
+                    border: `1.5px solid ${active ? t.color : "rgba(0,0,0,0.12)"}`,
+                    borderRadius: 999,
+                    padding: "2px 7px",
+                    whiteSpace: "nowrap",
+                    boxShadow: active ? `0 0 0 2px ${t.color}22` : "none",
+                  }}
+                >
+                  {t.short}
+                </span>
+              </div>
+            );
+          })}
 
           {tense.showThread && roadW > 0 && (
             <svg
@@ -379,20 +395,17 @@ export function TenseTimeline({
           >
             <div
               className={showBob ? "tense-token-bob" : undefined}
-              style={{ position: "relative", display: "flex", alignItems: "flex-end" }}
+              style={{ position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
             >
               {showPulse && <span className="tense-pulse-ring" style={{ color: tense.color }} aria-hidden />}
-              <HorseSvg size={28} />
-              <div style={{ marginBottom: 4, marginLeft: -6 }}>
-                <FigSvg kind="king" size={34} />
-              </div>
+              <FigSvg kind="king" size={compact ? 34 : 38} />
               <span
                 style={{
                   position: "absolute",
-                  top: -6,
+                  top: -8,
                   left: "50%",
                   transform: "translateX(-50%)",
-                  fontSize: 16,
+                  fontSize: 17,
                   lineHeight: 1,
                 }}
               >

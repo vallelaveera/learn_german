@@ -15,6 +15,7 @@ import { patternsForLevel } from "@/constants/germanTensePatterns";
 import type { TenseTabTheme } from "@/lib/tenses/theme";
 import type { UseGermanTensesReturn } from "@/hooks/useGermanTenses";
 import { VerbBracketView } from "./VerbBracketView";
+import { TenseVerbPickers } from "./TenseVerbPickers";
 
 interface TensesPatternsTabProps {
   theme: TenseTabTheme;
@@ -83,6 +84,7 @@ export function TensesPatternsTab({ theme, tenses, onSpeak }: TensesPatternsTabP
           onTenseChange={setTenseId}
           onSubjectChange={setSubjectId}
           hideVerbPicker
+          hideTensePicker
           hideSubjectRow
           onSpeak={(text, lang) => void onSpeak(text)}
           compact
@@ -91,27 +93,15 @@ export function TensesPatternsTab({ theme, tenses, onSpeak }: TensesPatternsTabP
 
       {view === "timeline" && (
       <>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-        {verbs.slice(0, 8).map(v => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setVerbId(v.id)}
-            style={{
-              minHeight: 34,
-              padding: "4px 10px",
-              borderRadius: 999,
-              border: verbId === v.id ? `2px solid ${theme.tc}` : `1px solid ${theme.tbd}`,
-              background: verbId === v.id ? theme.tbg : "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {v.emoji} {v.infinitive}
-          </button>
-        ))}
-      </div>
+      <TenseVerbPickers
+        theme={theme}
+        tenses={timelineTenses}
+        verbs={verbs}
+        tenseId={tenseId}
+        verbId={verbId}
+        onTenseChange={setTenseId}
+        onVerbChange={setVerbId}
+      />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
         {SUBJECTS.map(s => (
