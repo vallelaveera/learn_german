@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { createCallAudioContext } from "@/lib/audio/mobile-audio-context";
+import { isAndroidNative } from "@/lib/native/platform";
 
 interface NativeShellProps {
   children: ReactNode;
@@ -52,6 +53,13 @@ export function NativeShell({ children }: NativeShellProps) {
 
       document.addEventListener("contextmenu", onContextMenu);
       removeContextMenu = () => document.removeEventListener("contextmenu", onContextMenu);
+
+      if (isAndroidNative()) {
+        const unlock = () => {
+          void createCallAudioContext().resume();
+        };
+        document.addEventListener("touchstart", unlock, { once: true, passive: true });
+      }
     })();
 
     return () => {

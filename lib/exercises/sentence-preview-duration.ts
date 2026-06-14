@@ -1,4 +1,4 @@
-export const PREVIEW_DURATION_PRESETS = [3, 5, 10] as const;
+export const PREVIEW_DURATION_PRESETS = [3, 5, 20] as const;
 export type PreviewDurationPreset = (typeof PREVIEW_DURATION_PRESETS)[number] | "custom";
 
 export const DEFAULT_PREVIEW_SECONDS = 5;
@@ -40,8 +40,11 @@ export function loadPreviewDurationSetting(): SentencePreviewDurationSetting {
     const customSeconds = normalizePreviewSeconds(parsed.customSeconds ?? 8);
 
     if (preset === "custom") return { preset: "custom", customSeconds };
-    if (preset === 3 || preset === 5 || preset === 10) {
+    if (preset === 3 || preset === 5 || preset === 20) {
       return { preset, customSeconds };
+    }
+    if (preset === 10) {
+      return { preset: 20, customSeconds };
     }
     return defaultPreviewDurationSetting();
   } catch {

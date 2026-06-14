@@ -71,9 +71,9 @@ grep -q "^let _isSending = false" components/call/TippenCall.tsx \
 
 check_absent "TippenCall: no embedded call mode toggle" "components/call/TippenCall.tsx" "_callModeActive"
 
-grep -q "CHUNK = 16384" components/call/TippenCall.tsx \
-  && check "Tippen mode: Soniox chunked streaming (16KB)" "ok" \
-  || check "Tippen mode: Soniox chunked streaming (16KB)" "fail"
+grep -q "StreamMp3Player" components/call/TippenCall.tsx \
+  && check "Tippen mode: StreamMp3Player for TTS" "ok" \
+  || check "Tippen mode: StreamMp3Player for TTS" "fail"
 
 echo ""
 echo "── app/api/tts-stream/route.ts ─────────"
@@ -225,18 +225,17 @@ grep -q "Speech band only" components/CallRecorder.tsx \
   || check "CallRecorder: speech-frequency volume" "fail"
 
 # Maya A — chunked Soniox playback in callmode
-grep -q "CHUNK = 16384" components/call/FreisprechenCall.tsx \
-  && check "Maya A callmode: chunked playChunk (16KB)" "ok" \
-  || check "Maya A callmode: chunked playChunk (16KB)" "fail"
+grep -q "StreamMp3Player" components/call/FreisprechenCall.tsx \
+  && check "Maya A callmode: mobile-safe TTS stream" "ok" \
+  || check "Maya A callmode: mobile-safe TTS stream" "fail"
 
-grep -q "playChunk" components/call/FreisprechenCall.tsx \
-  && check "Maya A callmode: playChunk exists" "ok" \
-  || check "Maya A callmode: playChunk exists" "fail"
+grep -q "onBufferScheduled" lib/audio/stream-mp3-player.ts \
+  && check "TTS stream: serial decode queue" "ok" \
+  || check "TTS stream: serial decode queue" "fail"
 
-# Maya B — streamed MP3 chunks (same live-call path as Soniox)
-grep -q "TTS_CHUNK" components/call/FreisprechenCall.tsx \
-  && check "Maya B callmode: streamed TTS chunks" "ok" \
-  || check "Maya B callmode: streamed TTS chunks" "fail"
+grep -q "shouldBufferTtsBeforePlay" lib/audio/network-tier.ts \
+  && check "mobile TTS: Android buffer-before-play path" "ok" \
+  || check "mobile TTS: Android buffer-before-play path" "fail"
 
 check_absent "Maya B callmode: NOT full-buffer playMP3" "components/call/FreisprechenCall.tsx" "await playMP3"
 
