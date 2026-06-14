@@ -1,4 +1,6 @@
-import { buildExcludeClause, callClaude, parseJsonArray, type GenerateParams } from "./generate";
+import { buildExcludeClause, parseJsonArray, type GenerateParams } from "./generate";
+import { callAdminLlm } from "./llm-provider";
+import { buildCorpusSourceIntegrityBlock } from "./source-integrity";
 import type { CEFRLevel, VocabCategory, WordInput } from "@/lib/vocab/types";
 import { countGermanWords, isWithinWordLimit, MAX_VOCAB_WORDS } from "./vocab-word-count";
 
@@ -11,15 +13,15 @@ interface GeneratedWord {
   distractors: string[];
 }
 
-const SYSTEM_PROMPT = `You are an expert German language teacher creating 
-vocabulary entries for a flashcard app.
+function buildWordSystemPrompt(level: CEFRLevel): string {
+  return `You are a German curriculum editor for CallMeDaily, compiling vocabulary from verified teaching word lists.
 
-Rules:
+${buildCorpusSourceIntegrityBlock(level)}
+
+VOCABULARY RULES:
 - Each entry is ONE useful German word or short phrase (max ${MAX_VOCAB_WORDS} words)
-- Prefer single nouns, verbs, adjectives, or short collocations learners need in conversation
+- Prefer high-frequency nouns, verbs, adjectives, or short collocations from standard ${level} word lists
 - No full sentences — vocabulary only
-- No brand names, no proper nouns, no political topics
-- Vocabulary must match the stated CEFR level exactly
 - Nouns MUST use the correct article: der (m), die (f), das (n) — e.g. "der Mietvertrag" NOT "das Mietvertrag"
 - Include exactly 2 English distractors — plausible but clearly wrong translations
 - Distractors must match the English style of the correct answer (all with "the" or all without)
@@ -30,16 +32,19 @@ Output ONLY valid JSON array, no markdown, no commentary:
   {
     "de": "der Vertrag",
     "en": "the contract",
-    "level": "B1",
+    "level": "${level}",
     "category": "career",
     "topic": "job interview",
     "distractors": ["the application", "the salary"]
   }
 ]`;
+}
 
 function buildUserPrompt(params: GenerateParams): string {
   const topicClause = params.topic ? `, topic ${params.topic}` : "";
-  return `Generate ${params.count} German vocabulary entries for level ${params.level}, category ${params.category}${topicClause}.
+  return `Generate ${params.count} NEW German vocabulary entries for CEFR level ${params.level}, category ${params.category}${topicClause}.
+
+Use only words that appear on mainstream ${params.level} Goethe/telc or coursebook vocabulary lists — not invented terms.
 Each German entry must be at most ${MAX_VOCAB_WORDS} words. Single words preferred.
 Return only the JSON array.${buildExcludeClause(params.excludeDe)}`;
 }
@@ -60,9 +65,14 @@ function normalizeWord(raw: GeneratedWord, params: GenerateParams): WordInput | 
 
 export async function generateWords(params: GenerateParams): Promise<WordInput[]> {
   const count = Math.min(Math.max(params.count, 1), 50);
+  const provider = params.provider ?? "claude";
 
   try {
-    const text = await callClaude(SYSTEM_PROMPT, buildUserPrompt({ ...params, count }));
+    const text = await callAdminLlm(
+      provider,
+      buildWordSystemPrompt(params.level),
+      buildUserPrompt({ ...params, count }),
+    );
     const parsed = parseJsonArray<GeneratedWord>(text);
 
     if (!parsed) {
@@ -82,7 +92,7 @@ export async function generateWords(params: GenerateParams): Promise<WordInput[]
         return false;
       });
   } catch (e) {
-    console.error("[generate-words] Claude call failed:", e);
+    console.error(`[generate-words] ${provider} call failed:`, e);
     return [];
   }
 }

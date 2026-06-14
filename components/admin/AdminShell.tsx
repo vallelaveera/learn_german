@@ -10,6 +10,7 @@ const MAIN_TABS: { href: string; label: string; prefix: string; exact?: boolean;
   { href: "/admin", label: "Dashboard", prefix: "/admin", exact: true },
   { href: "/admin/content", label: "Inhalt", prefix: "/admin/content" },
   { href: "/admin/generate", label: "Generieren", prefix: "/admin/generate" },
+  { href: "/admin/grammar", label: "Grammatik", prefix: "/admin/grammar" },
   { href: "/admin/illustrations", label: "Illustrationen", prefix: "/admin/illustrations" },
   { href: "/admin/feedback", label: "Feedback", prefix: "/admin/feedback" },
 ];

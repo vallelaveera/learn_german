@@ -1,4 +1,5 @@
-import { callClaude, parseJsonArray } from "./generate";
+import { parseJsonArray } from "./generate";
+import { callAdminLlm, type AdminLlmProvider } from "./llm-provider";
 import type { SentenceInput } from "@/lib/vocab/types";
 import { countGermanWords, isWithinWordLimit, MAX_GERMAN_WORDS } from "./word-count";
 
@@ -18,17 +19,19 @@ export interface ValidateOutput {
   rejected: { sentence: SentenceInput; issues: string[] }[];
 }
 
-const SYSTEM_PROMPT = `You are a strict German grammar and spelling checker.
-You are checking sentences for a language learning app.
+const SYSTEM_PROMPT = `You are a strict German grammar and spelling checker for a language learning app.
 Every sentence must be perfect — no errors allowed.
+
+Reject invented, unnatural, or textbook-atypical content:
+- Reject if the sentence sounds AI-invented, overly literary, or not like standard ${MAX_GERMAN_WORDS}-word classroom German
+- Reject dialect, slang, brand names, or vocabulary above the stated CEFR level
+- Reject if English translation does not match German meaning
 
 For each sentence check:
 1. German spelling — every word correctly spelled
-2. Grammar — correct case, gender, verb conjugation, 
-   word order
-3. Natural language — would a native speaker say this?
-4. Level accuracy — does vocabulary and grammar 
-   actually match the stated CEFR level?
+2. Grammar — correct case, gender, verb conjugation, word order
+3. Natural language — would a native teacher use this in a Goethe/telc prep class?
+4. Level accuracy — does vocabulary and grammar actually match the stated CEFR level?
 5. Translation accuracy — does English match German?
 6. Length — reject ONLY if German has MORE than ${MAX_GERMAN_WORDS} words. Sentences with 9–${MAX_GERMAN_WORDS} words are fine. Do not miscount articles or prepositions as extra words.
 
@@ -62,7 +65,10 @@ function isLengthOnlyRejection(issues: string[]): boolean {
   return issues.length > 0 && issues.every(isLengthOnlyIssue);
 }
 
-export async function validateSentences(sentences: SentenceInput[]): Promise<ValidateOutput> {
+export async function validateSentences(
+  sentences: SentenceInput[],
+  provider: AdminLlmProvider = "claude",
+): Promise<ValidateOutput> {
   if (sentences.length === 0) {
     return { passed: [], rejected: [] };
   }
@@ -73,7 +79,7 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
   for (let offset = 0; offset < sentences.length; offset += VALIDATION_BATCH_SIZE) {
     const batch = sentences.slice(offset, offset + VALIDATION_BATCH_SIZE);
     const batchNum = Math.floor(offset / VALIDATION_BATCH_SIZE) + 1;
-    const batchResult = await validateSentenceBatch(batch, `batch ${batchNum}, ${batch.length} items`);
+    const batchResult = await validateSentenceBatch(batch, `batch ${batchNum}, ${batch.length} items`, provider);
     passed.push(...batchResult.passed);
     rejected.push(...batchResult.rejected);
   }
@@ -84,13 +90,14 @@ export async function validateSentences(sentences: SentenceInput[]): Promise<Val
 async function validateSentenceBatch(
   sentences: SentenceInput[],
   batchLabel: string,
+  provider: AdminLlmProvider,
 ): Promise<ValidateOutput> {
   const passed: SentenceInput[] = [];
   const rejected: ValidateOutput["rejected"] = [];
 
   try {
     const userPrompt = `Check these ${sentences.length} sentences. Each German sentence must be at most ${MAX_GERMAN_WORDS} words.\n${JSON.stringify(sentences)}`;
-    const text = await callClaude(SYSTEM_PROMPT, userPrompt, VALIDATION_MAX_TOKENS);
+    const text = await callAdminLlm(provider, SYSTEM_PROMPT, userPrompt, VALIDATION_MAX_TOKENS);
     const results = parseJsonArray<ValidationResult>(text);
 
     if (!results) {
@@ -160,7 +167,7 @@ async function validateSentenceBatch(
     }
     return { passed: withinLimit, rejected };
   } catch (e) {
-    console.error(`[validate] Claude call failed (${batchLabel}):`, e);
+    console.error(`[validate] ${provider} call failed (${batchLabel}):`, e);
     for (const sentence of sentences) {
       rejected.push({ sentence, issues: ["Validation call failed"] });
       console.warn("[validate] REJECTED", JSON.stringify({ de: sentence.de, en: sentence.en, issues: ["Validation call failed"] }));

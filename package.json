@@ -9,9 +9,18 @@
     "test:critical": "bash test-critical.sh",
     "prepush": "bash scripts/prepush.sh",
     "generate:svgs": "npx ts-node -P scripts/tsconfig.json scripts/generate-svg-batch.ts",
-    "generate:svgs:retry": "npx ts-node -P scripts/tsconfig.json scripts/generate-svg-batch.ts --test --retry"
+    "generate:svgs:retry": "npx ts-node -P scripts/tsconfig.json scripts/generate-svg-batch.ts --test --retry",
+    "cap:assets": "node scripts/generate-android-assets.mjs",
+    "cap:sync": "npx cap sync android",
+    "cap:android": "npx cap open android",
+    "cap:run:android": "npx cap run android",
+    "offline:sample": "node scripts/generate-offline-sample.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/splash-screen": "^6.0.3",
     "@soniox/speech-to-text-web": "^1.4.0",
     "@vercel/blob": "^2.4.0",
     "@vercel/kv": "^2.0.0",
@@ -24,11 +33,13 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.12",
+    "sharp": "^0.33.5",
     "typescript": "^5"
   }
 }

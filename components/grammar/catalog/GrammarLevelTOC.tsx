@@ -9,9 +9,10 @@ import type { VerifiedLevel } from "@/lib/grammar/verified-curriculum";
 interface GrammarLevelTOCProps {
   level: VerifiedLevel;
   progress: ReturnType<typeof useGrammarCatalogProgress>;
+  totalExercises?: number;
 }
 
-export function GrammarLevelTOC({ level, progress }: GrammarLevelTOCProps) {
+export function GrammarLevelTOC({ level, progress, totalExercises }: GrammarLevelTOCProps) {
   const color = levelColor(level);
   const { levelProgress } = progress;
 
@@ -20,7 +21,7 @@ export function GrammarLevelTOC({ level, progress }: GrammarLevelTOCProps) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
         <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0, color }}>Inhaltsverzeichnis</h2>
         <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>
-          {levelProgress.done}/{levelProgress.total} · {levelProgress.pct}%
+          {levelProgress.done}/{levelProgress.total} Bereiche · {levelProgress.pct}%
         </span>
       </div>
 
@@ -44,7 +45,8 @@ export function GrammarLevelTOC({ level, progress }: GrammarLevelTOCProps) {
       </div>
 
       <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, lineHeight: 1.45 }}>
-        Basic und Advanced pro Bereich unten wählen.
+        Basic und Advanced pro Bereich unten wählen
+        {typeof totalExercises === "number" ? ` · ${totalExercises} Übungssitzungen auf ${level}` : ""}.
       </p>
     </section>
   );

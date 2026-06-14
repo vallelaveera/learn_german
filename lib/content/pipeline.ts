@@ -23,7 +23,7 @@ export async function runGenerationPipeline(params: GenerateParams): Promise<Pip
   }
 
   const generated = await generateSentences({ ...params, count: requested, excludeDe });
-  const { passed, rejected } = await validateSentences(generated);
+  const { passed, rejected } = await validateSentences(generated, params.provider ?? "claude");
 
   const rejectionRate =
     generated.length > 0

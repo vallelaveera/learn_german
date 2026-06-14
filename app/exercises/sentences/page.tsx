@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2 } from "lucide-react";
 import { ExerciseCategoryPicker } from "@/components/exercises/ExerciseCategoryPicker";
 import { SentencePreviewDurationSetting } from "@/components/exercises/SentencePreviewDurationSetting";
+import { SentencePreviewCountdown } from "@/components/exercises/SentencePreviewCountdown";
 import { ExerciseShell } from "@/components/layout/ExerciseShell";
 import { truncateForDisplay } from "@/lib/corrections";
 import {
@@ -92,6 +93,7 @@ function SentencesPractice({
   const [previewSeconds, setPreviewSeconds] = useState(() =>
     typeof window === "undefined" ? 5 : resolvePreviewSeconds(loadPreviewDurationSetting()),
   );
+  const [previewAudioDone, setPreviewAudioDone] = useState(false);
 
   const current = exercises[index];
   const illustrationId = current
@@ -148,29 +150,27 @@ function SentencesPractice({
     if (phase !== "preview" || !current) return;
 
     let cancelled = false;
-    let postAudioTimer: number | undefined;
-
-    /** Keep sentence on screen for previewSeconds after Maya / audio finishes. */
-    const finishPreview = () => {
-      postAudioTimer = window.setTimeout(() => {
-        if (!cancelled) setPhase("build");
-      }, previewSeconds * 1000);
-    };
+    setPreviewAudioDone(false);
 
     void (async () => {
       unlockExerciseAudio();
       await prefetchExerciseGerman(current.german);
       if (cancelled) return;
       await speakExercisePrompt(current.german, "de");
-      if (!cancelled) finishPreview();
+      if (!cancelled) setPreviewAudioDone(true);
     })();
 
     return () => {
       cancelled = true;
-      if (postAudioTimer) clearTimeout(postAudioTimer);
+      setPreviewAudioDone(false);
       stopExerciseSpeech();
     };
-  }, [phase, current?.id, current?.german, index, previewSeconds]);
+  }, [phase, current?.id, current?.german, index]);
+
+  const handlePreviewCountdownComplete = useCallback(() => {
+    setPreviewAudioDone(false);
+    setPhase("build");
+  }, []);
 
   useEffect(() => {
     setShowEnHint(false);
@@ -339,10 +339,16 @@ function SentencesPractice({
             {!fromCall && illustrationId && (
               <SentenceIllustration sentenceId={illustrationId} height={130} />
             )}
+            <SentencePreviewCountdown
+              totalSeconds={previewSeconds}
+              running={previewAudioDone}
+              paused={!previewAudioDone}
+              onComplete={handlePreviewCountdownComplete}
+            />
             <p style={{ fontSize: 10, color: "var(--accent)", marginBottom: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em" }}>
               {fromCall
                 ? "KORREKTUR AUS DEINEM ANRUF"
-                : `MAYA LIEST VOR · ${previewSeconds} SEK. SICHTBAR`}
+                : `MAYA LIEST VOR · ${previewSeconds} SEK. MERKEN`}
             </p>
             {fromCall && current.said && (
               <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, fontStyle: "italic", lineHeight: 1.5 }}>

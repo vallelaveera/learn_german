@@ -5,6 +5,7 @@ import {
   CATEGORY_EMOJI,
   CATEGORY_LABELS,
   GRAMMAR_CATEGORIES,
+  getBaseTierExercises,
   getCategoryBlock,
   getTierItems,
   levelColor,
@@ -13,11 +14,13 @@ import {
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
 import { getCategoryHref } from "@/lib/grammar/trainer-routes";
+import type { TierExerciseCounts } from "@/hooks/useGrammarExercises";
 import type { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
 
 interface GrammarCategoryGridProps {
   level: VerifiedLevel;
   progress: ReturnType<typeof useGrammarCatalogProgress>;
+  exerciseCounts?: TierExerciseCounts;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,7 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
   MISSING: "Lernen →",
 };
 
-export function GrammarCategoryGrid({ level, progress }: GrammarCategoryGridProps) {
+export function GrammarCategoryGrid({ level, progress, exerciseCounts }: GrammarCategoryGridProps) {
   const color = levelColor(level);
   const light = levelLightColor(level);
 
@@ -41,10 +44,12 @@ export function GrammarCategoryGrid({ level, progress }: GrammarCategoryGridProp
     >
       {GRAMMAR_CATEGORIES.map(cat => {
         const block = getCategoryBlock(level, cat);
-        const cp = progress.categoryProgress(cat, "basic");
+        const cpBasic = progress.categoryProgress(cat, "basic");
+        const cpAdv = progress.categoryProgress(cat, "advanced");
         const href = getCategoryHref(level, cat, "basic");
-        const topicCount =
-          getTierItems(level, cat, "basic").length + getTierItems(level, cat, "advanced").length;
+        const counts = exerciseCounts?.[cat];
+        const basicSessions = counts?.basic ?? getBaseTierExercises(block, "basic").length;
+        const advSessions = counts?.advanced ?? getBaseTierExercises(block, "advanced").length;
         const status = block.appCoverage.status;
 
         return (
@@ -84,13 +89,18 @@ export function GrammarCategoryGrid({ level, progress }: GrammarCategoryGridProp
                 marginBottom: 8,
               }}
             >
-              {topicCount} Themen
+              {getTierItems(level, cat, "basic").length + getTierItems(level, cat, "advanced").length} Themen
+              <br />
+              Basic {basicSessions} · Adv {advSessions} Übungen
               {status === "EXISTS" ? " · Trainer" : status === "PARTIAL" ? " · In Arbeit" : ""}
             </span>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 700, color }}>
                 {STATUS_LABEL[status] ?? "Öffnen →"}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 600, color: "var(--text-muted)" }}>
+                B {cpBasic.done}/{cpBasic.total} · A {cpAdv.done}/{cpAdv.total}
               </span>
               <span
                 style={{
@@ -102,7 +112,7 @@ export function GrammarCategoryGrid({ level, progress }: GrammarCategoryGridProp
                   color,
                 }}
               >
-                {cp.pct}%
+                {Math.round((cpBasic.pct + cpAdv.pct) / 2)}%
               </span>
             </div>
           </Link>

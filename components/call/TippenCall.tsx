@@ -9,6 +9,7 @@ import { CallGrammarProgressHud, CallGrammarTurnBadge } from "@/components/call/
 import { useRouter } from "next/navigation";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import { createCallAudioContext, StreamMp3Player } from "@/lib/audio/stream-mp3-player";
 import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import styles from "@/app/call/call.module.css";
 
@@ -120,10 +121,12 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
       .catch(console.error);
   }, [router, scenarioId, grammarId]);
 
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
   // ── Audio ────────────────────────────────────────────────
   const getAudioCtx = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+    if (!audioCtxRef.current) audioCtxRef.current = createCallAudioContext();
+    if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
     return audioCtxRef.current;
   };
 
@@ -131,27 +134,10 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
     sourceQueueRef.current = [];
     nextStartTimeRef.current = 0;
-  }, []);
-
-  const playChunk = useCallback(async (chunk: ArrayBuffer) => {
-    const ctx = getAudioCtx();
-    if (ctx.state === "suspended") await ctx.resume();
-    try {
-      const decoded = await ctx.decodeAudioData(chunk.slice(0));
-      const source = ctx.createBufferSource();
-      source.buffer = decoded;
-      source.connect(ctx.destination);
-      const startAt = Math.max(ctx.currentTime, nextStartTimeRef.current);
-      source.start(startAt);
-      nextStartTimeRef.current = startAt + decoded.duration;
-      source.onended = () => {
-        sourceQueueRef.current = sourceQueueRef.current.filter(s => s !== source);
-        if (sourceQueueRef.current.length === 0) {
-          setCallState("idle");
-        }
-      };
-      sourceQueueRef.current.push(source);
-    } catch {}
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.removeAttribute("src");
+    }
   }, []);
 
   const streamTTSRef = useRef<((text: string) => void) | null>(null);
@@ -166,25 +152,20 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProvider }),
       });
-      if (!res.ok || !res.body) throw new Error();
-      const reader = res.body.getReader();
-      const CHUNK = 16384;
-      let buf = new Uint8Array(0);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (buf.length > 0) playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-          break;
-        }
-        const nb = new Uint8Array(buf.length + value.length);
-        nb.set(buf); nb.set(value, buf.length); buf = nb;
-        if (buf.length >= CHUNK) {
-          const tp = buf.slice(0, CHUNK); buf = buf.slice(CHUNK);
-          playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
-        }
-      }
-    } catch { setCallState("idle"); }
-  }, [playChunk, stopAudio, ttsProvider]);
+      const player = new StreamMp3Player({
+        getAudioCtx,
+        refs: {
+          nextStartTime: nextStartTimeRef,
+          sourceQueue: sourceQueueRef,
+          audioElement: audioElementRef,
+        },
+        onPlaybackDone: () => setCallState("idle"),
+      });
+      await player.consumeResponse(res);
+    } catch {
+      setCallState("idle");
+    }
+  }, [stopAudio, ttsProvider]);
 
   useEffect(() => { streamTTSRef.current = streamTTS; }, [streamTTS]);
 

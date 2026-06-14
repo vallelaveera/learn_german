@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CUSTOM_TOPIC_VALUE } from "@/lib/content/taxonomy-types";
 import { AdminSubTabs, AdminCard } from "@/components/admin/AdminShell";
 import { CorpusMatrixDashboard, type MatrixCategoryRow, type MatrixCellSelection } from "@/components/admin/CorpusMatrixDashboard";
+import { AdminProviderSelect, readStoredProvider } from "@/components/admin/AdminProviderSelect";
+import type { AdminLlmProvider } from "@/lib/content/llm-provider";
 
 interface TopicOption {
   id: string;
@@ -37,6 +39,8 @@ interface PipelineSummary {
   duplicatesSkipped?: number;
   rejectedLog: { de: string; issues: string[] }[];
   type?: "words" | "sentences";
+  provider?: AdminLlmProvider;
+  providerLabel?: string;
 }
 
 interface CoverageGap {
@@ -136,6 +140,8 @@ function AdminGeneratePageInner() {
   const [newCatLabelDe, setNewCatLabelDe] = useState("");
   const [newTopicLabel, setNewTopicLabel] = useState("");
   const [prefillHint, setPrefillHint] = useState<string | null>(null);
+  const [provider, setProvider] = useState<AdminLlmProvider>(() => readStoredProvider());
+  const [providers, setProviders] = useState<{ id: AdminLlmProvider; label: string }[]>([]);
 
   function loadTaxonomyFull() {
     return fetch("/api/admin/taxonomy")
@@ -159,6 +165,12 @@ function AdminGeneratePageInner() {
             );
           }
           if (d.coverage) setCoverage(d.coverage);
+          if (d.providers?.length) {
+            setProviders(d.providers);
+            if (d.defaultProvider && !d.providers.some((p: { id: AdminLlmProvider }) => p.id === provider)) {
+              setProvider(d.defaultProvider);
+            }
+          }
         }),
       loadTaxonomyFull(),
     ]);
@@ -315,6 +327,7 @@ function AdminGeneratePageInner() {
           category,
           topic: resolvedTopic,
           count,
+          provider,
         }),
       });
 
@@ -528,9 +541,16 @@ function AdminGeneratePageInner() {
 
             <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
               {isWords
-                ? "Vokabelkarten mit 2 falschen englischen Optionen. Max. 3 deutsche Wörter pro Eintrag."
-                : "Übungssätze mit Übersetzung. Max. 10 Wörter pro Satz (5–8 ideal)."}
+                ? "Vokabelkarten mit 2 falschen englischen Optionen. Max. 3 deutsche Wörter pro Eintrag — nur Goethe/telc-Wortlisten, keine Erfindungen."
+                : "Übungssätze mit Übersetzung. Max. 10 Wörter pro Satz (5–8 ideal) — nur Lehrbuch-Muster, keine erfundenen Sätze."}
             </p>
+
+            <AdminProviderSelect
+              value={provider}
+              onChange={setProvider}
+              providers={providers.length ? providers : [{ id: "claude", label: "Claude Haiku 4.5" }]}
+              disabled={running}
+            />
 
             {loadingTopics && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Lädt Kategorien...</p>}
 
@@ -649,6 +669,7 @@ function AdminGeneratePageInner() {
                   <div style={{ fontSize: 20, fontWeight: 500, color: highRejection ? "#DC2626" : "var(--accent)" }}>{result.rejectionRate}</div>
                   <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
                     {result.savedIds.length} neu gespeichert
+                    {result.providerLabel ? ` · ${result.providerLabel}` : ""}
                     {(result.duplicatesSkipped ?? 0) > 0 && ` · ${result.duplicatesSkipped} Duplikate übersprungen`}
                     {result.rejected > 0 && " · Abgelehnte werden nicht gespeichert (nur hier + Server-Log)"}
                   </div>

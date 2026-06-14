@@ -17,6 +17,7 @@ import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import { createCallAudioContext, StreamMp3Player } from "@/lib/audio/stream-mp3-player";
 import {
   isBrowserOffline,
   isLikelyNetworkError,
@@ -59,7 +60,7 @@ const MANUAL_SEND_FALLBACK_MS = 500; // show Senden only if auto-send did not fi
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 const MAX_USER_TURN_MS = 120_000; // end forgotten calls (mic open, no speech) after 2 minutes
 const MAX_USER_SPEAK_MS = 90_000; // end call if one answer runs longer than 1.5 minutes
-const TTS_CHUNK = 16384;
+// Mobile TTS chunk sizing — lib/audio/stream-mp3-player.ts (StreamMp3Player)
 const COLLAPSE_AFTER_USER_TURNS = 5;
 const TAB_REMINDER_COOLDOWN_MS = 25000;
 const VOLUME_UI_INTERVAL_MS = 250;
@@ -348,8 +349,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   // ── Audio playback ─────────────────────────────────────
   const getAudioCtx = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+    if (!audioCtxRef.current) audioCtxRef.current = createCallAudioContext();
+    if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
     return audioCtxRef.current;
   };
 
@@ -531,31 +532,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     });
   }, []);
 
-  const playChunk = useCallback(async (chunk: ArrayBuffer) => {
-    const ctx = getAudioCtx();
-    if (ctx.state === "suspended") await ctx.resume();
-    try {
-      const decoded = await ctx.decodeAudioData(chunk.slice(0));
-      const source = ctx.createBufferSource();
-      source.buffer = decoded;
-      source.connect(ctx.destination);
-      const startAt = Math.max(ctx.currentTime, nextStartRef.current);
-      source.start(startAt);
-      nextStartRef.current = startAt + decoded.duration;
-      source.onended = () => {
-        sourceQueueRef.current = sourceQueueRef.current.filter(s => s !== source);
-        if (sourceQueueRef.current.length === 0 && _cm_active) {
-          finishTTSPlaybackRef.current();
-        }
-      };
-      sourceQueueRef.current.push(source);
-      schedulePrewarmMic();
-    } catch (e) {
-      console.error("playChunk error:", e);
-    }
-  }, [getAudioCtx, schedulePrewarmMic]);
-
-  // ── TTS ───────────────────────────────────────────────
   const streamTTS = useCallback(async (text: string) => {
     setShowMayaReplyNudge(false);
     setCallState("speaking");
@@ -590,30 +566,17 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
-      if (!res.ok || !res.body) throw new Error(`TTS ${res.status}`);
-      const reader = res.body.getReader();
-
-      // Both voices — stream MP3 chunks so playback starts immediately (live call feel)
-      let buf = new Uint8Array(0);
-      let dispatched = false;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (buf.length > 0) {
-            dispatched = true;
-            playChunk(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-          }
-          break;
-        }
-        const nb = new Uint8Array(buf.length + value.length);
-        nb.set(buf); nb.set(value, buf.length); buf = nb;
-        if (buf.length >= TTS_CHUNK) {
-          const tp = buf.slice(0, TTS_CHUNK); buf = buf.slice(TTS_CHUNK);
-          dispatched = true;
-          playChunk(tp.buffer.slice(tp.byteOffset, tp.byteOffset + tp.byteLength));
-        }
-      }
-      if (!dispatched) finishTTSPlaybackRef.current();
+      const player = new StreamMp3Player({
+        getAudioCtx,
+        refs: {
+          nextStartTime: nextStartRef,
+          sourceQueue: sourceQueueRef,
+          audioElement: audioElementRef,
+        },
+        onPlaybackDone: () => finishTTSPlaybackRef.current(),
+        onBufferScheduled: schedulePrewarmMic,
+      });
+      await player.consumeResponse(res);
     } catch (e) {
       console.error("TTS error:", e);
       if (isLikelyNetworkError(e)) {
@@ -623,7 +586,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         finishTTSPlaybackRef.current();
       }
     }
-  }, [playChunk, stopAudio, clearPrewarmTimer, setJetztDu, announceNetworkIssue]);
+  }, [getAudioCtx, stopAudio, clearPrewarmTimer, setJetztDu, announceNetworkIssue, schedulePrewarmMic]);
 
   const retryTTS = useCallback(() => {
     if (!lastTtsTextRef.current.trim()) return;
@@ -1316,7 +1279,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
     // iOS CRITICAL: Create AND resume AudioContext directly on user gesture
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContext();
+      audioCtxRef.current = createCallAudioContext();
     }
     if (audioCtxRef.current.state === "suspended") {
       await audioCtxRef.current.resume();

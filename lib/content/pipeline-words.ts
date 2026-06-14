@@ -14,7 +14,7 @@ export async function runWordGenerationPipeline(params: GenerateParams): Promise
   }
 
   const generated = await generateWords({ ...params, count: requested, excludeDe });
-  const { passed, rejected } = await validateWords(generated);
+  const { passed, rejected } = await validateWords(generated, params.provider ?? "claude");
 
   const rejectionRate =
     generated.length > 0

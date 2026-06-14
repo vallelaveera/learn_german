@@ -1,4 +1,5 @@
-import { callClaude, parseJsonArray } from "./generate";
+import { parseJsonArray } from "./generate";
+import { callAdminLlm, type AdminLlmProvider } from "./llm-provider";
 import type { WordInput } from "@/lib/vocab/types";
 import { countGermanWords, isWithinWordLimit, MAX_VOCAB_WORDS } from "./vocab-word-count";
 import {
@@ -64,10 +65,14 @@ function applyValidationResult(
   passed.push(corrected);
 }
 
-async function validateWordSingle(word: WordInput, label: string): Promise<WordValidationResult | null> {
+async function validateWordSingle(
+  word: WordInput,
+  label: string,
+  provider: AdminLlmProvider,
+): Promise<WordValidationResult | null> {
   try {
     const userPrompt = `Check this ONE vocabulary entry. Return a JSON array with exactly one object.\n${JSON.stringify([word])}`;
-    const text = await callClaude(WORD_VALIDATION_SYSTEM_PROMPT, userPrompt, 2048);
+    const text = await callAdminLlm(provider, WORD_VALIDATION_SYSTEM_PROMPT, userPrompt, 2048);
     const results = parseJsonArray<WordValidationResult>(text);
     const result = results?.find(r => validationResultMatchesWord(r, word.de, 0)) ?? results?.[0];
     if (!result || !validationResultMatchesWord(result, word.de, 0)) {
@@ -86,30 +91,32 @@ async function resolveValidationResult(
   index: number,
   results: WordValidationResult[] | null,
   batchLabel: string,
+  provider: AdminLlmProvider,
 ): Promise<WordValidationResult | null> {
   const batchResult = results?.find(r => validationResultMatchesWord(r, word.de, index)) ?? results?.[index];
   if (batchResult && validationResultMatchesWord(batchResult, word.de, index)) {
     return batchResult;
   }
-  return validateWordSingle(word, `${batchLabel}, single retry`);
+  return validateWordSingle(word, `${batchLabel}, single retry`, provider);
 }
 
 async function validateWordsBatch(
   words: WordInput[],
   batchLabel: string,
+  provider: AdminLlmProvider,
 ): Promise<ValidateWordsOutput> {
   const passed: WordInput[] = [];
   const rejected: ValidateWordsOutput["rejected"] = [];
 
   try {
     const userPrompt = `Check these ${words.length} vocabulary entries. Each German entry must be at most ${MAX_VOCAB_WORDS} words.\n${JSON.stringify(words)}`;
-    const text = await callClaude(WORD_VALIDATION_SYSTEM_PROMPT, userPrompt, VALIDATION_MAX_TOKENS);
+    const text = await callAdminLlm(provider, WORD_VALIDATION_SYSTEM_PROMPT, userPrompt, VALIDATION_MAX_TOKENS);
     const results = parseJsonArray<WordValidationResult>(text);
 
     if (!results) {
       console.error(`[validate-words] JSON parse failed (${batchLabel}):`, text.slice(0, 500));
       for (const word of words) {
-        const single = await validateWordSingle(word, `${batchLabel}, parse fallback`);
+        const single = await validateWordSingle(word, `${batchLabel}, parse fallback`, provider);
         if (single) {
           applyValidationResult(word, single, passed, rejected);
         } else {
@@ -122,7 +129,7 @@ async function validateWordsBatch(
 
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
-      const result = await resolveValidationResult(word, i, results, batchLabel);
+      const result = await resolveValidationResult(word, i, results, batchLabel, provider);
 
       if (!result) {
         rejected.push({ word, issues: ["No validation result returned"] });
@@ -133,7 +140,7 @@ async function validateWordsBatch(
       applyValidationResult(word, result, passed, rejected);
     }
   } catch (e) {
-    console.error(`[validate-words] Claude call failed (${batchLabel}):`, e);
+    console.error(`[validate-words] ${provider} call failed (${batchLabel}):`, e);
     for (const word of words) {
       rejected.push({ word, issues: ["Validation call failed"] });
       console.warn("[validate-words] REJECTED", JSON.stringify({ de: word.de, en: word.en, issues: ["Validation call failed"] }));
@@ -143,7 +150,10 @@ async function validateWordsBatch(
   return { passed, rejected };
 }
 
-export async function validateWords(words: WordInput[]): Promise<ValidateWordsOutput> {
+export async function validateWords(
+  words: WordInput[],
+  provider: AdminLlmProvider = "claude",
+): Promise<ValidateWordsOutput> {
   if (words.length === 0) {
     return { passed: [], rejected: [] };
   }
@@ -157,6 +167,7 @@ export async function validateWords(words: WordInput[]): Promise<ValidateWordsOu
     const { passed: batchPassed, rejected: batchRejected } = await validateWordsBatch(
       batch,
       `batch ${batchNum}, ${batch.length} items`,
+      provider,
     );
     passed.push(...batchPassed);
     rejected.push(...batchRejected);

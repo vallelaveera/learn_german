@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
 import { runGenerationPipeline } from "@/lib/content/pipeline";
 import { runWordGenerationPipeline } from "@/lib/content/pipeline-words";
+import type { AdminLlmProvider } from "@/lib/content/llm-provider";
 import {
   getActiveCategory,
   loadTaxonomy,
@@ -9,6 +10,12 @@ import {
   toActiveCategoryViews,
 } from "@/lib/content/taxonomy";
 import { getCorpusCoverageReport } from "@/lib/content/coverage";
+import {
+  ADMIN_LLM_PROVIDERS,
+  getAvailableProviders,
+  parseAdminProvider,
+  providerLabel,
+} from "@/lib/content/llm-provider";
 import type { CEFRLevel } from "@/lib/vocab/types";
 
 export const runtime = "nodejs";
@@ -25,8 +32,19 @@ export async function GET(req: NextRequest) {
   const doc = await loadTaxonomy();
   const categories = toActiveCategoryViews(doc);
   const coverage = await getCorpusCoverageReport();
+  const availableProviders = getAvailableProviders();
+  const providerOptions = ADMIN_LLM_PROVIDERS.filter(p => availableProviders.includes(p.id)).map(p => ({
+    id: p.id,
+    label: p.label,
+  }));
 
-  return NextResponse.json({ categories, coverage, taxonomyUpdatedAt: doc.updatedAt });
+  return NextResponse.json({
+    categories,
+    coverage,
+    taxonomyUpdatedAt: doc.updatedAt,
+    providers: providerOptions,
+    defaultProvider: availableProviders[0] ?? "claude",
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -39,6 +57,14 @@ export async function POST(req: NextRequest) {
     const topic = body.topic as string | undefined;
     const count = typeof body.count === "number" ? body.count : 50;
     const type = body.type === "words" ? "words" : "sentences";
+    const provider = parseAdminProvider(body.provider);
+    const available = getAvailableProviders();
+    if (!available.includes(provider)) {
+      return NextResponse.json(
+        { error: `${providerLabel(provider)} is not configured on this deployment` },
+        { status: 400 },
+      );
+    }
 
     if (!level || !isCEFRLevel(level)) {
       return NextResponse.json({ error: "Invalid level" }, { status: 400 });
@@ -67,15 +93,17 @@ export async function POST(req: NextRequest) {
             category,
             topic: topicResult.topic,
             count,
+            provider,
           })
         : await runGenerationPipeline({
             level,
             category,
             topic: topicResult.topic,
             count,
+            provider,
           });
 
-    return NextResponse.json({ ...summary, type });
+    return NextResponse.json({ ...summary, type, provider, providerLabel: providerLabel(provider) });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
