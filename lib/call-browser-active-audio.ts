@@ -24,7 +24,7 @@ export async function prefetchCallBrowserActiveMessage(
       const blob = await res.blob();
       if (blob.size > 0) cachedBlobUrl = URL.createObjectURL(blob);
     } catch {
-      /* speech synthesis fallback at play time */
+      /* fetch Maya TTS at play time */
     } finally {
       prefetchPromise = null;
     }
@@ -33,41 +33,50 @@ export async function prefetchCallBrowserActiveMessage(
   return prefetchPromise;
 }
 
-function speakFallback(text: string): Promise<void> {
-  if (typeof window === "undefined" || !window.speechSynthesis) {
-    return Promise.resolve();
-  }
-  return new Promise(resolve => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
-    utterance.rate = 0.95;
-    utterance.onend = () => resolve();
-    utterance.onerror = () => resolve();
-    window.speechSynthesis.speak(utterance);
+async function playDecodedMp3(
+  buffer: ArrayBuffer,
+  getAudioCtx: () => AudioContext,
+): Promise<void> {
+  const ctx = getAudioCtx();
+  if (ctx.state === "suspended") await ctx.resume();
+  const decoded = await ctx.decodeAudioData(buffer.slice(0));
+  const source = ctx.createBufferSource();
+  source.buffer = decoded;
+  source.connect(ctx.destination);
+  await new Promise<void>(resolve => {
+    source.onended = () => resolve();
+    source.start();
   });
+}
+
+async function fetchAndPlayMayaTts(
+  text: string,
+  provider: "soniox" | "fish",
+  getAudioCtx: () => AudioContext,
+): Promise<void> {
+  const res = await fetch("/api/tts-stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, provider }),
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  if (blob.size === 0) return;
+  await playDecodedMp3(await blob.arrayBuffer(), getAudioCtx);
 }
 
 export async function playCallBrowserActiveMessage(
   getAudioCtx: () => AudioContext,
+  provider: "soniox" | "fish" = "soniox",
 ): Promise<void> {
   if (cachedBlobUrl) {
     try {
-      const ctx = getAudioCtx();
-      if (ctx.state === "suspended") await ctx.resume();
       const res = await fetch(cachedBlobUrl);
-      const buffer = await res.arrayBuffer();
-      const decoded = await ctx.decodeAudioData(buffer.slice(0));
-      const source = ctx.createBufferSource();
-      source.buffer = decoded;
-      source.connect(ctx.destination);
-      await new Promise<void>(resolve => {
-        source.onended = () => resolve();
-        source.start();
-      });
+      await playDecodedMp3(await res.arrayBuffer(), getAudioCtx);
       return;
     } catch {
-      /* fall through */
+      /* fall through to live Maya TTS */
     }
   }
-  await speakFallback(KEEP_BROWSER_ACTIVE_SPOKEN);
+  await fetchAndPlayMayaTts(KEEP_BROWSER_ACTIVE_SPOKEN, provider, getAudioCtx);
 }

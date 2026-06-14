@@ -7,6 +7,7 @@ import { BookOpen, Table2, Sparkles, Hammer, Clock } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarDetailSheet } from "@/components/grammar/GrammarDetailSheet";
+import { GrammarHighlightedSentence } from "@/components/grammar/GrammarHighlightedSentence";
 import {
   GrammarExplainerCollapsedBar,
   GrammarLevelExplainer,
@@ -28,6 +29,7 @@ import {
   setExplainerCollapsed,
   type GrammarExplainersFile,
 } from "@/lib/grammar/explainers";
+import { getGrammarFlashcardsHref, splitGrammarExampleSentences } from "@/lib/grammar/highlight";
 import {
   getArticleTrainerHref,
   getDefaultArticleTrainerPointForLevel,
@@ -416,17 +418,13 @@ export default function GrammarPage() {
                 </span>
               </div>
 
-              <p
-                style={{
-                  fontFamily: "var(--font-serif)",
-                  fontSize: 14,
-                  color: "var(--text)",
-                  lineHeight: 1.45,
-                  margin: "0 0 12px",
-                }}
-              >
-                {point.example.de}
-              </p>
+              <div style={{ margin: "0 0 12px" }}>
+                <GrammarHighlightedSentence
+                  sentence={splitGrammarExampleSentences(point.example.de, point.example.en)[0]?.de ?? point.example.de}
+                  subtitle={point.subtitle}
+                  size="sm"
+                />
+              </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                 {tableHref && (
@@ -447,7 +445,29 @@ export default function GrammarPage() {
                     Tabelle
                   </Link>
                 )}
-                {visiblePracticeTypes(point.practiceTypes).slice(0, 4).map(type => (
+                {visiblePracticeTypes(point.practiceTypes).slice(0, 4).map(type => {
+                  if (type === "flashcard") {
+                    return (
+                      <Link
+                        key={type}
+                        href={getGrammarFlashcardsHref(point.id, levelId)}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "5px 10px",
+                          borderRadius: 999,
+                          background: level?.lightColor ?? "var(--accent-soft)",
+                          color: level?.color ?? "var(--accent)",
+                          border: `1px solid ${level?.color ?? "var(--accent)"}55`,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {practiceTypeLabel(type)}
+                      </Link>
+                    );
+                  }
+                  return (
                   <span
                     key={type}
                     style={{
@@ -462,7 +482,8 @@ export default function GrammarPage() {
                   >
                     {practiceTypeLabel(type)}
                   </span>
-                ))}
+                  );
+                })}
                 {visiblePracticeTypes(point.practiceTypes).length > 4 && (
                   <span style={{ fontSize: 10, color: "var(--text-dim)", alignSelf: "center" }}>
                     +{visiblePracticeTypes(point.practiceTypes).length - 4}

@@ -47,14 +47,16 @@ let _cm_tts_done_fired = false;
 const SPEECH_THRESHOLD = 42; // sustained level = human speech (not chair/noise)
 const SILENCE_THRESHOLD = 30; // below this = silence
 const SPEECH_FRAMES_MIN = 12; // ~200ms sustained speech before accepting STT
-const SILENCE_DURATION_ENDPOINT = 1200; // ms after Soniox endpoint
-const SILENCE_DURATION_FALLBACK = 3000; // ms without endpoint
+const SILENCE_DURATION_ENDPOINT = 2000; // ~2 s silence → auto-send
+const SILENCE_DURATION_FALLBACK = 2000;
 const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
+const MANUAL_SEND_FALLBACK_MS = 500; // show Senden only if auto-send did not fire
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
+const MAX_USER_TURN_MS = 120_000; // end forgotten calls (mic open, no speech) after 2 minutes
+const MAX_USER_SPEAK_MS = 90_000; // end call if one answer runs longer than 1.5 minutes
 const TTS_CHUNK = 16384;
 const COLLAPSE_AFTER_USER_TURNS = 5;
 const TAB_REMINDER_COOLDOWN_MS = 25000;
-const MANUAL_SEND_VISIBLE_AFTER_MS = 2_000; // show manual send after ~2 s of live text
 const VOLUME_UI_INTERVAL_MS = 250;
 
 const AFFIRMATIVE_RE = /^(ja|genau|stimmt|richtig|fertig|doch)([\s,].*)?$/i;
@@ -168,6 +170,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const isSpeakingRef = useRef(false);
   const speechFramesRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userTurnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userSpeakLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sttEndpointRef = useRef(false);
   const sttTimedOutWhileMutedRef = useRef(false);
   const networkAlertAtRef = useRef(0);
@@ -193,9 +198,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const finishTTSPlaybackRef = useRef<() => void>(() => {});
   const restartMicRef = useRef<() => Promise<void>>(async () => {});
+  const clearUserTurnTimerRef = useRef<() => void>(() => {});
+  const startUserTurnTimerRef = useRef<() => void>(() => {});
   const callStateRef = useRef<CallState>("listening");
   const lastVolumeUiAtRef = useRef(0);
-  const liveTextSinceRef = useRef<number | null>(null);
   const streamTTSRef = useRef<((text: string) => Promise<void>) | null>(null);
   const lastTtsTextRef = useRef("");
   const jetztDuRef = useRef(false);
@@ -311,7 +317,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (!_cm_active || tabReminderPlayingRef.current) return;
     tabReminderPlayingRef.current = true;
     try {
-      await playCallBrowserActiveMessage(getAudioCtx);
+      await playCallBrowserActiveMessage(getAudioCtx, ttsProviderRef.current);
     } finally {
       tabReminderPlayingRef.current = false;
     }
@@ -392,6 +398,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setJetztDu(true);
       setLiveText("");
       setCallState("listening");
+      startUserTurnTimerRef.current();
       return;
     }
 
@@ -419,6 +426,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setCallState("listening");
       await startRef.current();
       micLiveRef.current = true;
+      startUserTurnTimerRef.current();
       if (isMutedRef.current) setMutedRef.current(true);
     } finally {
       _cm_mic_running = false;
@@ -522,6 +530,13 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     nonFinalRef.current = "";
     stopAudio();
     clearPrewarmTimer();
+    clearUserTurnTimerRef.current();
+    if (manualSendTimerRef.current) {
+      clearTimeout(manualSendTimerRef.current);
+      manualSendTimerRef.current = null;
+    }
+    setShowManualSend(false);
+    clearUserSpeakLimitTimer();
     nextStartRef.current = 0;
     _cm_tts_done_fired = false;
     _cm_sending = true;
@@ -580,23 +595,52 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   useEffect(() => { callStateRef.current = callState; }, [callState]);
 
-  useEffect(() => {
-    if (!liveText.trim() || callState !== "listening" || !jetztDuActive || isMuted) {
-      liveTextSinceRef.current = null;
-      setShowManualSend(false);
-      return;
+  const clearManualSendTimer = useCallback(() => {
+    if (manualSendTimerRef.current) {
+      clearTimeout(manualSendTimerRef.current);
+      manualSendTimerRef.current = null;
     }
-    if (!liveTextSinceRef.current) {
-      liveTextSinceRef.current = Date.now();
+  }, []);
+
+  const resetManualSendUI = useCallback(() => {
+    clearManualSendTimer();
+    setShowManualSend(false);
+  }, [clearManualSendTimer]);
+
+  const hasPendingUserText = useCallback(() => {
+    return !!(speechBufferRef.current.trim() || nonFinalRef.current.trim());
+  }, []);
+
+  const scheduleManualSendButton = useCallback(() => {
+    if (
+      manualSendTimerRef.current
+      || !_cm_active
+      || _cm_sending
+      || !jetztDuRef.current
+      || isMutedRef.current
+      || !hasPendingUserText()
+    ) return;
+    manualSendTimerRef.current = setTimeout(() => {
+      manualSendTimerRef.current = null;
+      if (
+        _cm_active
+        && !_cm_sending
+        && callStateRef.current === "listening"
+        && jetztDuRef.current
+        && !isMutedRef.current
+        && hasPendingUserText()
+      ) {
+        setShowManualSend(true);
+      }
+    }, MANUAL_SEND_FALLBACK_MS);
+  }, [hasPendingUserText]);
+
+  const clearUserSpeakLimitTimer = useCallback(() => {
+    if (userSpeakLimitTimerRef.current) {
+      clearTimeout(userSpeakLimitTimerRef.current);
+      userSpeakLimitTimerRef.current = null;
     }
-    const elapsed = Date.now() - liveTextSinceRef.current;
-    if (elapsed >= MANUAL_SEND_VISIBLE_AFTER_MS) {
-      setShowManualSend(true);
-      return;
-    }
-    const timer = setTimeout(() => setShowManualSend(true), MANUAL_SEND_VISIBLE_AFTER_MS - elapsed);
-    return () => clearTimeout(timer);
-  }, [liveText, callState, jetztDuActive, isMuted]);
+  }, []);
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -604,6 +648,53 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       silenceTimerRef.current = null;
     }
   }, []);
+
+  const startUserSpeakLimitTimer = useCallback(() => {
+    if (userSpeakLimitTimerRef.current || !_cm_active || _cm_sending) return;
+    userSpeakLimitTimerRef.current = setTimeout(() => {
+      userSpeakLimitTimerRef.current = null;
+      if (!_cm_active || _cm_sending || callStateRef.current !== "listening") return;
+      clearSilenceTimer();
+      clearManualSendTimer();
+      endCallRef.current();
+    }, MAX_USER_SPEAK_MS);
+  }, [clearSilenceTimer, clearManualSendTimer]);
+
+  const clearUserTurnTimer = useCallback(() => {
+    if (userTurnTimerRef.current) {
+      clearTimeout(userTurnTimerRef.current);
+      userTurnTimerRef.current = null;
+    }
+  }, []);
+
+  const forceUserTurnTimeoutRef = useRef<() => void>(() => {});
+
+  const forceUserTurnTimeout = useCallback(() => {
+    if (_cm_sending || !_cm_active || callStateRef.current !== "listening" || !jetztDuRef.current) return;
+    clearUserTurnTimer();
+    if (nonFinalRef.current.trim()) {
+      speechBufferRef.current += nonFinalRef.current;
+      nonFinalRef.current = "";
+    }
+    const text = speechBufferRef.current.trim();
+    if (text) return;
+    endCallRef.current();
+  }, [clearUserTurnTimer]);
+
+  const startUserTurnTimer = useCallback(() => {
+    clearUserTurnTimer();
+    if (!_cm_active || _cm_sending) return;
+    userTurnTimerRef.current = setTimeout(() => {
+      userTurnTimerRef.current = null;
+      forceUserTurnTimeoutRef.current();
+    }, MAX_USER_TURN_MS);
+  }, [clearUserTurnTimer]);
+
+  useEffect(() => {
+    clearUserTurnTimerRef.current = clearUserTurnTimer;
+    startUserTurnTimerRef.current = startUserTurnTimer;
+    forceUserTurnTimeoutRef.current = forceUserTurnTimeout;
+  }, [clearUserTurnTimer, startUserTurnTimer, forceUserTurnTimeout]);
 
   const speakLocal = useCallback(async (text: string, appendMsg: Message) => {
     const updated = [...messagesRef.current, appendMsg];
@@ -635,6 +726,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setLiveText("");
     stopAudio();
     clearPrewarmTimer();
+    clearUserTurnTimerRef.current();
     nextStartRef.current = 0;
     _cm_tts_done_fired = false;
     _cm_sending = true;
@@ -771,7 +863,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     const isFirstOnboardingReply =
       isOnboardingRef.current
       && updated.filter(m => m.role === "user").length === 1
-      && updated.filter(m => m.role === "assistant").length >= 3;
+      && updated.filter(m => m.role === "assistant").length === 2;
 
     if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
@@ -784,8 +876,20 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       return;
     }
 
+    if (isFirstOnboardingReply) {
+      const practiceQ = openingPracticeQuestionRef.current;
+      if (practiceQ) {
+        await speakOnboardingLine(
+          { role: "assistant", content: practiceQ, timestamp: Date.now() },
+          "practice",
+          true,
+        );
+        return;
+      }
+    }
+
     await submitToClaude(updated);
-  }, [submitToClaude, speakLocal, user?.name]);
+  }, [submitToClaude, speakLocal, speakOnboardingLine, user?.name]);
 
   const askShortConfirm = useCallback(async (shortText: string, audioBlob?: Blob | null) => {
     pendingShortReplyRef.current = shortText;
@@ -856,6 +960,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   const tryCommitTurn = useCallback(async (force = false) => {
     if (_cm_sending || !_cm_active) return;
+    clearUserTurnTimer();
+    clearUserSpeakLimitTimer();
+    resetManualSendUI();
 
     if (nonFinalRef.current.trim()) {
       speechBufferRef.current += nonFinalRef.current;
@@ -870,6 +977,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
         void tryCommitTurnRef.current();
+        scheduleManualSendButton();
       }, sttEndpointRef.current ? SILENCE_DURATION_ENDPOINT : INCOMPLETE_EXTRA_WAIT);
       return;
     }
@@ -895,7 +1003,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     }
 
     void sendToTutor(text, audioBlob);
-  }, [askShortConfirm, clearSilenceTimer, handleConfirmResponse, sendToTutor]);
+  }, [askShortConfirm, clearSilenceTimer, clearUserTurnTimer, clearUserSpeakLimitTimer, resetManualSendUI, scheduleManualSendButton, handleConfirmResponse, sendToTutor]);
 
   useEffect(() => { tryCommitTurnRef.current = (force?: boolean) => { void tryCommitTurn(force); }; }, [tryCommitTurn]);
 
@@ -903,11 +1011,12 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     if (_cm_sending || !_cm_active || isMutedRef.current || !jetztDuRef.current) return;
     if (!speechBufferRef.current.trim() && !nonFinalRef.current.trim() && !liveText.trim()) return;
     clearSilenceTimer();
+    resetManualSendUI();
     isSpeakingRef.current = false;
     speechFramesRef.current = 0;
     sttEndpointRef.current = true;
     void tryCommitTurn(true);
-  }, [clearSilenceTimer, tryCommitTurn, liveText]);
+  }, [clearSilenceTimer, resetManualSendUI, tryCommitTurn, liveText]);
 
   const scheduleSilenceSend = useCallback(() => {
     if (silenceTimerRef.current) return;
@@ -915,8 +1024,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     silenceTimerRef.current = setTimeout(() => {
       silenceTimerRef.current = null;
       tryCommitTurnRef.current();
+      scheduleManualSendButton();
     }, duration);
-  }, []);
+  }, [scheduleManualSendButton]);
 
   // ── VAD — silence detection (hysteresis + sustained speech gate) ──
   const handleVolume = useCallback((vol: number) => {
@@ -943,6 +1053,8 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       if (speechFramesRef.current >= SPEECH_FRAMES_MIN) {
         isSpeakingRef.current = true;
         setShowJetztDuNudge(false);
+        resetManualSendUI();
+        startUserSpeakLimitTimer();
       }
       sttEndpointRef.current = false;
     } else if (vol < SILENCE_THRESHOLD) {
@@ -958,10 +1070,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
     if (vol >= SILENCE_THRESHOLD) {
       clearSilenceTimer();
+      resetManualSendUI();
     } else if (speechBufferRef.current.trim() && !nonFinalRef.current.trim()) {
       scheduleSilenceSend();
     }
-  }, [clearSilenceTimer, scheduleSilenceSend]);
+  }, [clearSilenceTimer, resetManualSendUI, scheduleSilenceSend, startUserSpeakLimitTimer]);
 
   // ── Transcript callbacks ──────────────────────────────
 
@@ -981,8 +1094,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setLiveText(speechBufferRef.current + text);
       sttEndpointRef.current = false;
       clearSilenceTimer();
+      resetManualSendUI();
     }
-  }, [clearSilenceTimer]);
+  }, [clearSilenceTimer, resetManualSendUI]);
 
   const handleFinished = useCallback(() => {
     if (!_cm_active || _cm_sending || isMutedRef.current || !jetztDuRef.current) return;
@@ -1025,6 +1139,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setMutedRef.current(next);
     if (next) {
       clearSilenceTimer();
+      resetManualSendUI();
       speechBufferRef.current = "";
       nonFinalRef.current = "";
       isSpeakingRef.current = false;
@@ -1034,13 +1149,14 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setVolume(0);
     } else {
       _cm_mic_start = Date.now();
+      startUserTurnTimerRef.current();
       if (sttTimedOutWhileMutedRef.current && micLiveRef.current && !_cm_sending) {
         sttTimedOutWhileMutedRef.current = false;
         void restartMicRef.current();
       }
     }
     if (navigator.vibrate) navigator.vibrate(20);
-  }, [clearSilenceTimer]);
+  }, [clearSilenceTimer, resetManualSendUI]);
 
   const { start, stop, setMuted, setTranscriptPaused, audioCtxRef: recorderAudioCtxRef } = useCallRecorder({
     apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
@@ -1144,8 +1260,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     tabLeftRef.current = false;
     setNetworkIssue(null);
     networkAlertAtRef.current = 0;
-    setShowManualSend(false);
-    liveTextSinceRef.current = null;
+    resetManualSendUI();
     setHistoryExpanded(false);
     void prefetchCallNetworkMessage(ttsProviderRef.current);
     void prefetchCallBrowserActiveMessage(ttsProviderRef.current);
@@ -1208,7 +1323,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
     const studentQuestion = openingFollowUpRef.current;
     const practiceQuestion = openingPracticeQuestionRef.current;
-    const onboardingIntroChain = isOnboardingRef.current && (studentQuestion || practiceQuestion);
+    const onboardingIntroChain = isOnboardingRef.current && studentQuestion;
 
     if (onboardingIntroChain) {
       holdMicDuringIntroRef.current = true;
@@ -1220,20 +1335,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       await waitForMayaSpeechEnd();
       _cm_tts_done_fired = false;
 
-      if (studentQuestion) {
-        await speakOnboardingLine(
-          { role: "assistant", content: studentQuestion, timestamp: Date.now() + 1 },
-          "student",
-          !practiceQuestion,
-        );
-      }
-      if (practiceQuestion) {
-        await speakOnboardingLine(
-          { role: "assistant", content: practiceQuestion, timestamp: Date.now() + 2 },
-          "practice",
-          true,
-        );
-      }
+      await speakOnboardingLine(
+        { role: "assistant", content: studentQuestion, timestamp: Date.now() + 1 },
+        "student",
+        true,
+      );
     }
   };
 
@@ -1245,6 +1351,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     _cm_mic_running = false;
     _cm_tts_done_fired = true;
     clearPrewarmTimer();
+    clearUserTurnTimer();
+    clearUserSpeakLimitTimer();
+    resetManualSendUI();
     sttEndpointRef.current = false;
     pendingShortReplyRef.current = null;
     awaitingConfirmRef.current = false;
@@ -1260,8 +1369,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     tabLeftRef.current = false;
     setNetworkIssue(null);
     networkAlertAtRef.current = 0;
-    setShowManualSend(false);
-    liveTextSinceRef.current = null;
+    resetManualSendUI();
     setHistoryExpanded(false);
     void stop();
     stopAudio();
@@ -1292,7 +1400,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setPhase("idle");
     setMessages([]);
     setDuration(0);
-  }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded, clearPrewarmTimer, setJetztDu]);
+  }, [stop, stopAudio, sessionStart, sessionId, duration, onCallEnded, clearPrewarmTimer, clearUserTurnTimer, clearUserSpeakLimitTimer, resetManualSendUI, setJetztDu]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
@@ -1304,6 +1412,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       stopAudio();
       if (durationRef.current) clearInterval(durationRef.current);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (userTurnTimerRef.current) clearTimeout(userTurnTimerRef.current);
+      if (manualSendTimerRef.current) clearTimeout(manualSendTimerRef.current);
+      if (userSpeakLimitTimerRef.current) clearTimeout(userSpeakLimitTimerRef.current);
     };
   }, [stop, stopAudio]);
 

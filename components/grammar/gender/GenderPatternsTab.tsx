@@ -41,28 +41,11 @@ export function GenderPatternsTab({ theme }: GenderPatternsTabProps) {
         ))}
       </div>
 
-      <div
-        className="ui-card"
-        style={{
-          padding: 16,
-          marginBottom: 14,
-          border: `1.5px solid ${GENDER_ARTICLE_COLORS[subTab]}`,
-          background: `${GENDER_ARTICLE_COLORS[subTab]}0c`,
-        }}
-      >
-        <p style={{ fontSize: 11, fontWeight: 700, color: theme.tmid, margin: "0 0 4px", textTransform: "uppercase" }}>
-          {pattern.character}
-        </p>
-        <p style={{ fontSize: 28, fontWeight: 900, color: GENDER_ARTICLE_COLORS[subTab], margin: "0 0 10px" }}>
-          {subTab}
-        </p>
-        <GenderHighlightedSentence pattern={pattern} articleColor={GENDER_ARTICLE_COLORS[subTab]} />
-        <p style={{ fontSize: 11, color: theme.tmid, margin: "10px 0 0", fontStyle: "italic" }}>
-          {full}
-        </p>
-      </div>
+      <p style={{ fontSize: 12, color: theme.tmid, margin: "0 0 10px", lineHeight: 1.5 }}>
+        Endings and word types for <strong style={{ color: GENDER_ARTICLE_COLORS[subTab] }}>{subTab}</strong>
+      </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
         {pattern.rules.map(rule => (
           <div key={rule.tag} className="ui-card" style={{ padding: "12px 14px", border: `1px solid ${theme.tbd}` }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
@@ -101,6 +84,26 @@ export function GenderPatternsTab({ theme }: GenderPatternsTabProps) {
             </div>
           </div>
         ))}
+      </div>
+
+      <div
+        className="ui-card"
+        style={{
+          padding: 16,
+          border: `1.5px solid ${GENDER_ARTICLE_COLORS[subTab]}`,
+          background: `${GENDER_ARTICLE_COLORS[subTab]}0c`,
+        }}
+      >
+        <p style={{ fontSize: 11, fontWeight: 700, color: theme.tmid, margin: "0 0 4px", textTransform: "uppercase" }}>
+          Merksatz · {pattern.character}
+        </p>
+        <p style={{ fontSize: 28, fontWeight: 900, color: GENDER_ARTICLE_COLORS[subTab], margin: "0 0 10px" }}>
+          {subTab}
+        </p>
+        <GenderHighlightedSentence pattern={pattern} articleColor={GENDER_ARTICLE_COLORS[subTab]} />
+        <p style={{ fontSize: 11, color: theme.tmid, margin: "10px 0 0", fontStyle: "italic" }}>
+          {full}
+        </p>
       </div>
     </div>
   );

@@ -236,32 +236,10 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
       {phase === 0 && (
         <>
           <p style={{ fontSize: 12, color: theme.tmid, margin: "0 0 10px", lineHeight: 1.5 }}>
-            Merksatz — endings underlined show the <strong style={{ color: theme.tc }}>{pattern.article}</strong> rules
+            Learn the <strong style={{ color: theme.tc }}>{pattern.article}</strong> endings first — then fill the mnemonic sentence.
           </p>
-          <div
-            className="ui-card"
-            style={{
-              padding: "16px 14px",
-              marginBottom: 12,
-              border: `1.5px solid ${articleColor}`,
-              background: `${articleColor}0c`,
-            }}
-          >
-            <p
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: theme.tmid,
-                margin: "0 0 4px",
-                textTransform: "uppercase",
-              }}
-            >
-              {pattern.character}
-            </p>
-            <GenderHighlightedSentence pattern={pattern} articleColor={articleColor} size="lg" />
-          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
             {pattern.rules.map(rule => (
               <div
                 key={rule.tag}
@@ -289,6 +267,32 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
                 <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{rule.note}</span>
               </div>
             ))}
+          </div>
+
+          <div
+            className="ui-card"
+            style={{
+              padding: "16px 14px",
+              marginBottom: 16,
+              border: `1.5px solid ${articleColor}`,
+              background: `${articleColor}0c`,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: theme.tmid,
+                margin: "0 0 4px",
+                textTransform: "uppercase",
+              }}
+            >
+              Merksatz · {pattern.character}
+            </p>
+            <GenderHighlightedSentence pattern={pattern} articleColor={articleColor} size="lg" />
+            <p style={{ fontSize: 11, color: theme.tmid, margin: "10px 0 0", fontStyle: "italic" }}>
+              {fullSentence}
+            </p>
           </div>
 
           <button
