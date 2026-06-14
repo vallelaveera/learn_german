@@ -46,9 +46,7 @@ export function ExerciseShell({
           overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
-          paddingBottom: showTabBar
-            ? "calc(96px + env(safe-area-inset-bottom, 0px))"
-            : "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+          paddingBottom: showTabBar ? "var(--shell-bottom-tab)" : "var(--shell-bottom)",
         }}
       >
         {children}

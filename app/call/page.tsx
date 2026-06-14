@@ -84,7 +84,7 @@ function CallPageInner() {
         display: "flex",
         flexDirection: "column",
         background: "var(--bg-warm)",
-        paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "var(--shell-bottom-tab)",
       }}
     >
       {!report && (

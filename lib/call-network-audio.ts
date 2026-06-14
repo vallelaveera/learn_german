@@ -1,4 +1,7 @@
+import { playMp3Blob, playMp3Url } from "@/lib/audio/play-mp3-element";
 import { NETWORK_ISSUE_SPOKEN_DE } from "@/lib/call-network";
+
+export { NETWORK_ISSUE_SPOKEN_DE };
 
 let cachedBlobUrl: string | null = null;
 let prefetchPromise: Promise<void> | null = null;
@@ -44,26 +47,27 @@ function speakFallback(text: string): Promise<void> {
 }
 
 export async function playCallNetworkMessage(
-  getAudioCtx: () => AudioContext,
+  _getAudioCtx: () => AudioContext,
 ): Promise<void> {
   if (cachedBlobUrl) {
     try {
-      const ctx = getAudioCtx();
-      if (ctx.state === "suspended") await ctx.resume();
-      const res = await fetch(cachedBlobUrl);
-      const buffer = await res.arrayBuffer();
-      const decoded = await ctx.decodeAudioData(buffer.slice(0));
-      const source = ctx.createBufferSource();
-      source.buffer = decoded;
-      source.connect(ctx.destination);
-      await new Promise<void>(resolve => {
-        source.onended = () => resolve();
-        source.start();
-      });
+      await playMp3Url(cachedBlobUrl);
       return;
     } catch {
       /* fall through */
     }
   }
-  await speakFallback(NETWORK_ISSUE_SPOKEN_DE);
+  try {
+    const res = await fetch("/api/tts-stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: NETWORK_ISSUE_SPOKEN_DE, provider: "soniox" }),
+    });
+    if (!res.ok) throw new Error("TTS failed");
+    const blob = await res.blob();
+    if (blob.size === 0) throw new Error("empty TTS");
+    await playMp3Blob(blob);
+  } catch {
+    await speakFallback(NETWORK_ISSUE_SPOKEN_DE);
+  }
 }

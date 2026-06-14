@@ -78,16 +78,12 @@ export function PageShell({ children, title, showTabBar = true, headerRight, min
           position: "relative",
           zIndex: 1,
           flex: 1,
-          overflowY: fitViewport ? "hidden" : "auto",
+          overflowY: "auto",
           overflowX: "hidden",
           display: fitViewport ? "flex" : undefined,
           flexDirection: fitViewport ? "column" : undefined,
           minHeight: fitViewport ? 0 : undefined,
-          paddingBottom: showTabBar
-            ? fitViewport
-              ? "calc(82px + env(safe-area-inset-bottom, 0px))"
-              : "calc(96px + env(safe-area-inset-bottom, 0px))"
-            : undefined,
+          paddingBottom: showTabBar ? "var(--shell-bottom-tab)" : "var(--shell-bottom)",
         }}
       >
         {children}

@@ -9,6 +9,7 @@ import { CallGrammarProgressHud, CallGrammarTurnBadge } from "@/components/call/
 import { useRouter } from "next/navigation";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import { stopActiveMp3Playback } from "@/lib/audio/play-mp3-element";
 import { createCallAudioContext, StreamMp3Player } from "@/lib/audio/stream-mp3-player";
 import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import styles from "@/app/call/call.module.css";
@@ -131,27 +132,36 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
   };
 
   const stopAudio = useCallback(() => {
+    stopActiveMp3Playback();
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
     sourceQueueRef.current = [];
     nextStartTimeRef.current = 0;
     if (audioElementRef.current) {
       audioElementRef.current.pause();
       audioElementRef.current.removeAttribute("src");
+      audioElementRef.current = null;
     }
   }, []);
 
   const streamTTSRef = useRef<((text: string) => void) | null>(null);
+  const ttsSessionRef = useRef(0);
 
   const streamTTS = useCallback(async (text: string) => {
+    const session = ++ttsSessionRef.current;
     setCallState("speaking");
     stopAudio();
     nextStartTimeRef.current = 0;
+    if (!text.trim()) {
+      setCallState("idle");
+      return;
+    }
     try {
       const res = await fetch("/api/tts-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProvider }),
       });
+      if (session !== ttsSessionRef.current) return;
       const player = new StreamMp3Player({
         getAudioCtx,
         refs: {
@@ -159,11 +169,14 @@ export function TippenCall({ onCallEnded, embedded, scenarioId, grammarId }: Tip
           sourceQueue: sourceQueueRef,
           audioElement: audioElementRef,
         },
-        onPlaybackDone: () => setCallState("idle"),
+        onPlaybackDone: () => {
+          if (session === ttsSessionRef.current) setCallState("idle");
+        },
+        isCancelled: () => session !== ttsSessionRef.current,
       });
       await player.consumeResponse(res);
     } catch {
-      setCallState("idle");
+      if (session === ttsSessionRef.current) setCallState("idle");
     }
   }, [stopAudio, ttsProvider]);
 

@@ -1,3 +1,4 @@
+import { playMp3Url } from "@/lib/audio/play-mp3-element";
 import {
   buildOnboardingOpeningPart2,
   buildOnboardingOpeningPart3,
@@ -63,23 +64,12 @@ export async function prefetchAllOnboardingLines(
 /** Returns true when cached MP3 was played. */
 export async function playCallOnboardingLine(
   key: OnboardingLineKey,
-  getAudioCtx: () => AudioContext,
+  _getAudioCtx: () => AudioContext,
 ): Promise<boolean> {
   const cache = caches[key];
   if (!cache.url) return false;
   try {
-    const ctx = getAudioCtx();
-    if (ctx.state === "suspended") await ctx.resume();
-    const res = await fetch(cache.url);
-    const buffer = await res.arrayBuffer();
-    const decoded = await ctx.decodeAudioData(buffer.slice(0));
-    const source = ctx.createBufferSource();
-    source.buffer = decoded;
-    source.connect(ctx.destination);
-    await new Promise<void>(resolve => {
-      source.onended = () => resolve();
-      source.start();
-    });
+    await playMp3Url(cache.url);
     return true;
   } catch {
     return false;
