@@ -90,12 +90,10 @@ export function TensesWorkshopTab({ theme, tenses }: TensesWorkshopTabProps) {
 
       {mode === "partizip" && (
         <>
-          <div className="ui-card" style={{ padding: 14, marginBottom: 12, border: `1px solid ${theme.tbd}` }}>
-            <p style={{ fontSize: 11, color: theme.tmid, margin: "0 0 6px" }}>{rule.label}</p>
-            <p style={{ fontSize: 13, fontWeight: 700, color: theme.tc, margin: "0 0 4px" }}>{rule.formula}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>{rule.hint}</p>
-          </div>
-          <p style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px" }}>
+          <p style={{ fontSize: 11, color: theme.tmid, margin: "0 0 10px", fontWeight: 600 }}>
+            {rule.label}
+          </p>
+          <p style={{ fontSize: 18, fontWeight: 800, margin: "0 0 10px", color: theme.tc }}>
             {target.infinitive} → ?
           </p>
           <input
