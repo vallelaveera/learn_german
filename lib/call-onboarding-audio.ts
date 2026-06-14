@@ -1,20 +1,24 @@
 import {
   buildOnboardingOpeningPart2,
   buildOnboardingOpeningPart3,
+  buildOnboardingOpeningPart4,
 } from "@/lib/memory-agent";
 
 export const ONBOARDING_STUDENT_QUESTION = buildOnboardingOpeningPart2();
-export const ONBOARDING_PRACTICE_QUESTION = buildOnboardingOpeningPart3();
+export const ONBOARDING_WHY_GERMAN_QUESTION = buildOnboardingOpeningPart3();
+export const ONBOARDING_PRACTICE_QUESTION = buildOnboardingOpeningPart4();
 
-type OnboardingLineKey = "student" | "practice";
+type OnboardingLineKey = "student" | "whyGerman" | "practice";
 
 const LINE_TEXT: Record<OnboardingLineKey, string> = {
   student: ONBOARDING_STUDENT_QUESTION,
+  whyGerman: ONBOARDING_WHY_GERMAN_QUESTION,
   practice: ONBOARDING_PRACTICE_QUESTION,
 };
 
 const caches: Record<OnboardingLineKey, { url: string | null; prefetch: Promise<void> | null }> = {
   student: { url: null, prefetch: null },
+  whyGerman: { url: null, prefetch: null },
   practice: { url: null, prefetch: null },
 };
 
@@ -51,6 +55,7 @@ export async function prefetchAllOnboardingLines(
 ): Promise<void> {
   await Promise.all([
     prefetchCallOnboardingLine("student", provider),
+    prefetchCallOnboardingLine("whyGerman", provider),
     prefetchCallOnboardingLine("practice", provider),
   ]);
 }
@@ -84,11 +89,17 @@ export async function playCallOnboardingLine(
 export const prefetchCallOnboardingStudentQuestion = (provider?: "soniox" | "fish") =>
   prefetchCallOnboardingLine("student", provider);
 
+export const prefetchCallOnboardingWhyQuestion = (provider?: "soniox" | "fish") =>
+  prefetchCallOnboardingLine("whyGerman", provider);
+
 export const prefetchCallOnboardingPracticeQuestion = (provider?: "soniox" | "fish") =>
   prefetchCallOnboardingLine("practice", provider);
 
 export const playCallOnboardingStudentQuestion = (getAudioCtx: () => AudioContext) =>
   playCallOnboardingLine("student", getAudioCtx);
+
+export const playCallOnboardingWhyQuestion = (getAudioCtx: () => AudioContext) =>
+  playCallOnboardingLine("whyGerman", getAudioCtx);
 
 export const playCallOnboardingPracticeQuestion = (getAudioCtx: () => AudioContext) =>
   playCallOnboardingLine("practice", getAudioCtx);

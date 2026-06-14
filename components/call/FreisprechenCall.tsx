@@ -32,9 +32,11 @@ import {
 import {
   playCallOnboardingPracticeQuestion,
   playCallOnboardingStudentQuestion,
+  playCallOnboardingWhyQuestion,
   prefetchAllOnboardingLines,
   prefetchCallOnboardingPracticeQuestion,
   prefetchCallOnboardingStudentQuestion,
+  prefetchCallOnboardingWhyQuestion,
 } from "@/lib/call-onboarding-audio";
 
 // ── Module-level flags ─────────────────────────────────────
@@ -191,6 +193,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const openingRef = useRef<string | null>(null);
   const openingFollowUpRef = useRef<string | null>(null);
+  const openingWhyQuestionRef = useRef<string | null>(null);
   const openingPracticeQuestionRef = useRef<string | null>(null);
   const holdMicDuringIntroRef = useRef(false);
   const mayaSpeechWaiterRef = useRef<(() => void) | null>(null);
@@ -276,6 +279,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         }
         if (data.openingFollowUp) {
           openingFollowUpRef.current = data.openingFollowUp;
+        }
+        if (data.openingWhyQuestion) {
+          openingWhyQuestionRef.current = data.openingWhyQuestion;
         }
         if (data.openingPracticeQuestion) {
           openingPracticeQuestionRef.current = data.openingPracticeQuestion;
@@ -709,7 +715,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
   const speakOnboardingLine = useCallback(async (
     appendMsg: Message,
-    line: "student" | "practice",
+    line: "student" | "whyGerman" | "practice",
     isLastIntroLine: boolean,
   ) => {
     const text = appendMsg.content;
@@ -734,12 +740,16 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     lastTtsTextRef.current = text;
     if (line === "student") {
       void prefetchCallOnboardingStudentQuestion(ttsProviderRef.current);
+    } else if (line === "whyGerman") {
+      void prefetchCallOnboardingWhyQuestion(ttsProviderRef.current);
     } else {
       void prefetchCallOnboardingPracticeQuestion(ttsProviderRef.current);
     }
     const playFn = line === "student"
       ? playCallOnboardingStudentQuestion
-      : playCallOnboardingPracticeQuestion;
+      : line === "whyGerman"
+        ? playCallOnboardingWhyQuestion
+        : playCallOnboardingPracticeQuestion;
     const usedCache = await playFn(getAudioCtx);
     if (usedCache) {
       finishTTSPlaybackRef.current();
@@ -860,23 +870,42 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setMessages(updated);
     messagesRef.current = updated;
 
+    const userReplyCount = updated.filter(m => m.role === "user").length;
+    const assistantReplyCount = updated.filter(m => m.role === "assistant").length;
+
     const isFirstOnboardingReply =
       isOnboardingRef.current
-      && updated.filter(m => m.role === "user").length === 1
-      && updated.filter(m => m.role === "assistant").length === 2;
+      && userReplyCount === 1
+      && assistantReplyCount === 2;
+
+    const isSecondOnboardingReply =
+      isOnboardingRef.current
+      && userReplyCount === 2
+      && assistantReplyCount === 3;
 
     if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
-      const reply = `${englishIntro} Was möchtest du heute üben — Grammatik, Rollenspiel, oder frei quatschen?`;
-      await speakLocal(reply, {
+      await speakLocal(englishIntro, {
         role: "assistant",
-        content: reply,
+        content: englishIntro,
         timestamp: Date.now(),
       });
       return;
     }
 
     if (isFirstOnboardingReply) {
+      const whyQ = openingWhyQuestionRef.current;
+      if (whyQ) {
+        await speakOnboardingLine(
+          { role: "assistant", content: whyQ, timestamp: Date.now() },
+          "whyGerman",
+          true,
+        );
+        return;
+      }
+    }
+
+    if (isSecondOnboardingReply) {
       const practiceQ = openingPracticeQuestionRef.current;
       if (practiceQ) {
         await speakOnboardingLine(
@@ -1307,6 +1336,9 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         if (data?.openingFollowUp) {
           openingFollowUpRef.current = data.openingFollowUp;
         }
+        if (data?.openingWhyQuestion) {
+          openingWhyQuestionRef.current = data.openingWhyQuestion;
+        }
         if (data?.openingPracticeQuestion) {
           openingPracticeQuestionRef.current = data.openingPracticeQuestion;
         }
@@ -1322,7 +1354,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     setCallState("speaking");
 
     const studentQuestion = openingFollowUpRef.current;
-    const practiceQuestion = openingPracticeQuestionRef.current;
     const onboardingIntroChain = isOnboardingRef.current && studentQuestion;
 
     if (onboardingIntroChain) {
