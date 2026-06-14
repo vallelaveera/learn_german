@@ -30,6 +30,9 @@ import {
   prefetchCallBrowserActiveMessage,
 } from "@/lib/call-browser-active-audio";
 import {
+  ONBOARDING_PRACTICE_QUESTION,
+  ONBOARDING_STUDENT_QUESTION,
+  ONBOARDING_WHY_GERMAN_QUESTION,
   playCallOnboardingPracticeQuestion,
   playCallOnboardingStudentQuestion,
   playCallOnboardingWhyQuestion,
@@ -270,6 +273,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         isOnboardingRef.current = !!data.isOnboarding;
         if (data.isOnboarding) {
           void prefetchAllOnboardingLines(ttsProviderRef.current);
+          if (!openingFollowUpRef.current) {
+            openingFollowUpRef.current = ONBOARDING_STUDENT_QUESTION;
+          }
+          if (!openingWhyQuestionRef.current) {
+            openingWhyQuestionRef.current = ONBOARDING_WHY_GERMAN_QUESTION;
+          }
+          if (!openingPracticeQuestionRef.current) {
+            openingPracticeQuestionRef.current = ONBOARDING_PRACTICE_QUESTION;
+          }
         }
         if (data.topics) setTopics(data.topics);
         if (data.usage) setUsage(data.usage);
@@ -586,8 +598,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         void announceNetworkIssue();
       } else {
         setTtsError("Maya konnte nicht sprechen — Verbindung prüfen.");
-        _cm_sending = true;
-        setCallState("speaking");
+        finishTTSPlaybackRef.current();
       }
     }
   }, [playChunk, stopAudio, clearPrewarmTimer, setJetztDu, announceNetworkIssue]);
@@ -759,9 +770,14 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       return;
     }
     await streamTTS(text);
+    await Promise.race([
+      waitForMayaSpeechEnd(),
+      new Promise<void>(resolve => setTimeout(resolve, 45000)),
+    ]);
     if (!isLastIntroLine) {
-      await waitForMayaSpeechEnd();
       _cm_tts_done_fired = false;
+    } else if (_cm_sending && _cm_active) {
+      finishTTSPlaybackRef.current();
     }
   }, [streamTTS, stopAudio, clearPrewarmTimer, setJetztDu, waitForMayaSpeechEnd]);
 
@@ -871,17 +887,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     messagesRef.current = updated;
 
     const userReplyCount = updated.filter(m => m.role === "user").length;
-    const assistantReplyCount = updated.filter(m => m.role === "assistant").length;
+    const assistantTexts = updated.filter(m => m.role === "assistant").map(m => m.content);
+
+    const onboardingStudentAsked = assistantTexts.some(t => t.includes("Student oder berufstätig"));
+    const onboardingWhyAsked = assistantTexts.some(t => t.includes("Warum möchtest du Deutsch lernen"));
+    const onboardingPracticeAsked = assistantTexts.some(t => t.includes("Was möchtest du heute üben"));
 
     const isFirstOnboardingReply =
       isOnboardingRef.current
       && userReplyCount === 1
-      && assistantReplyCount === 2;
+      && onboardingStudentAsked
+      && !onboardingWhyAsked;
 
     const isSecondOnboardingReply =
       isOnboardingRef.current
       && userReplyCount === 2
-      && assistantReplyCount === 3;
+      && onboardingWhyAsked
+      && !onboardingPracticeAsked;
 
     if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
@@ -894,27 +916,23 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     }
 
     if (isFirstOnboardingReply) {
-      const whyQ = openingWhyQuestionRef.current;
-      if (whyQ) {
-        await speakOnboardingLine(
-          { role: "assistant", content: whyQ, timestamp: Date.now() },
-          "whyGerman",
-          true,
-        );
-        return;
-      }
+      const whyQ = openingWhyQuestionRef.current ?? ONBOARDING_WHY_GERMAN_QUESTION;
+      await speakOnboardingLine(
+        { role: "assistant", content: whyQ, timestamp: Date.now() },
+        "whyGerman",
+        true,
+      );
+      return;
     }
 
     if (isSecondOnboardingReply) {
-      const practiceQ = openingPracticeQuestionRef.current;
-      if (practiceQ) {
-        await speakOnboardingLine(
-          { role: "assistant", content: practiceQ, timestamp: Date.now() },
-          "practice",
-          true,
-        );
-        return;
-      }
+      const practiceQ = openingPracticeQuestionRef.current ?? ONBOARDING_PRACTICE_QUESTION;
+      await speakOnboardingLine(
+        { role: "assistant", content: practiceQ, timestamp: Date.now() },
+        "practice",
+        true,
+      );
+      return;
     }
 
     await submitToClaude(updated);
@@ -1353,7 +1371,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     messagesRef.current = [msg];
     setCallState("speaking");
 
-    const studentQuestion = openingFollowUpRef.current;
+    const studentQuestion = openingFollowUpRef.current ?? ONBOARDING_STUDENT_QUESTION;
     const onboardingIntroChain = isOnboardingRef.current && studentQuestion;
 
     if (onboardingIntroChain) {
