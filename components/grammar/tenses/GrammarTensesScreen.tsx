@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Hammer, BookOpen, Wrench, BarChart3 } from "lucide-react";
 import { ExerciseBackLink, ExerciseShell } from "@/components/layout/ExerciseShell";
-import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import type { TenseTab } from "@/lib/tenses/types";
 import { TENSE_LEVELS } from "@/lib/tenses/types";
 import { TENSE_TAB_THEMES } from "@/lib/tenses/theme";
@@ -28,7 +27,6 @@ export function GrammarTensesScreen() {
   const theme = TENSE_TAB_THEMES[tab];
 
   const level = Math.floor(tensesState.xp / 100) + 1;
-  const xpInLevel = tensesState.xp % 100;
 
   const onSpeak = useCallback(async (text: string, _lang?: string) => {
     if (speaking) return;
@@ -66,29 +64,46 @@ export function GrammarTensesScreen() {
       <div style={{ padding: "0 18px 18px", ...tabStyle }}>
         <ExerciseBackLink href="/grammar" label="← Grammatik" />
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div>
-            <p
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: theme.tmid,
-                margin: "0 0 4px",
-              }}
-            >
-              B1–C2 · Zeitformen
-            </p>
-            <h1 className="ui-title-serif" style={{ fontSize: 22, margin: 0, color: theme.tc }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 className="ui-title-serif" style={{ fontSize: 22, margin: "0 0 6px", color: theme.tc }}>
               Zeiten verstehen
             </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: theme.tmid, letterSpacing: "0.04em" }}>
+                LEVEL
+              </span>
+              {TENSE_LEVELS.map(l => {
+                const active = tensesState.level === l;
+                return (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => tensesState.setLevel(l)}
+                    style={{
+                      minHeight: 26,
+                      padding: "2px 9px",
+                      borderRadius: 999,
+                      border: active ? `1.5px solid ${theme.tc}` : `1px solid ${theme.tbd}`,
+                      background: active ? theme.tbg : "#fff",
+                      color: active ? theme.tc : "var(--text-muted)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {l}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div
             style={{
-              minWidth: 44,
-              minHeight: 44,
-              borderRadius: 12,
+              flexShrink: 0,
+              minWidth: 40,
+              minHeight: 40,
+              borderRadius: 10,
               background: theme.tc,
               color: "#fff",
               display: "flex",
@@ -96,36 +111,12 @@ export function GrammarTensesScreen() {
               alignItems: "center",
               justifyContent: "center",
               fontWeight: 800,
-              fontSize: 12,
-              padding: "4px 10px",
+              fontSize: 11,
+              padding: "3px 8px",
             }}
           >
-            <span style={{ fontSize: 10, opacity: 0.85 }}>LVL</span>
+            <span style={{ fontSize: 9, opacity: 0.85 }}>LVL</span>
             {level}
-          </div>
-        </div>
-
-        <SegmentedTabs
-          tabs={TENSE_LEVELS.map(id => ({ id, label: id }))}
-          value={tensesState.level}
-          onChange={tensesState.setLevel}
-        />
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: theme.tmid, marginBottom: 4 }}>
-            <span>{tensesState.xp} XP</span>
-            <span>{xpInLevel}/100</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 999, background: theme.tbg, overflow: "hidden" }}>
-            <div
-              style={{
-                height: "100%",
-                width: `${xpInLevel}%`,
-                background: theme.tc,
-                borderRadius: 999,
-                transition: "width 0.3s ease",
-              }}
-            />
           </div>
         </div>
 

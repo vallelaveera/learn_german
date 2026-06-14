@@ -22,9 +22,31 @@ const ACHIEVEMENTS = [
 
 export function TensesProgressTab({ theme, tenses }: TensesProgressTabProps) {
   const timelineTenses = buildTensesForLevel(tenses.level);
+  const gamifyLevel = Math.floor(tenses.xp / 100) + 1;
+  const xpInLevel = tenses.xp % 100;
+  const xpBarPct = xpInLevel === 0 && tenses.xp > 0 ? 100 : xpInLevel;
+  const xpBarLabel = xpInLevel === 0 && tenses.xp > 0 ? 100 : xpInLevel;
 
   return (
     <div>
+      <div className="ui-card" style={{ padding: "12px 14px", marginBottom: 16, border: `1px solid ${theme.tbd}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: theme.tmid, marginBottom: 6 }}>
+          <span>{tenses.xp} XP · Lvl {gamifyLevel}</span>
+          <span>{xpBarLabel}/100</span>
+        </div>
+        <div style={{ height: 6, borderRadius: 999, background: theme.tbg, overflow: "hidden" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${xpBarPct}%`,
+              background: theme.tc,
+              borderRadius: 999,
+              transition: "width 0.3s ease",
+            }}
+          />
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
         {[
           { label: "Accuracy", value: `${tenses.accuracy}%` },
