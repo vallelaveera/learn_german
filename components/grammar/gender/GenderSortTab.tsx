@@ -6,6 +6,7 @@ import type { GenderArticle, GenderNoun } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
 import type { GenderTabTheme } from "@/lib/gender/theme";
 import type { UseGermanGenderReturn } from "@/hooks/useGermanGender";
+import { GenderArticleTabs } from "./GenderArticleTabs";
 
 interface GenderSortTabProps {
   theme: GenderTabTheme;
@@ -99,8 +100,24 @@ export function GenderSortTab({ theme, gender }: GenderSortTabProps) {
     ? available.filter(w => w.article === activeArticle && !locked[w.id]).length
     : 0;
 
+  const goToStep = (article: GenderArticle) => {
+    const idx = ARTICLE_STEPS.indexOf(article);
+    if (idx > stepIdx) return;
+    setStepIdx(idx);
+    setPicked(new Set());
+    setBucketChecked(false);
+    setFeedback({});
+  };
+
   return (
     <div>
+      <GenderArticleTabs
+        value={activeArticle}
+        onChange={goToStep}
+        inactiveBorder={theme.tbd}
+        disabled={ARTICLE_STEPS.slice(stepIdx + 1)}
+      />
+
       <p style={{ fontSize: 12, color: theme.tmid, margin: "0 0 12px", lineHeight: 1.5 }}>
         Schritt {stepIdx + 1}/3 — wähle alle{" "}
         <strong style={{ color: activeColor }}>{activeArticle}</strong>-Wörter, dann prüfen. +10 XP pro
