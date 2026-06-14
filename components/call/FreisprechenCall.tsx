@@ -54,7 +54,7 @@ const SILENCE_THRESHOLD = 30; // below this = silence
 const SPEECH_FRAMES_MIN = 12; // ~200ms sustained speech before accepting STT
 const SILENCE_DURATION_ENDPOINT = 2000; // ~2 s silence → auto-send
 const SILENCE_DURATION_FALLBACK = 2000;
-const INCOMPLETE_EXTRA_WAIT = 1200; // extra wait when text looks cut off
+const INCOMPLETE_EXTRA_WAIT = 800; // short grace when text looks cut off (after endpoint, use 600 in tryCommitTurn)
 const MANUAL_SEND_FALLBACK_MS = 500; // show Senden only if auto-send did not fire
 const MIC_WARMUP_MS = 1000; // wait before allowing silence detection
 const MAX_USER_TURN_MS = 120_000; // end forgotten calls (mic open, no speech) after 2 minutes
@@ -73,10 +73,32 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
 const looksIncomplete = (text: string) => {
   const t = text.trim();
   if (!t) return true;
-  if (/\s[a-zäöüßA-ZÄÖÜ]$/i.test(t)) return true;
-  const last = t.split(/\s+/).pop() ?? "";
+  // Trailing space + single letter = word cut off mid-STT
+  if (/\s[a-zäöüß]$/i.test(t)) return true;
+  const last = t.split(/\s+/).pop()?.replace(/[.!?,…:;]+$/g, "") ?? "";
   if (last.length === 1 && !/[.!?]$/.test(t)) return true;
   return false;
+};
+
+/** Start Maya TTS as soon as the streamed reply has a complete spoken line. */
+function tryStartEarlyStreamTts(
+  fullText: string,
+  provider: "soniox" | "fish",
+  started: { done: boolean; text: string; promise: Promise<void> | null },
+  streamTts: (text: string) => Promise<void>,
+) {
+  if (started.done || !fullText.trim()) return;
+  const parsed = parseTutorResponse(fullText);
+  let german = parsed.german.trim();
+  if (german.length < 8) return;
+  const hintStarted = fullText.includes("💡");
+  const utteranceDone = /[.!?]$/.test(german) || hintStarted || fullText.includes("\n");
+  if (!utteranceDone) return;
+  if (provider === "fish") german = prepareFishTTS(german);
+  if (!german.trim()) return;
+  started.done = true;
+  started.text = german;
+  started.promise = streamTts(german);
 };
 
 const pickConfirmPhrase = (text: string) => {
@@ -822,6 +844,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       const decoder = new TextDecoder();
       let fullText = "";
       let buf = "";
+      const earlyTts = { done: false, text: "", promise: null as Promise<void> | null };
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -834,7 +857,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
           if (data === "[DONE]") continue;
           try {
             const p = JSON.parse(data);
-            if (p.type === "content_block_delta" && p.delta?.type === "text_delta") fullText += p.delta.text;
+            if (p.type === "content_block_delta" && p.delta?.type === "text_delta") {
+              fullText += p.delta.text;
+              tryStartEarlyStreamTts(fullText, ttsProviderRef.current, earlyTts, streamTTS);
+            }
           } catch {}
         }
       }
@@ -860,7 +886,15 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       const withAssistant = [...withCorrection, assistantMsg];
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
-      await streamTTS(german);
+
+      const spoken = german.trim();
+      const earlySpoken = earlyTts.text.trim();
+      if (earlyTts.promise && (spoken === earlySpoken || spoken.startsWith(earlySpoken))) {
+        await earlyTts.promise;
+      } else {
+        if (earlyTts.promise) stopAudio();
+        await streamTTS(german);
+      }
     } catch (err) {
       _cm_sending = false;
       if (isLikelyNetworkError(err) || isBrowserOffline()) {
@@ -869,10 +903,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         restartMicRef.current();
       }
     }
-  }, [streamTTS, sessionId, sessionStart, setJetztDu, announceNetworkIssue]);
+  }, [streamTTS, stopAudio, sessionId, sessionStart, setJetztDu, announceNetworkIssue]);
 
   const sendToTutor = useCallback(async (text: string, audioBlob?: Blob | null) => {
-    if (!text.trim() || _cm_sending) return;
+    if (!text.trim()) return;
     setShowJetztDuNudge(false);
     setShowMayaReplyNudge(true);
     setLiveText("");
@@ -1021,11 +1055,12 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
 
     if (!force && looksIncomplete(text)) {
       clearSilenceTimer();
+      const extraWait = sttEndpointRef.current ? 600 : INCOMPLETE_EXTRA_WAIT;
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
-        void tryCommitTurnRef.current();
+        void tryCommitTurnRef.current(true);
         scheduleManualSendButton();
-      }, sttEndpointRef.current ? SILENCE_DURATION_ENDPOINT : INCOMPLETE_EXTRA_WAIT);
+      }, extraWait);
       return;
     }
 
@@ -1035,6 +1070,10 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     nonFinalRef.current = "";
     sttEndpointRef.current = false;
     clearSilenceTimer();
+    setCallState("thinking");
+    setJetztDu(false);
+    setShowMayaReplyNudge(true);
+    _cm_sending = true;
     const audioBlob = await stopRef.current();
     micLiveRef.current = false;
     micPrewarmedRef.current = false;
