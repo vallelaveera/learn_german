@@ -1,0 +1,538 @@
+{
+  "meta": {
+    "version": 1,
+    "title": "German Grammar Curriculum (Verified)",
+    "description": "CEFR A1–C1 grammar by category with verified exercises",
+    "generatedAt": "2026-06-12"
+  },
+  "A1": {
+    "derDieDas": {
+      "basic": [
+        "Jedes Nomen hat ein Geschlecht: der (mask.), die (fem.), das (neut.)",
+        "Nominativ = Wer? Was? — Subjekt im Satz",
+        "Bestimmte Artikel: der Mann, die Frau, das Kind",
+        "Unbestimmte Artikel: ein Mann, eine Frau, ein Kind"
+      ],
+      "advanced": [
+        "Merksätze für Endungen: -ung, -heit, -keit → meist die",
+        "Diminutive -chen, -lein → immer das",
+        "Berufe nach sein ohne Artikel: Ich bin Arzt (nicht: ein Arzt)"
+      ],
+      "typicalMistakes": [
+        "Englisch hat kein Genus — der/die/das muss pro Nomen gelernt werden",
+        "Ich bin ein Arzt — grammatisch möglich, aber unnatürlich im Deutschen"
+      ],
+      "exercises": [
+        "FLASHCARD: 'der Mann' → 'the man'",
+        "FILL-BLANK: '___ Frau liest.' → 'Die'",
+        "FILL-BLANK: 'Das ist ___ Kind.' → 'ein'",
+        "SENTENCE-BUILD: 'Das ist mein Haus.' → [Das / ist / mein / Haus]"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "gender_global",
+        "curriculumIds": ["a1-004"],
+        "notes": "Gender trainer + Artikel Nominativ"
+      }
+    },
+    "cases": {
+      "basic": [
+        "Nominativ — Wer? Was? Subjekt: Der Mann schläft.",
+        "Akkusativ — Wen? Was? direktes Objekt: Ich sehe den Mann.",
+        "Nur der → den im Akkusativ; die/das bleiben gleich",
+        "Unbestimmt: ein → einen (mask.), eine/ein bleiben"
+      ],
+      "advanced": [
+        "Transitive Verben brauchen Akkusativ: sehen, kaufen, haben, essen",
+        "Beruf nach sein: Ich bin Arzt — kein Artikel",
+        "Ich bin Lehrerin. / Er ist Student. — Nominativ, null Artikel"
+      ],
+      "typicalMistakes": [
+        "Ich sehe der Mann → falsch; richtig: Ich sehe den Mann",
+        "Ich bin ein Arzt → unnatürlich; richtig: Ich bin Arzt"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich sehe ___ Mann.' → 'den'",
+        "FILL-BLANK: 'Sie kauft ___ Apfel.' → 'einen'",
+        "FILL-BLANK: 'Das ist ___ Frau.' → 'die'",
+        "MULTIPLE-CHOICE: 'Ich bin ___ Arzt.' → 'Arzt' (options: ein Arzt, Arzt, der Arzt)",
+        "FILL-BLANK: 'Er liest ___ Buch.' → 'ein'",
+        "SENTENCE-BUILD: 'Ich sehe den Hund.' → [Ich / sehe / den / Hund]"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "a1-cases",
+        "notes": "Nominativ + Akkusativ Einführung"
+      }
+    },
+    "tenses": {
+      "basic": [
+        "Präsens = Gegenwart: Ich lerne Deutsch.",
+        "Regelmäßige Verben: -e, -st, -t, -en, -t, -en",
+        "sein: bin, bist, ist, sind, seid, sind",
+        "haben: habe, hast, hat, haben, habt, haben"
+      ],
+      "advanced": [
+        "Stammvokalwechsel: lesen → du liest, er liest",
+        "Verben auf -eln/-ern: wandern → du wanderst",
+        "Zeitangaben mit Präsens: jeden Tag, oft, manchmal"
+      ],
+      "typicalMistakes": [
+        "Ich spielst → falsch; richtig: Ich spiele",
+        "Du spielt → falsch; richtig: Du spielst"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich ___ Deutsch.' → 'lerne'",
+        "FILL-BLANK: 'Du ___ müde.' → 'bist'",
+        "FILL-BLANK: 'Er ___ ein Auto.' → 'hat'",
+        "FILL-BLANK: 'Wir ___ in Berlin.' → 'wohnen'",
+        "FILL-BLANK: 'Sie ___ Tennis.' → 'spielt'",
+        "MULTIPLE-CHOICE: 'Ich ___ Student.' → 'bin' (options: bin, bist, ist)"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "a1-tenses",
+        "curriculumIds": ["a1-002", "a1-003", "a1-005"],
+        "notes": "Präsens — vollständige Konjugation"
+      }
+    },
+    "prepositions": {
+      "basic": [
+        "in + Dativ (Ort): Ich bin in der Stadt.",
+        "mit + Dativ: Ich fahre mit dem Bus.",
+        "für + Akkusativ: Das ist für dich."
+      ],
+      "advanced": [
+        "aus + Dativ (Herkunft): Ich komme aus Deutschland.",
+        "zu + Dativ (Richtung Person/Ort): Ich gehe zu meiner Mutter."
+      ],
+      "typicalMistakes": [
+        "mit der Bus → falsch; richtig: mit dem Bus",
+        "für der Mann → falsch; richtig: für den Mann"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich fahre mit ___ Bus.' → 'dem'",
+        "FILL-BLANK: 'Das Geschenk ist für ___.' → 'dich'"
+      ],
+      "appCoverage": {
+        "status": "PARTIAL",
+        "notes": "Grundpräpositionen in Lernmodul"
+      }
+    }
+  },
+  "A2": {
+    "derDieDas": {
+      "basic": [
+        "Artikel im Akkusativ: den Mann, die Frau, das Kind",
+        "Artikel im Dativ: dem Mann, der Frau, dem Kind",
+        "Plural: die Kinder (alle Fälle außer Dat Pl.)"
+      ],
+      "advanced": [
+        "Possessivartikel folgen ein-Deklination: mein, dein, sein…",
+        "Negation kein dekliniert wie ein: keinen, keinem"
+      ],
+      "typicalMistakes": [
+        "Ich gebe der Mann → dem Mann",
+        "mit die Frau → mit der Frau"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich sehe ___ Mann.' → 'den'",
+        "FILL-BLANK: 'mit ___ Frau' → 'der'"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "gender_global",
+        "curriculumIds": ["a2-003", "a2-004"]
+      }
+    },
+    "cases": {
+      "basic": [
+        "Dativ — Wem? indirektes Objekt: Ich gebe dem Mann das Buch.",
+        "Dativ nach: mit, von, aus, bei, nach, seit, zu, aus",
+        "Wechselpräpositionen brauchen Satzkontext (Verb!) für den Fall"
+      ],
+      "advanced": [
+        "Dativ vor Akkusativ (beide Objekte): Ich gebe dem Kind den Ball.",
+        "Personalpronomen Dativ: mir, dir, ihm, ihr, uns, euch, ihnen",
+        "n-Deklination: dem Studenten, den Studenten (nicht: dem Student)"
+      ],
+      "typicalMistakes": [
+        "Ich helfe den Freund → dem Freund",
+        "mit der Auto → mit dem Auto",
+        "den Student → den Studenten"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich gebe ___ Mann das Buch.' → 'dem'",
+        "FILL-BLANK: 'Ich fahre mit ___ Bus.' → 'dem'",
+        "FILL-BLANK: 'Das Buch gehört ___ Frau.' → 'der'",
+        "FILL-BLANK: 'Ich helfe ___ Studenten.' → 'dem'",
+        "MULTIPLE-CHOICE: 'Ich kaufe ___ Kollegen ein Geschenk.' → 'dem' (options: den, dem, der)",
+        "FILL-BLANK: 'Das Buch liegt auf ___ Tisch.' → 'dem'"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "a2-cases",
+        "curriculumIds": ["a2-004"],
+        "notes": "Dativ Einführung"
+      }
+    },
+    "tenses": {
+      "basic": [
+        "Perfekt = haben/sein + Partizip II: Ich habe gegessen.",
+        "Bewegung/Zustandswechsel → sein: Ich bin gefahren.",
+        "Präteritum (Schrift): ich war, ich hatte, ich ging"
+      ],
+      "advanced": [
+        "Partizip II: ge-…-t (reg.), ge-…-en (unreg.)",
+        "seit + Zeitraum → immer Präsens (nicht Perfekt!)",
+        "Ich lerne seit drei Jahren Deutsch. (nicht: habe gelernt)"
+      ],
+      "typicalMistakes": [
+        "Ich bin gegessen → Ich habe gegessen",
+        "Ich lerne seit 2020. ✅ — Ich habe seit 2020 gelernt. ❌"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich ___ gestern Pizza ___.' → 'habe / gegessen'",
+        "FILL-BLANK: 'Er ___ nach Berlin ___.' → 'ist / gefahren'",
+        "FILL-BLANK: 'Wir ___ im Park ___.' → 'haben / gespielt'",
+        "FILL-BLANK: 'Als Kind ___ ich viel ___.' → 'habe / gelesen'",
+        "MULTIPLE-CHOICE: 'Ich ___ seit zwei Jahren Deutsch.' → 'lerne' (options: lerne, habe gelernt, lernte)",
+        "FILL-BLANK: 'Gestern ___ ich müde.' → 'war'"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "a2-tenses",
+        "curriculumIds": ["a2-001"],
+        "notes": "Perfekt + Präteritum Grundlagen"
+      }
+    },
+    "prepositions": {
+      "basic": [
+        "Wechselpräpositionen: an, auf, in, über, unter, vor, hinter, neben, zwischen",
+        "Wo? (Ort) → Dativ; Wohin? (Richtung) → Akkusativ",
+        "Immer mit Verb im Satz: liegen/stehen = Dativ; legen/stellen = Akkusativ"
+      ],
+      "advanced": [
+        "⚠️ CONTEXT FLAG: Das Buch liegt auf dem Tisch. (Dativ — liegen)",
+        "⚠️ CONTEXT FLAG: Leg das Buch auf den Tisch. (Akk — legen)"
+      ],
+      "typicalMistakes": [
+        "Präposition allein ohne Verb — Fall nicht bestimmbar",
+        "in die Haus → ins Haus / in das Haus"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Das Buch liegt auf ___ Tisch.' → 'dem'",
+        "FILL-BLANK: 'Leg das Buch auf ___ Tisch.' → 'den'",
+        "FILL-BLANK: 'Ich stelle die Vase auf ___ Regal.' → 'das'",
+        "FILL-BLANK: 'Die Lampe hängt über ___ Sofa.' → 'dem'"
+      ],
+      "appCoverage": {
+        "status": "PARTIAL",
+        "notes": "Wechselpräpositionen mit Satzkontext"
+      }
+    }
+  },
+  "B1": {
+    "derDieDas": {
+      "basic": [
+        "Genitiv: des Mannes, der Frau, des Kindes",
+        "Adjektivdeklination Typ 1 (schwach): der gute Mann",
+        "Adjektivdeklination Typ 2 (gemischt): ein guter Mann"
+      ],
+      "advanced": [
+        "Adjektivdeklination Typ 3 (stark): guter Mann, gute Frau",
+        "n-Deklination: des Studenten, des Menschen",
+        "Genitiv-s bei Namen: Peters Auto"
+      ],
+      "typicalMistakes": [
+        "des Studentes → des Studenten",
+        "ein guter Mann vs. der gute Mann — Endungen unterscheiden"
+      ],
+      "exercises": [
+        "FILL-BLANK: '___ gute Mann kommt.' → 'Der'",
+        "FILL-BLANK: 'Ich kaufe ___ guten Wein.' → 'einen'",
+        "FILL-BLANK: 'Trotz ___ schlechten Wetters gehen wir.' → 'des'"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "gender_global",
+        "curriculumIds": ["b1-002"]
+      }
+    },
+    "cases": {
+      "basic": [
+        "Genitiv — Wessen? des Mannes, der Frau",
+        "Genitiv nach: wegen, trotz, während, statt",
+        "Relativpronomen: der/die/das → den/dem/der"
+      ],
+      "advanced": [
+        "wegen des Wetters (Schrift) vs. wegen dem Wetter (Umgangssprache)",
+        "Relativsätze: Der Mann, den ich sehe…",
+        "Passiv Präsens: Das Haus wird gebaut."
+      ],
+      "typicalMistakes": [
+        "wegen dem Wetter in formeller Schrift vermeiden",
+        "Relativpronomen Genitiv: dessen, deren"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Wegen ___ Regens bleiben wir zu Hause.' → 'des'",
+        "FILL-BLANK: 'Der Mann, ___ ich helfe, ist nett.' → 'dem'",
+        "FILL-BLANK: 'Das Fenster ___ geöffnet.' → 'wird'"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "cases_portals_B1plus",
+        "notes": "Erweitern, nicht ersetzen"
+      }
+    },
+    "tenses": {
+      "basic": [
+        "Plusquamperfekt: hatte/war + Partizip II",
+        "Futur I: werde + Infinitiv",
+        "Konjunktiv II: würde + Infinitiv / wäre, hätte"
+      ],
+      "advanced": [
+        "Passiv Perfekt: ist gebaut worden (sein, nicht haben!)",
+        "Doppelinfinitiv: Er hat kommen wollen (nicht: kommen gewollt)",
+        "seit → Präsens auch auf B1"
+      ],
+      "typicalMistakes": [
+        "Das Haus hat gebaut worden → ist gebaut worden",
+        "Er hat kommen gewollt → Er hat kommen wollen"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Das Buch ___ geschrieben ___.' → 'ist / worden'",
+        "FILL-BLANK: 'Er ___ nach Hause gehen ___.' → 'hat / wollen'",
+        "MULTIPLE-CHOICE: 'Ich ___ seit 2020 hier.' → 'wohne' (options: wohne, habe gewohnt, würde wohnen)"
+      ],
+      "appCoverage": {
+        "status": "EXISTS",
+        "trainerId": "tenses_B1plus",
+        "notes": "Erweitern, nicht ersetzen"
+      }
+    },
+    "prepositions": {
+      "basic": [
+        "Verb + Präposition: warten auf + Akk, denken an + Akk",
+        "Pronominaladverbien: darauf, daran, worauf, woran",
+        "da-/wo- + Präposition: darauf (auf), daran (an), darüber (über)"
+      ],
+      "advanced": [
+        "Vokal-Anlaut: -r- Einfügung: darauf, darüber, woran (nicht: daauf)",
+        "Fragewort: Worauf wartest du? — Auf den Bus.",
+        "Genitivpräpositionen: wegen, trotz, während, statt"
+      ],
+      "typicalMistakes": [
+        "Ich warte auf dem Bus → auf den Bus",
+        "daauf, woan → darauf, woran"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Ich warte ___ den Bus.' → 'auf'",
+        "FILL-BLANK: 'Worauf wartest du? — Ich warte ___ .' → 'darauf'",
+        "FILL-BLANK: 'Er denkt oft ___ seine Familie.' → 'an'",
+        "MULTIPLE-CHOICE: 'Wovon erzählst du?' → 'Davon erzähle ich.' (options: Daüber erzähle ich., Davon erzähle ich., Daan erzähle ich.)"
+      ],
+      "appCoverage": {
+        "status": "PARTIAL",
+        "trainerId": "b1-prepositions",
+        "notes": "Verb+Präposition + Pronominaladverbien"
+      }
+    }
+  },
+  "B2": {
+    "derDieDas": {
+      "basic": [
+        "Partizipialattribute: die von der Regierung beschlossene Reform",
+        "Wortstellung: Artikel + Partizipialphrase + Nomen",
+        "Erweiterte Adjektivdeklination in Nominalphrasen"
+      ],
+      "advanced": [
+        "Nominalisierte Adjektive: das Gute, das Schöne",
+        "Funktionsverbgefüge: zur Verfügung stellen",
+        "Komposita und Fugen-s: Arbeitsplatz, Lieblingsfarbe"
+      ],
+      "typicalMistakes": [
+        "die Reform, von der Regierung beschlossene → die von der Regierung beschlossene Reform",
+        "Partizipialphrase nach dem Nomen — falsch im Deutschen"
+      ],
+      "exercises": [
+        "SENTENCE-BUILD: 'die von der Regierung beschlossene Reform' → [die / von / der / Regierung / beschlossene / Reform]",
+        "FILL-BLANK: 'Das ist ___ interessante Buch.' → 'ein'"
+      ],
+      "appCoverage": {
+        "status": "MISSING",
+        "notes": "B2 Artikel/Adjektiv — noch kein dedizierter Trainer"
+      }
+    },
+    "cases": {
+      "basic": [
+        "Passiv: Vorgangspassiv werden + Partizip II",
+        "Zustandspassiv sein + Partizip II (ohne worden!)",
+        "Konjunktiv I in indirekter Rede"
+      ],
+      "advanced": [
+        "KI-Ersatz durch KII wenn identisch mit Indikativ: sie gehen → sie gingen",
+        "Vorgangspassiv Perfekt: ist geöffnet worden",
+        "Zustandspassiv: ist geöffnet (kein worden)"
+      ],
+      "typicalMistakes": [
+        "Zustandspassiv mit worden: ist geöffnet worden → nur Vorgangspassiv Perfekt",
+        "KI ohne Ersatzregel: sie gehen (Indirekte Rede) → sie gingen"
+      ],
+      "exercises": [
+        "MULTIPLE-CHOICE: 'Das Fenster ___ geöffnet.' (Zustand) → 'ist' (options: ist, wird, ist worden)",
+        "MULTIPLE-CHOICE: 'Das Fenster ___ geöffnet worden.' (Vorgang Perfekt) → 'ist'",
+        "MULTIPLE-CHOICE: 'Er sagte, sie ___ nach Hause.' (KI=Indik.) → 'gingen' (options: gehen, gingen, würden gehen)"
+      ],
+      "appCoverage": {
+        "status": "PARTIAL",
+        "trainerId": "cases_portals_B1plus",
+        "notes": "Passiv + Konjunktiv I in Cases-Trainer erweitern"
+      }
+    },
+    "tenses": {
+      "basic": [
+        "Futur II: werde + Partizip II + haben/sein",
+        "Konjunktiv II Vergangenheit: hätte/wäre + Partizip II",
+        "Temporalsätze: als vs. wenn"
+      ],
+      "advanced": [
+        "als = einmaliger vergangener Zeitpunkt: Als ich ein Kind war…",
+        "wenn = wiederholt oder Gegenwart/Zukunft: Wenn ich Hunger habe…",
+        "Doppelinfinitiv im Perfekt: hat … lassen / sehen / hören"
+      ],
+      "typicalMistakes": [
+        "Wenn ich ein Kind war → Als ich ein Kind war",
+        "Er hat das machen gelassen → Er hat das machen lassen"
+      ],
+      "exercises": [
+        "MULTIPLE-CHOICE: '___ ich ein Kind war, spielte ich viel.' → 'Als' (options: Als, Wenn, Wann)",
+        "MULTIPLE-CHOICE: '___ ich Hunger habe, esse ich.' → 'Wenn' (options: Als, Wenn, Ob)",
+        "FILL-BLANK: 'Er hat das Auto reparieren ___.' → 'lassen'"
+      ],
+      "appCoverage": {
+        "status": "PARTIAL",
+        "trainerId": "tenses_B1plus",
+        "notes": "als/wenn + Futur II erweitern"
+      }
+    },
+    "prepositions": {
+      "basic": [
+        "Genitivpräpositionen in formeller Sprache: angesichts, aufgrund, mittels",
+        "Präpositionale Ausdrücke: im Laufe, zum Teil, in Bezug auf",
+        "Rektion bei Nominalisierungen"
+      ],
+      "advanced": [
+        "Stilistische Variation: trotz / ungeachtet / unbeschadet",
+        "Präposition + Genitiv in Behördensprache",
+        "Feste Verbindungen: in Anbetracht der Tatsache"
+      ],
+      "typicalMistakes": [
+        "wegen dem in formellen Texten vermeiden",
+        "Genitiv nach trotz: trotz des Regens"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Aufgrund ___ schlechten Wetters fällt das Spiel aus.' → 'des'",
+        "FILL-BLANK: 'In Bezug ___ Ihre Anfrage…' → 'auf'"
+      ],
+      "appCoverage": {
+        "status": "MISSING",
+        "notes": "B2 Präpositionen — Lernmodul"
+      }
+    }
+  },
+  "C1": {
+    "derDieDas": {
+      "basic": [
+        "Stilistische Artikelwahl: null vs. bestimmt",
+        "Generic article use: Der Mensch ist sterblich.",
+        "Funktionsverbgefüge und Artikelgebrauch"
+      ],
+      "advanced": [
+        "Nominalstil vs. Verbalstil: die Durchführung vs. durchführen",
+        "Komplexe Nominalphrasen mit Genitivketten",
+        "Textsortenspezifischer Artikelgebrauch"
+      ],
+      "typicalMistakes": [
+        "Überflüssige Artikel in wissenschaftlichem Stil",
+        "Falscher Genus bei Fremdwörtern — im Wörterbuch prüfen"
+      ],
+      "exercises": [
+        "MULTIPLE-CHOICE: '___ Mensch ist sterblich.' → 'Der' (options: Der, Ein, —)",
+        "FILL-BLANK: 'Die ___ der Studie zeigt…' → 'Ergebnisse'"
+      ],
+      "appCoverage": {
+        "status": "MISSING"
+      }
+    },
+    "cases": {
+      "basic": [
+        "Konjunktiv I in der Indirekten Rede — vollständige Ersatzregel",
+        "Partizipialkonstruktionen statt Relativsätze",
+        "Appositionen und Kasusabstimmung"
+      ],
+      "advanced": [
+        "KI-Ersatz systematisch: jede Person prüfen gegen Indikativ",
+        "Genitiv als stilistisches Mittel",
+        "Erweiterte Partizipialattribute mit Präposition"
+      ],
+      "typicalMistakes": [
+        "KI ohne Substitution bei gleicher Form",
+        "Genitiv vermeiden → stilistisch schwach auf C1"
+      ],
+      "exercises": [
+        "MULTIPLE-CHOICE: 'Sie sagte, er ___ morgen.' (KI≠Ind.) → 'komme' (options: kommt, komme, käme)",
+        "MULTIPLE-CHOICE: 'Sie sagte, sie ___ pünktlich.' (KI=Ind.) → 'wären' (options: seien, wären, sind)"
+      ],
+      "appCoverage": {
+        "status": "MISSING"
+      }
+    },
+    "tenses": {
+      "basic": [
+        "Tempusfolge in Nebensätzen (Indirekte Rede)",
+        "Plusquamperfekt in literarischen Texten",
+        "Modalpartikeln und Tempus: doch, ja, halt"
+      ],
+      "advanced": [
+        "Futur I für Vermutung: Er wird krank sein.",
+        "Historisches Präsens in Erzählungen",
+        "Tempus in wissenschaftlichen Texten: Präsens für allgemeine Aussagen"
+      ],
+      "typicalMistakes": [
+        "Tempuswechsel ohne Grund in formellen Texten",
+        "Konjunktiv I Vergangenheit: habe … gehabt vs. hätte … gehabt"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Er behauptete, er ___ nichts davon ___.' → 'habe / gewusst'",
+        "MULTIPLE-CHOICE: 'Damals ___ er oft hier.' → 'war' (options: war, ist, wäre)"
+      ],
+      "appCoverage": {
+        "status": "MISSING"
+      }
+    },
+    "prepositions": {
+      "basic": [
+        "Gehobene Präpositionen: kraft, laut, gemäß, entsprechend + Genitiv",
+        "Präpositionale Wendungen in der Wissenschaftssprache",
+        "Präposition vs. Adverb: im Gegensatz dazu"
+      ],
+      "advanced": [
+        "Stilistische Präpositionswahl in Textsorten",
+        "Präpositionen in festen Redewendungen",
+        "Präpositionale Attribute im Nominalstil"
+      ],
+      "typicalMistakes": [
+        "gemäß dem Gesetz → gemäß dem Gesetz (Dat.) vs. gemäß des Gesetzes (Gen.) — Register beachten",
+        "Falsche Präposition in festen Verbindungen"
+      ],
+      "exercises": [
+        "FILL-BLANK: 'Gemäß ___ Vertrag…' → 'des'",
+        "FILL-BLANK: 'Im Gegensatz ___ früher…' → 'zu'"
+      ],
+      "appCoverage": {
+        "status": "MISSING"
+      }
+    }
+  }
+}
