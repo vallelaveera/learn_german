@@ -4,21 +4,20 @@ import { v4 as uuidv4 } from "uuid";
 import { useRouter } from "next/navigation";
 import { Message } from "@/lib/types";
 import { parseTutorResponse, attachCorrectionToLastUser, markLastUserGrammarCorrect } from "@/lib/tutor-response";
-import { CallGrammarProgressHud, CallGrammarTurnBadge } from "@/components/call/CallGrammarProgress";
+import { CallGrammarTurnBadge } from "@/components/call/CallGrammarProgress";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
 import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import {
-  getAllGermanVoices,
   getGermanFemaleVoice,
   initGermanTTS,
   speakGerman,
   stopSpeaking,
   whenGermanSpeechIdle,
 } from "@/lib/tts/german-tts";
-import styles from "@/app/call/call.module.css";
 
-type CallState = "idle" | "listening" | "thinking" | "speaking";
+type Phase = "idle" | "active";
+type CallState = "listening" | "thinking" | "speaking";
 
 type BrowserSpeechRecognition = {
   lang: string;
@@ -27,12 +26,23 @@ type BrowserSpeechRecognition = {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  onresult: ((event: { results: { [index: number]: { [index: number]: { transcript: string } } } }) => void) | null;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
 };
 
 type BrowserSpeechRecognitionCtor = new () => BrowserSpeechRecognition;
+
+type SpeechRecognitionResultEvent = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: { transcript: string };
+    };
+  };
+};
 
 declare global {
   interface Window {
@@ -48,183 +58,158 @@ export interface BrowserCallProps {
   grammarId?: string | null;
 }
 
+let _bc_active = false;
 let _isSending = false;
+
+const SILENCE_DURATION_MS = 2000;
 
 function getSpeechRecognitionCtor(): BrowserSpeechRecognitionCtor | null {
   if (typeof window === "undefined") return null;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
+async function ensureMicPermission(): Promise<boolean> {
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+    });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const fallbackOpening = (name?: string) =>
+  name
+    ? `Hallo ${name}! Schön, dass du da bist. Wie geht's dir?`
+    : "Hallo! Schön, dass du da bist. Wie geht's dir?";
+
 export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: BrowserCallProps = {}) {
-  const [callState, setCallState] = useState<CallState>("idle");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [callState, setCallState] = useState<CallState>("listening");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [liveText, setLiveText] = useState("");
+  const [duration, setDuration] = useState(0);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
   const systemPromptRef = useRef<string | undefined>();
   const pendingHomeworkRepsRef = useRef(0);
-  const [user, setUser] = useState<{ name: string; streak: number } | null>(null);
-  const [daysSince, setDaysSince] = useState(0);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceUri, setSelectedVoiceUri] = useState<string | null>(null);
-  const [muted, setMuted] = useState(false);
-  const mutedRef = useRef(false);
+  const [user, setUser] = useState<{ name: string } | null>(null);
+  const [contextReady, setContextReady] = useState(false);
+  const [cachedOpening, setCachedOpening] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sttSupported, setSttSupported] = useState(true);
-  const [ttsSupported, setTtsSupported] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showJetztDuNudge, setShowJetztDuNudge] = useState(false);
+  const [showMayaReplyNudge, setShowMayaReplyNudge] = useState(false);
+
   const pendingEndRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const callStateRef = useRef<CallState>("idle");
-  const conversationActiveRef = useRef(false);
+  const callStateRef = useRef<CallState>("listening");
+  const isMutedRef = useRef(false);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const speechBufferRef = useRef("");
+  const interimRef = useRef("");
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
   const sendToGptRef = useRef<(msgs: Message[]) => Promise<void>>(async () => {});
-  const resumeListeningRef = useRef<() => void>(() => {});
+  const commitTurnRef = useRef<() => void>(() => {});
+  const startListeningRef = useRef<() => void>(() => {});
+  const stopListeningRef = useRef<() => void>(() => {});
+  const endCallRef = useRef<() => void>(() => {});
   const router = useRouter();
-  const finishSessionRef = useRef<() => void>(() => {});
 
   useCallUsageBilling({
     sessionId,
     sessionStart,
-    active: callState !== "idle",
-    onLimitReached: () => finishSessionRef.current(),
+    active: phase === "active",
+    onLimitReached: () => endCallRef.current(),
   });
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
-  useEffect(() => { mutedRef.current = muted; }, [muted]);
-
   useEffect(() => { callStateRef.current = callState; }, [callState]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
-  const resolvedVoice = useCallback((): SpeechSynthesisVoice | null => {
-    if (selectedVoiceUri) {
-      return voices.find(v => v.voiceURI === selectedVoiceUri) ?? getGermanFemaleVoice();
+  useEffect(() => {
+    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, liveText, callState]);
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
-    return getGermanFemaleVoice();
-  }, [selectedVoiceUri, voices]);
+  }, []);
 
-  const resumeListening = useCallback(() => {
-    if (
-      !conversationActiveRef.current
-      || pendingEndRef.current
-      || _isSending
-      || !sttSupported
-      || !recognitionRef.current
-    ) return;
-    if (callStateRef.current === "thinking" || callStateRef.current === "speaking") return;
+  const stopListening = useCallback(() => {
+    clearSilenceTimer();
     try {
-      setCallState("listening");
-      recognitionRef.current.start();
-    } catch {
-      setCallState("idle");
-    }
-  }, [sttSupported]);
+      recognitionRef.current?.stop();
+    } catch {}
+  }, [clearSilenceTimer]);
 
-  useEffect(() => { resumeListeningRef.current = resumeListening; }, [resumeListening]);
+  const startListening = useCallback(() => {
+    if (!_bc_active || _isSending || isMutedRef.current || !recognitionRef.current) return;
+    if (callStateRef.current !== "listening") return;
+    try {
+      recognitionRef.current.start();
+    } catch {}
+  }, []);
+
+  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
+  useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
+
+  const scheduleSilenceSend = useCallback(() => {
+    if (!_bc_active || _isSending || isMutedRef.current) return;
+    clearSilenceTimer();
+    silenceTimerRef.current = setTimeout(() => {
+      silenceTimerRef.current = null;
+      commitTurnRef.current();
+    }, SILENCE_DURATION_MS);
+  }, [clearSilenceTimer]);
 
   const afterMayaSpeech = useCallback(() => {
-    setCallState("idle");
-    resumeListeningRef.current();
+    if (!_bc_active) return;
+    if (pendingEndRef.current) {
+      pendingEndRef.current = false;
+      endCallRef.current();
+      return;
+    }
+    setCallState("listening");
+    setShowJetztDuNudge(true);
+    setShowMayaReplyNudge(false);
+    speechBufferRef.current = "";
+    interimRef.current = "";
+    setLiveText("");
+    startListeningRef.current();
   }, []);
-
-  useEffect(() => {
-    const Recognition = getSpeechRecognitionCtor();
-    setSttSupported(!!Recognition);
-    setTtsSupported(typeof window !== "undefined" && !!window.speechSynthesis);
-
-    void initGermanTTS().then(found => {
-      setVoices(found);
-      const googleDeutsch = found.find(v =>
-        v.name === "Google Deutsch" || v.name.includes("Google Deutsch"),
-      );
-      if (googleDeutsch) setSelectedVoiceUri(googleDeutsch.voiceURI);
-    });
-
-    if (!Recognition) return;
-
-    const recognition = new Recognition();
-    recognition.lang = "de-DE";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onresult = event => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim() ?? "";
-      if (!transcript || _isSending) {
-        setCallState("idle");
-        return;
-      }
-      _isSending = true;
-      const userMsg: Message = { role: "user", content: transcript, timestamp: Date.now() };
-      const updated = [...messagesRef.current, userMsg];
-      setMessages(updated);
-      messagesRef.current = updated;
-      void sendToGptRef.current(updated);
-    };
-
-    recognition.onerror = () => {
-      setCallState("idle");
-    };
-
-    recognition.onend = () => {
-      if (callStateRef.current === "listening" && !_isSending) {
-        setCallState("idle");
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      recognition.abort();
-      recognitionRef.current = null;
-      stopSpeaking();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const contextUrl = buildCallContextUrl({ scenarioId, grammarId });
-    fetch(contextUrl)
-      .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
-      .then(data => {
-        if (!data) return;
-        setSystemPrompt(data.systemPrompt);
-        systemPromptRef.current = data.systemPrompt;
-        if (data.homeworkSummary?.remainingReps != null) {
-          pendingHomeworkRepsRef.current = data.homeworkSummary.remainingReps;
-        }
-        setUser({ name: data.user.name, streak: data.streak ?? 0 });
-        setDaysSince(data.daysSinceLastCall ?? 0);
-        if (data.opening) {
-          const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
-          setMessages([msg]);
-          messagesRef.current = [msg];
-          conversationActiveRef.current = true;
-          if (!mutedRef.current && ttsSupported) {
-            setCallState("speaking");
-            speakGerman(data.opening, resolvedVoice(), 0.9, afterMayaSpeech);
-          } else {
-            resumeListeningRef.current();
-          }
-        }
-      })
-      .catch(console.error);
-  }, [router, scenarioId, grammarId, resolvedVoice, ttsSupported, afterMayaSpeech]);
 
   const speakStreamSentences = useCallback((token: string, state: {
     buffer: string;
     spokenCount: number;
   }) => {
-    if (mutedRef.current || !ttsSupported) return;
     state.buffer += token;
     const speakable = state.buffer.split("💡")[0];
     const sentences = speakable.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [];
     if (sentences.length > state.spokenCount) {
       const newSentences = sentences.slice(state.spokenCount);
-      newSentences.forEach(s => speakGerman(s.trim(), resolvedVoice()));
+      newSentences.forEach(s => speakGerman(s.trim(), voiceRef.current));
       state.spokenCount = sentences.length;
     }
-  }, [resolvedVoice, ttsSupported]);
+  }, []);
 
   const sendToGpt = useCallback(async (msgs: Message[]) => {
     setCallState("thinking");
+    setShowMayaReplyNudge(true);
+    setShowJetztDuNudge(false);
+    stopListeningRef.current();
     stopSpeaking();
 
     try {
@@ -277,11 +262,9 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       const germanSentences = parsed.german.match(/[^.!?]+[.!?]+(\s|$)/g)
         ?? (parsed.german.trim() ? [parsed.german] : []);
       const unspoken = germanSentences.slice(streamState.spokenCount);
-      if (!mutedRef.current && ttsSupported) {
-        unspoken.forEach(s => speakGerman(s.trim(), resolvedVoice()));
-      }
+      unspoken.forEach(s => speakGerman(s.trim(), voiceRef.current));
 
-      if (!mutedRef.current && ttsSupported && (streamState.spokenCount > 0 || unspoken.length > 0)) {
+      if (streamState.spokenCount > 0 || unspoken.length > 0) {
         whenGermanSpeechIdle(afterMayaSpeech);
       } else {
         afterMayaSpeech();
@@ -308,21 +291,195 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       _isSending = false;
     } catch {
       _isSending = false;
-      setCallState("idle");
+      if (_bc_active) afterMayaSpeech();
     }
-  }, [systemPrompt, speakStreamSentences, resolvedVoice, ttsSupported, afterMayaSpeech]);
+  }, [systemPrompt, speakStreamSentences, afterMayaSpeech]);
 
   useEffect(() => { sendToGptRef.current = sendToGpt; }, [sendToGpt]);
 
-  const finishSession = useCallback(() => {
-    if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-    conversationActiveRef.current = false;
+  const commitTurn = useCallback(() => {
+    if (_isSending || !_bc_active || isMutedRef.current) return;
+    const text = (speechBufferRef.current + interimRef.current).replace(/<end>/g, "").trim();
+    if (!text) return;
+
+    speechBufferRef.current = "";
+    interimRef.current = "";
+    setLiveText("");
+    clearSilenceTimer();
+    stopListeningRef.current();
+    _isSending = true;
+
+    const userMsg: Message = { role: "user", content: text, timestamp: Date.now() };
+    const updated = [...messagesRef.current, userMsg];
+    setMessages(updated);
+    messagesRef.current = updated;
+    void sendToGptRef.current(updated);
+  }, [clearSilenceTimer]);
+
+  useEffect(() => { commitTurnRef.current = commitTurn; }, [commitTurn]);
+
+  useEffect(() => {
+    const Recognition = getSpeechRecognitionCtor();
+    setSttSupported(!!Recognition);
+
+    void initGermanTTS().then(() => {
+      voiceRef.current = getGermanFemaleVoice();
+    });
+
+    if (!Recognition) return;
+
+    const recognition = new Recognition();
+    recognition.lang = "de-DE";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = event => {
+      if (!_bc_active || _isSending || isMutedRef.current || callStateRef.current !== "listening") return;
+
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0]?.transcript ?? "";
+        if (event.results[i].isFinal) {
+          speechBufferRef.current += chunk;
+        } else {
+          interim += chunk;
+        }
+      }
+      interimRef.current = interim;
+      setLiveText(speechBufferRef.current + interim);
+      setShowJetztDuNudge(false);
+      scheduleSilenceSend();
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      if (_bc_active) setError("Spracherkennung unterbrochen — bitte erneut versuchen.");
+    };
+
+    recognition.onend = () => {
+      if (
+        _bc_active
+        && callStateRef.current === "listening"
+        && !_isSending
+        && !isMutedRef.current
+      ) {
+        try {
+          recognition.start();
+        } catch {}
+      }
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      _bc_active = false;
+      recognition.abort();
+      recognitionRef.current = null;
+      clearSilenceTimer();
+      stopSpeaking();
+    };
+  }, [scheduleSilenceSend, clearSilenceTimer]);
+
+  useEffect(() => {
+    const contextUrl = buildCallContextUrl({ scenarioId, grammarId });
+    fetch(contextUrl)
+      .then(r => { if (r.status === 401) { router.push("/login"); return null; } return r.json(); })
+      .then(data => {
+        if (!data || data.error) return;
+        if (data.limitReached) {
+          setLimitReached(true);
+          if (data.user) setUser({ name: data.user.name });
+          return;
+        }
+        setUser({ name: data.user.name });
+        systemPromptRef.current = data.systemPrompt;
+        setSystemPrompt(data.systemPrompt);
+        if (data.homeworkSummary?.remainingReps != null) {
+          pendingHomeworkRepsRef.current = data.homeworkSummary.remainingReps;
+        }
+        if (data.opening) {
+          setCachedOpening(data.opening);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setContextReady(true));
+  }, [router, scenarioId, grammarId]);
+
+  const startCall = useCallback(async () => {
+    if (!sttSupported) {
+      setError("Spracherkennung wird in diesem Browser nicht unterstützt.");
+      return;
+    }
+    if (navigator.vibrate) navigator.vibrate(40);
+
+    _bc_active = true;
+    _isSending = true;
+    pendingEndRef.current = false;
+    setError(null);
+    setLiveText("");
+    setDuration(0);
+    speechBufferRef.current = "";
+    interimRef.current = "";
+    isMutedRef.current = false;
+    setIsMuted(false);
+
+    const micOk = await ensureMicPermission();
+    if (!micOk) {
+      _bc_active = false;
+      _isSending = false;
+      setError("Mikrofon-Zugriff nötig — bitte erlauben und erneut starten.");
+      return;
+    }
+
+    await initGermanTTS();
+    voiceRef.current = getGermanFemaleVoice();
+
+    try {
+      if ("wakeLock" in navigator) await (navigator as Navigator & { wakeLock: { request: (t: string) => Promise<unknown> } }).wakeLock.request("screen");
+    } catch {}
+
+    durationRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    setPhase("active");
+
+    let opening = cachedOpening;
+    if (!opening) {
+      try {
+        const r = await fetch(buildCallContextUrl({ scenarioId, grammarId }));
+        const data = await r.json();
+        if (data?.opening) opening = data.opening;
+        if (data?.systemPrompt) {
+          systemPromptRef.current = data.systemPrompt;
+          setSystemPrompt(data.systemPrompt);
+        }
+      } catch {}
+    }
+    if (!opening) opening = fallbackOpening(user?.name);
+
+    const msg: Message = { role: "assistant", content: opening, timestamp: Date.now() };
+    setMessages([msg]);
+    messagesRef.current = [msg];
+    setCallState("speaking");
     _isSending = false;
-    recognitionRef.current?.abort();
+
+    speakGerman(opening, voiceRef.current, 0.9, afterMayaSpeech);
+  }, [sttSupported, cachedOpening, scenarioId, grammarId, user?.name, afterMayaSpeech]);
+
+  const endCall = useCallback(() => {
+    if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+    _bc_active = false;
+    _isSending = false;
+    pendingEndRef.current = false;
+    clearSilenceTimer();
+    stopListeningRef.current();
     stopSpeaking();
-    setCallState("idle");
-    const dur = Math.max(0, Math.round((Date.now() - sessionStart) / 1000));
+    if (durationRef.current) {
+      clearInterval(durationRef.current);
+      durationRef.current = null;
+    }
+
+    const finalDuration = duration;
     const finalMessages = [...messagesRef.current];
+
     if (finalMessages.length > 1) {
       fetch("/api/extract", {
         method: "POST",
@@ -334,227 +491,312 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
           sessionId,
         }),
       }).catch(() => {});
-      onCallEnded?.(finalMessages, dur);
+      onCallEnded?.(finalMessages, finalDuration);
     }
+
+    setPhase("idle");
     setMessages([]);
     messagesRef.current = [];
-  }, [sessionStart, onCallEnded, sessionId]);
+    setLiveText("");
+    setDuration(0);
+    setCallState("listening");
+    setShowJetztDuNudge(false);
+    setShowMayaReplyNudge(false);
+  }, [clearSilenceTimer, sessionStart, sessionId, duration, onCallEnded]);
 
-  useEffect(() => { finishSessionRef.current = finishSession; }, [finishSession]);
+  useEffect(() => { endCallRef.current = endCall; }, [endCall]);
 
-  useEffect(() => {
-    if (callState !== "idle") return;
-    if (pendingEndRef.current) {
-      pendingEndRef.current = false;
-      finishSession();
+  const toggleMute = useCallback(() => {
+    const next = !isMutedRef.current;
+    isMutedRef.current = next;
+    setIsMuted(next);
+    if (next) {
+      clearSilenceTimer();
+      speechBufferRef.current = "";
+      interimRef.current = "";
+      setLiveText("");
+      stopListeningRef.current();
+    } else if (_bc_active && callStateRef.current === "listening") {
+      startListeningRef.current();
     }
-  }, [callState, finishSession]);
+  }, [clearSilenceTimer]);
 
-  const toggleMute = () => {
-    setMuted(prev => {
-      const next = !prev;
-      if (next) stopSpeaking();
-      return next;
-    });
-  };
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  const handleMicButton = () => {
-    if (!sttSupported || !recognitionRef.current) return;
-    if (navigator.vibrate) navigator.vibrate(40);
+  const canCall = contextReady && !limitReached && sttSupported;
 
-    if (callState === "speaking") {
-      stopSpeaking();
-      afterMayaSpeech();
-      return;
-    }
-    if (callState === "listening") {
-      recognitionRef.current.stop();
-      setCallState("idle");
-      return;
-    }
-    if (callState === "thinking") return;
-
-    conversationActiveRef.current = true;
-    try {
-      setCallState("listening");
-      recognitionRef.current.start();
-    } catch {
-      setCallState("idle");
-    }
-  };
-
-  const generateReport = () => {
-    if (callState === "speaking" || callState === "thinking") {
-      pendingEndRef.current = true;
-      stopSpeaking();
-      return;
-    }
-    finishSession();
-  };
-
-  const stateLabel: Record<CallState, string> = {
-    idle: sttSupported ? "Sprich mit Maya — Mikrofon ist bereit" : "Spracherkennung wird in diesem Browser nicht unterstützt",
-    listening: "Sprich jetzt...",
-    thinking: "Maya denkt nach...",
-    speaking: "Maya spricht — tippen zum Überspringen",
-  };
-
-  const bars = Array.from({ length: 7 });
-
-  const rootStyle = embedded
-    ? {
-        flex: 1,
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column" as const,
-        overflow: "hidden",
+  if (phase === "idle") {
+    return (
+      <div style={{
+        flex: embedded ? 1 : undefined,
+        minHeight: embedded ? 0 : "100dvh",
         background: "var(--bg)",
-      }
-    : undefined;
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        paddingTop: "calc(env(safe-area-inset-top,0px) + 24px)",
+        paddingBottom: "calc(env(safe-area-inset-bottom,0px) + 24px)",
+      }}>
+        <p style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 300, color: "var(--text)", marginBottom: 8, textAlign: "center" }}>
+          Maya ruft an{user ? `, ${user.name}` : ""}
+        </p>
+        <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 24, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
+          Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
+        </p>
 
-  return (
-    <div className={embedded ? undefined : styles.page} style={rootStyle}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 16px",
-          borderBottom: "0.5px solid var(--border)",
-          flexShrink: 0,
-        }}
-      >
-        {voices.length > 0 ? (
-          <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 10, color: "var(--text-muted)" }}>
-            Maya&apos;s Stimme
-            <select
-              value={selectedVoiceUri ?? ""}
-              onChange={e => setSelectedVoiceUri(e.target.value || null)}
-              style={{
-                width: "100%",
-                minHeight: 36,
-                borderRadius: 8,
-                border: "0.5px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text)",
-                fontSize: 12,
-                fontFamily: "var(--font-mono)",
-                padding: "4px 8px",
-              }}
-            >
-              <option value="">Google Deutsch (Auto)</option>
-              {voices.map(v => (
-                <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <p style={{ flex: 1, fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
-            Keine deutschen Stimmen gefunden — Standardstimme wird verwendet
+        {!sttSupported && (
+          <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 16, textAlign: "center", maxWidth: 280 }}>
+            Spracherkennung wird in diesem Browser nicht unterstützt
           </p>
         )}
-        <button
-          type="button"
-          onClick={toggleMute}
-          aria-label={muted ? "Stumm aus" : "Stumm"}
-          style={{
-            minWidth: 44,
-            minHeight: 44,
-            borderRadius: 8,
-            border: "0.5px solid var(--border)",
-            background: muted ? "var(--accent-glow)" : "var(--surface)",
-            fontSize: 18,
-            cursor: "pointer",
-          }}
-        >
-          {muted ? "🔇" : "🔊"}
-        </button>
-      </div>
 
-      {embedded && messages.length > 0 && (
-        <div style={{ padding: "8px 18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <CallGrammarProgressHud messages={messages} />
-          {messages.length > 1 && (
-            <button
-              type="button"
-              onClick={generateReport}
-              style={{ minHeight: 44, padding: "8px 14px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 12, fontFamily: "var(--font-mono)", cursor: "pointer", flexShrink: 0 }}
-            >
-              {pendingEndRef.current ? "..." : "Ende"}
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className={styles.avatarRow}>
-        <div className={`${styles.avatar} ${callState === "speaking" ? styles.avatarSpeaking : ""}`}>
-          <span className={styles.avatarInitial}>M</span>
-          {callState === "speaking" && (
-            <div className={styles.speakingRings}>
-              <div className={styles.ring} style={{ animationDelay: "0s" }} />
-              <div className={styles.ring} style={{ animationDelay: "0.4s" }} />
-            </div>
-          )}
-        </div>
-        <div className={styles.avatarInfo}>
-          <div className={styles.avatarName}>Maya{user ? ` · ${user.name}` : ""}</div>
-          <div className={styles.avatarSub}>
-            {user?.streak ? `${user.streak} Tage` : "Deutsche Lehrerin"}
-            {daysSince >= 3 ? ` · ${daysSince}d Pause` : ""}
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.transcript}>
-        {messages.length === 0 && (
-          <div className={styles.emptyState}>
-            <p className={styles.emptyTitle}>Hey{user ? ` ${user.name}` : ""}!</p>
-            <p className={styles.emptyHint}>Tippe den Knopf und sprich Deutsch mit Maya.</p>
-          </div>
+        {contextReady && limitReached && (
+          <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 16, textAlign: "center" }}>
+            Monatslimit erreicht
+          </p>
         )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`${styles.bubble} ${msg.role === "user" ? styles.userBubble : styles.assistantBubble}`}>
-            <div className={styles.bubbleRole}>{msg.role === "user" ? (user?.name ?? "Du") : "Maya"}</div>
-            <p className={styles.bubbleText}>{msg.content.replace(/<end>/g, "").trim()}</p>
-            {msg.role === "user" && <CallGrammarTurnBadge msg={msg} />}
-            {msg.translation && <p className={styles.bubbleHint}>{msg.translation}</p>}
-            <span className={styles.bubbleTime}>
-              {new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
-          </div>
-        ))}
-        {callState === "thinking" && (
-          <div className={`${styles.bubble} ${styles.assistantBubble}`}>
-            <div className={styles.bubbleRole}>Maya</div>
-            <div className={styles.thinkingDots}><span /><span /><span /></div>
-          </div>
-        )}
-      </div>
 
-      <div className={styles.bottom}>
-        <p className={styles.status}>{stateLabel[callState]}</p>
-        <button
-          className={`${styles.callBtn} ${callState === "listening" ? styles.callBtnListening : ""} ${callState === "speaking" ? styles.callBtnSpeaking : ""} ${callState === "thinking" ? styles.callBtnThinking : ""}`}
-          onClick={handleMicButton}
-          disabled={!sttSupported || callState === "thinking"}
-          aria-label="Toggle call"
-        >
-          {callState === "listening" ? (
-            <div className={styles.waveform}>
-              {bars.map((_, i) => <div key={i} className={styles.bar} style={{ animationDelay: `${i * 0.08}s` }} />)}
-            </div>
-          ) : callState === "thinking" ? (
-            <div className={styles.spinner} />
-          ) : callState === "speaking" ? (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
-          ) : (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+        {error && (
+          <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 16, textAlign: "center", maxWidth: 280 }}>{error}</p>
+        )}
+
+        <div style={{ position: "relative", width: 80, height: 80, marginBottom: 32 }}>
+          {!canCall && !limitReached && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute", inset: -5, borderRadius: "50%",
+                border: "3px solid rgba(212,168,67,0.15)",
+                borderTopColor: "var(--accent)",
+                animation: "spin 0.9s linear infinite",
+              }}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => void startCall()}
+            disabled={!canCall}
+            style={{
+              width: 80, height: 80, borderRadius: "50%",
+              background: canCall ? "var(--green)" : limitReached ? "var(--border)" : "var(--surface)",
+              border: canCall ? "none" : "2px solid var(--accent-dim)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: canCall ? "pointer" : "not-allowed",
+              opacity: limitReached ? 0.45 : 1,
+              boxShadow: canCall ? "0 0 0 12px rgba(39,174,96,0.12), 0 0 0 24px rgba(39,174,96,0.06)" : "none",
+              WebkitTapHighlightColor: "transparent",
+              position: "relative",
+            }}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill={canCall ? "white" : limitReached ? "rgba(255,255,255,0.3)" : "var(--accent)"}>
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
             </svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const callControlsBottom = embedded
+    ? "calc(82px + env(safe-area-inset-bottom, 0px))"
+    : "env(safe-area-inset-bottom, 0px)";
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: embedded ? "calc(env(safe-area-inset-top, 0px) + 58px)" : 0,
+        right: 0,
+        bottom: callControlsBottom,
+        left: 0,
+        maxWidth: 390,
+        margin: "0 auto",
+        zIndex: 90,
+        background: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "0.5px solid #e8e0f0", gap: 12, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <div style={{
+            width: 8, height: 8, borderRadius: "50%",
+            background: isMuted && callState === "listening" ? "var(--border)" : callState === "speaking" ? "var(--green)" : callState === "listening" ? "var(--accent)" : "var(--border)",
+            boxShadow: isMuted && callState === "listening" ? "none" : callState === "speaking" ? "0 0 6px rgba(39,174,96,0.6)" : callState === "listening" ? "0 0 6px rgba(212,168,67,0.6)" : "none",
+            flexShrink: 0,
+          }} />
+          <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+            {isMuted && callState === "listening" ? "STUMM" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
+          </span>
+        </div>
+        <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{fmt(duration)}</span>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          margin: "8px 12px 0",
+          borderRadius: 16,
+          background: "var(--surface)",
+          border: "0.5px solid var(--border)",
+          boxShadow: "0 2px 16px rgba(45, 32, 24, 0.05)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{ maxWidth: "85%", alignSelf: msg.role === "user" ? "flex-end" : "flex-start" }}>
+              <div style={{
+                padding: "10px 14px",
+                borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                background: msg.role === "user" ? "linear-gradient(135deg, #7c4daa, #e8643a)" : "#f0ebff",
+                border: `0.5px solid ${msg.role === "user" ? "transparent" : "#ddd5f0"}`,
+              }}>
+                <div style={{ fontSize: 10, color: msg.role === "assistant" ? "var(--accent)" : "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                  {msg.role === "user" ? (user?.name ?? "Du") : "Maya"}
+                </div>
+                <p style={{ fontSize: 14, color: msg.role === "user" ? "#ffffff" : "#2d1f1a", lineHeight: 1.6, margin: 0 }}>
+                  {msg.content.replace(/<end>/g, "").trim()}
+                </p>
+                {msg.role === "user" && <CallGrammarTurnBadge msg={msg} inverted />}
+                {msg.translation && msg.role === "assistant" && (
+                  <p style={{ fontSize: 11, color: "#7c4daa", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>💡 {msg.translation}</p>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {showJetztDuNudge && callState === "listening" && !liveText && (
+            <div style={{ maxWidth: "85%", alignSelf: "flex-start" }}>
+              <div style={{ padding: "8px 14px", borderRadius: 20, background: "rgba(212,168,67,0.14)", border: "1px solid rgba(212,168,67,0.35)" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#7c4daa", margin: 0 }}>Jetzt du — sprich laut</p>
+              </div>
+            </div>
           )}
-        </button>
+
+          {showMayaReplyNudge && callState === "thinking" && (
+            <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
+              <div style={{ padding: "8px 14px", borderRadius: 20, background: "rgba(29,158,117,0.12)", border: "1px solid rgba(29,158,117,0.35)" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#1D9E75", margin: 0 }}>Verstanden — Maya antwortet</p>
+              </div>
+            </div>
+          )}
+
+          {liveText && callState === "listening" && (
+            <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
+              <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, #7c4daa, #e8643a)" }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
+                <p style={{ fontSize: 14, color: "#ffffff", lineHeight: 1.6, margin: 0 }}>
+                  {liveText.replace(/<end>/g, "").trim()}
+                  <span style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.85)", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-end infinite" }} />
+                </p>
+              </div>
+            </div>
+          )}
+
+          {callState === "thinking" && (
+            <div style={{ maxWidth: "85%", alignSelf: "flex-start" }}>
+              <div style={{ padding: "12px 16px", borderRadius: "16px 16px 16px 4px", background: "#f0ebff", border: "0.5px solid #ddd5f0", display: "flex", gap: 5, alignItems: "center" }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(212,168,67,0.5)", animation: `wave 1s ease-in-out ${i * 0.15}s infinite` }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 16px 8px",
+        borderTop: "0.5px solid #e8e0f0",
+        background: "var(--bg)",
+        boxShadow: "0 -2px 10px rgba(45, 32, 24, 0.05)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, height: 18 }}>
+          {Array.from({ length: 9 }, (_, i) => {
+            const height = isMuted
+              ? 3
+              : callState === "listening"
+              ? 5 + Math.abs(Math.sin((Date.now() / 200 + i) * 0.7)) * 10
+              : callState === "speaking"
+              ? 5 + Math.abs(Math.sin(i * 0.8)) * 8
+              : 3;
+            return (
+              <div key={i} style={{
+                width: 3, borderRadius: 2, height: `${height}px`,
+                background: callState === "speaking"
+                  ? `rgba(39,174,96,${0.4 + i * 0.06})`
+                  : callState === "listening" && !isMuted
+                  ? `rgba(212,168,67,${0.4 + i * 0.06})`
+                  : "rgba(127,119,221,0.15)",
+              }} />
+            );
+          })}
+        </div>
+
+        {error && (
+          <p style={{ fontSize: 12, color: "var(--red)", margin: 0, textAlign: "center" }}>{error}</p>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22 }}>
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={isMuted ? "Mikrofon einschalten" : "Mikrofon stummschalten"}
+            aria-pressed={isMuted}
+            style={{
+              width: 42, height: 42, borderRadius: "50%",
+              background: isMuted ? "rgba(192,57,43,0.12)" : "var(--surface)",
+              border: `1.5px solid ${isMuted ? "rgba(192,57,43,0.45)" : "var(--accent-dim)"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            {isMuted ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={endCall}
+            aria-label="Anruf beenden"
+            style={{
+              width: 50, height: 50, borderRadius: "50%",
+              background: "rgba(192,57,43,0.9)", border: "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+              boxShadow: "0 3px 12px rgba(192,57,43,0.28)",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ transform: "rotate(135deg)" }}>
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.29 6.29l1.42-1.42a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
