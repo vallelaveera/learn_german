@@ -1,3 +1,4 @@
+import { playMp3Blob, stopActiveMp3Playback } from "@/lib/audio/play-mp3-element";
 import { fetchTTS } from "@/components/AudioPlayer";
 
 export type ExerciseSpeechLang = "de" | "en";
@@ -5,6 +6,7 @@ export type ExerciseSpeechLang = "de" | "en";
 let activeAudio: HTMLAudioElement | null = null;
 let activeAudioUrl: string | null = null;
 let activeSpeakGeneration = 0;
+const inflightSpeak = new Map<string, Promise<void>>();
 let audioUnlocked = false;
 const dePrefetch = new Map<string, string>();
 
@@ -21,6 +23,7 @@ export function unlockExerciseAudio() {
 
 export function stopExerciseSpeech() {
   activeSpeakGeneration += 1;
+  stopActiveMp3Playback();
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
@@ -59,31 +62,27 @@ export async function prefetchExerciseGerman(text: string): Promise<string | nul
   }
 }
 
-function playGermanFromUrl(url: string, generation: number): Promise<void> {
+async function playGermanFromUrl(url: string, generation: number): Promise<void> {
   stopActiveAudio();
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
-  const audio = new Audio(url);
-  activeAudio = audio;
+
   activeAudioUrl = url;
-  return new Promise<void>((resolve, reject) => {
-    audio.onended = () => {
-      if (generation !== activeSpeakGeneration) {
-        resolve();
-        return;
-      }
-      activeAudio = null;
-      activeAudioUrl = null;
-      resolve();
-    };
-    audio.onerror = () => {
-      activeAudio = null;
-      activeAudioUrl = null;
-      reject(new Error("TTS playback failed"));
-    };
-    audio.play().catch(reject);
+  const res = await fetch(url);
+  const blob = await res.blob();
+
+  await playMp3Blob(blob, {
+    isCancelled: () => generation !== activeSpeakGeneration,
+    onElement: audio => {
+      activeAudio = audio;
+    },
   });
+
+  if (generation === activeSpeakGeneration) {
+    activeAudio = null;
+    activeAudioUrl = null;
+  }
 }
 
 function speakGermanFallback(text: string, generation: number): Promise<void> {
@@ -91,24 +90,22 @@ function speakGermanFallback(text: string, generation: number): Promise<void> {
     return Promise.reject(new Error("speech synthesis unavailable"));
   }
   stopActiveAudio();
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
+  window.speechSynthesis.cancel();
   return new Promise<void>(resolve => {
+    if (generation !== activeSpeakGeneration) {
+      resolve();
+      return;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "de-DE";
     utterance.rate = 0.95;
     utterance.onend = () => resolve();
     utterance.onerror = () => resolve();
-    if (generation !== activeSpeakGeneration) {
-      resolve();
-      return;
-    }
     window.speechSynthesis.speak(utterance);
   });
 }
 
-export async function speakExercisePrompt(text: string, lang: ExerciseSpeechLang): Promise<void> {
+async function speakExercisePromptInner(text: string, lang: ExerciseSpeechLang): Promise<void> {
   if (!text.trim()) return;
   const key = text.trim();
   const generation = ++activeSpeakGeneration;
@@ -122,7 +119,6 @@ export async function speakExercisePrompt(text: string, lang: ExerciseSpeechLang
         return;
       } catch {
         if (generation !== activeSpeakGeneration) return;
-        // retry fetch below
       }
     }
 
@@ -143,7 +139,6 @@ export async function speakExercisePrompt(text: string, lang: ExerciseSpeechLang
   }
 
   if (typeof window === "undefined" || !window.speechSynthesis) return;
-
   stopExerciseSpeech();
   await new Promise<void>(resolve => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -153,4 +148,18 @@ export async function speakExercisePrompt(text: string, lang: ExerciseSpeechLang
     utterance.onerror = () => resolve();
     window.speechSynthesis.speak(utterance);
   });
+}
+
+export async function speakExercisePrompt(text: string, lang: ExerciseSpeechLang): Promise<void> {
+  const inflightKey = `${lang}:${text.trim()}`;
+  const existing = inflightSpeak.get(inflightKey);
+  if (existing) return existing;
+
+  const promise = speakExercisePromptInner(text, lang).finally(() => {
+    if (inflightSpeak.get(inflightKey) === promise) {
+      inflightSpeak.delete(inflightKey);
+    }
+  });
+  inflightSpeak.set(inflightKey, promise);
+  return promise;
 }

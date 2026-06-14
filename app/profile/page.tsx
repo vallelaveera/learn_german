@@ -43,7 +43,7 @@ export default function ProfilePage() {
   return (
     <PageShell title="Profil">
       {loading ? <p style={{ padding: 24, color: "var(--text-muted)" }}>Lädt...</p> : (
-        <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ padding: "16px 18px", paddingBottom: 8, display: "flex", flexDirection: "column", gap: 16 }}>
 
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div

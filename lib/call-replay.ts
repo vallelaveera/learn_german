@@ -1,3 +1,4 @@
+import { playMp3Blob } from "@/lib/audio/play-mp3-element";
 import type { Message } from "@/lib/types";
 
 export type CallReplayMode = "user-only" | "full";
@@ -88,12 +89,9 @@ export async function replayAssistantLine(text: string, session: number): Promis
   if (session !== replaySession) return;
 
   const blob = new Blob([buffer], { type: "audio/mpeg" });
-  const url = URL.createObjectURL(blob);
-  try {
-    await playAudioUrl(url, session);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  await playMp3Blob(blob, {
+    isCancelled: () => session !== replaySession,
+  });
 }
 
 export async function replayMessages(

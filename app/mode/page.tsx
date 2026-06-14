@@ -97,7 +97,6 @@ function ModePageInner() {
   return (
     <PageShell
       showTabBar
-      fitViewport
       headerRight={<LevelChip currentLevel={level} onSelect={saveLevel} />}
       minimalHeader
     >

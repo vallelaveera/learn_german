@@ -70,7 +70,7 @@ export function GrammarDetailSheet({ point, level, onClose }: GrammarDetailSheet
         style={{
           position: "fixed",
           left: "50%",
-          bottom: "calc(82px + env(safe-area-inset-bottom, 0px))",
+          bottom: "var(--shell-bottom-tab)",
           transform: "translateX(-50%)",
           zIndex: 190,
           width: "100%",

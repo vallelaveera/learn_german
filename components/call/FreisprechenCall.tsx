@@ -17,6 +17,7 @@ import { Message } from "@/lib/types";
 import { isFarewellUtterance, buildGoodbyePromptSuffix } from "@/lib/call-farewell";
 import { useCallUsageBilling } from "@/components/billing/useCallUsageBilling";
 import { buildCallContextUrl } from "@/lib/grammar/context-url";
+import { stopActiveMp3Playback } from "@/lib/audio/play-mp3-element";
 import { createCallAudioContext, StreamMp3Player } from "@/lib/audio/stream-mp3-player";
 import {
   isBrowserOffline,
@@ -79,27 +80,6 @@ const looksIncomplete = (text: string) => {
   const last = t.split(/\s+/).pop()?.replace(/[.!?,…:;]+$/g, "") ?? "";
   if (last.length === 1 && !/[.!?]$/.test(t)) return true;
   return false;
-};
-
-/** Start Maya TTS as soon as the streamed reply has a complete spoken line. */
-function tryStartEarlyStreamTts(
-  fullText: string,
-  provider: "soniox" | "fish",
-  started: { done: boolean; text: string; promise: Promise<void> | null },
-  streamTts: (text: string) => Promise<void>,
-) {
-  if (started.done || !fullText.trim()) return;
-  const parsed = parseTutorResponse(fullText);
-  let german = parsed.german.trim();
-  if (german.length < 8) return;
-  const hintStarted = fullText.includes("💡");
-  const utteranceDone = /[.!?]$/.test(german) || hintStarted || fullText.includes("\n");
-  if (!utteranceDone) return;
-  if (provider === "fish") german = prepareFishTTS(german);
-  if (!german.trim()) return;
-  started.done = true;
-  started.text = german;
-  started.promise = streamTts(german);
 };
 
 const pickConfirmPhrase = (text: string) => {
@@ -232,6 +212,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   const callStateRef = useRef<CallState>("listening");
   const lastVolumeUiAtRef = useRef(0);
   const streamTTSRef = useRef<((text: string) => Promise<void>) | null>(null);
+  const ttsSessionRef = useRef(0);
   const lastTtsTextRef = useRef("");
   const jetztDuRef = useRef(false);
   const router = useRouter();
@@ -365,12 +346,14 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, []);
 
   const stopAudio = useCallback(() => {
+    stopActiveMp3Playback();
     sourceQueueRef.current.forEach(s => { try { s.stop(); } catch {} });
     sourceQueueRef.current = [];
     nextStartRef.current = 0;
     if (audioElementRef.current) {
       audioElementRef.current.pause();
       audioElementRef.current.src = "";
+      audioElementRef.current = null;
     }
   }, []);
 
@@ -533,6 +516,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
   }, []);
 
   const streamTTS = useCallback(async (text: string) => {
+    const session = ++ttsSessionRef.current;
     setShowMayaReplyNudge(false);
     setCallState("speaking");
     setJetztDu(false);
@@ -566,6 +550,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, provider: ttsProviderRef.current }),
       });
+      if (session !== ttsSessionRef.current) return;
       const player = new StreamMp3Player({
         getAudioCtx,
         refs: {
@@ -575,9 +560,11 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
         },
         onPlaybackDone: () => finishTTSPlaybackRef.current(),
         onBufferScheduled: schedulePrewarmMic,
+        isCancelled: () => session !== ttsSessionRef.current,
       });
       await player.consumeResponse(res);
     } catch (e) {
+      if (session !== ttsSessionRef.current) return;
       console.error("TTS error:", e);
       if (isLikelyNetworkError(e)) {
         void announceNetworkIssue();
@@ -807,7 +794,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       const decoder = new TextDecoder();
       let fullText = "";
       let buf = "";
-      const earlyTts = { done: false, text: "", promise: null as Promise<void> | null };
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -822,7 +808,6 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
             const p = JSON.parse(data);
             if (p.type === "content_block_delta" && p.delta?.type === "text_delta") {
               fullText += p.delta.text;
-              tryStartEarlyStreamTts(fullText, ttsProviderRef.current, earlyTts, streamTTS);
             }
           } catch {}
         }
@@ -850,14 +835,7 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
       setMessages(withAssistant);
       messagesRef.current = withAssistant;
 
-      const spoken = german.trim();
-      const earlySpoken = earlyTts.text.trim();
-      if (earlyTts.promise && (spoken === earlySpoken || spoken.startsWith(earlySpoken))) {
-        await earlyTts.promise;
-      } else {
-        if (earlyTts.promise) stopAudio();
-        await streamTTS(german);
-      }
+      await streamTTS(german);
     } catch (err) {
       _cm_sending = false;
       if (isLikelyNetworkError(err) || isBrowserOffline()) {

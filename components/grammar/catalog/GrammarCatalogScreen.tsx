@@ -51,7 +51,7 @@ export function GrammarCatalogScreen({
 
   return (
     <ExerciseShell backHref="/grammar" showTabBar={false}>
-      <div style={{ padding: "0 18px 24px" }}>
+      <div style={{ padding: "0 18px 32px" }}>
         <ExerciseBackLink href="/grammar" label="← Grammatik" />
 
         <header
