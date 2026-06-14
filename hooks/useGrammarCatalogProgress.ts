@@ -61,7 +61,7 @@ function saveStore(store: ProgressStore) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
 }
 
-export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTier) {
+export function useGrammarCatalogProgress(level: VerifiedLevel) {
   const [store, setStore] = useState<ProgressStore>(loadStore);
   const [hydrated, setHydrated] = useState(false);
 
@@ -76,7 +76,7 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
   }, []);
 
   const markTrainerVisited = useCallback(
-    (category: GrammarCategory) => {
+    (category: GrammarCategory, tier: GrammarTier) => {
       const items = getTierItems(level, category, tier);
       persist({
         ...store,
@@ -94,11 +94,11 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
         },
       });
     },
-    [level, tier, store, persist],
+    [level, store, persist],
   );
 
   const markExerciseDone = useCallback(
-    (category: GrammarCategory, exIndex: number) => {
+    (category: GrammarCategory, tier: GrammarTier, exIndex: number) => {
       const block = getCategoryBlock(level, category);
       const key = exerciseKey(level, category, exIndex);
       const nextExercises = { ...store.exercises, [key]: true };
@@ -122,18 +122,18 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
         visited: { ...store.visited, [trainerKey(level, category)]: true },
       });
     },
-    [level, tier, store, persist],
+    [level, store, persist],
   );
 
   const itemStatus = useCallback(
-    (category: GrammarCategory, index: number): ItemStatus => {
+    (category: GrammarCategory, tier: GrammarTier, index: number): ItemStatus => {
       return store.items[itemKey(level, category, tier, index)] ?? "not_started";
     },
-    [level, tier, store.items],
+    [level, store.items],
   );
 
   const categoryProgress = useCallback(
-    (category: GrammarCategory): { done: number; total: number; pct: number } => {
+    (category: GrammarCategory, tier: GrammarTier): { done: number; total: number; pct: number } => {
       const block = getCategoryBlock(level, category);
       const exerciseTotal = Math.max(block.exercises.length, 1);
       const exDone = countExercisesDone(store, level, category);
@@ -147,9 +147,11 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
     let sumPct = 0;
     let complete = 0;
     for (const cat of GRAMMAR_CATEGORIES) {
-      const cp = categoryProgress(cat);
-      sumPct += cp.pct;
-      if (cp.pct >= 100) complete += 1;
+      const basic = categoryProgress(cat, "basic");
+      const advanced = categoryProgress(cat, "advanced");
+      const catPct = Math.round((basic.pct + advanced.pct) / 2);
+      sumPct += catPct;
+      if (basic.pct >= 100 && advanced.pct >= 100) complete += 1;
     }
     return {
       done: complete,

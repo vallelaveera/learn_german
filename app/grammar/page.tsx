@@ -30,7 +30,6 @@ import {
   VERIFIED_LEVELS,
   levelColor,
   levelLightColor,
-  type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
 import {
@@ -45,7 +44,6 @@ function mapToVerifiedLevel(levelId: GrammarLevelId): VerifiedLevel {
 export default function GrammarPage() {
   const router = useRouter();
   const [levelId, setLevelId] = useState<VerifiedLevel>("A1");
-  const [tier, setTier] = useState<GrammarTier>("basic");
   const [levelReady, setLevelReady] = useState(false);
   const [explainers, setExplainers] = useState<GrammarExplainersFile | null>(null);
   const [explainerCollapsed, setExplainerCollapsedState] = useState(false);
@@ -73,7 +71,7 @@ export default function GrammarPage() {
     setExplainerCollapsedState(isExplainerCollapsed(levelId));
   }, [levelId]);
 
-  const progress = useGrammarCatalogProgress(levelId, tier);
+  const progress = useGrammarCatalogProgress(levelId);
   const color = levelColor(levelId);
   const light = levelLightColor(levelId);
   const grammarLevel = getGrammarLevel(levelId as GrammarLevelId);
@@ -121,7 +119,7 @@ export default function GrammarPage() {
       <div className="ui-page" style={{ paddingTop: 8 }}>
         <div style={{ marginBottom: 16 }}>
           <p className="ui-muted" style={{ margin: "0 0 4px", fontSize: 13, lineHeight: 1.5 }}>
-            Wähle Level und Bereich — Basic oder Advanced pro Stufe.
+            Wähle Level und Bereich — Basic oder Advanced in jeder Kachel.
           </p>
           <p style={{ fontSize: 12, color, margin: 0, fontWeight: 600 }}>
             CEFR {levelId}
@@ -135,21 +133,10 @@ export default function GrammarPage() {
           onChange={setLevelId}
         />
 
-        <div style={{ marginTop: 10, marginBottom: 12 }}>
-          <SegmentedTabs
-            tabs={[
-              { id: "basic", label: "Basic" },
-              { id: "advanced", label: "Advanced" },
-            ]}
-            value={tier}
-            onChange={v => setTier(v as GrammarTier)}
-          />
-        </div>
-
         {progress.hydrated && (
           <>
-            <GrammarLevelTOC level={levelId} tier={tier} progress={progress} />
-            <GrammarCategoryGrid level={levelId} tier={tier} progress={progress} />
+            <GrammarLevelTOC level={levelId} progress={progress} />
+            <GrammarCategoryGrid level={levelId} progress={progress} />
           </>
         )}
 

@@ -1,28 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import {
-  CATEGORY_EMOJI,
-  CATEGORY_LABELS,
-  GRAMMAR_CATEGORIES,
-  getTierItems,
   levelColor,
-  type GrammarCategory,
-  type GrammarTier,
-  type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
-import { getCategoryHref } from "@/lib/grammar/trainer-routes";
 import type { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
+import type { VerifiedLevel } from "@/lib/grammar/verified-curriculum";
 
 interface GrammarLevelTOCProps {
   level: VerifiedLevel;
-  tier: GrammarTier;
   progress: ReturnType<typeof useGrammarCatalogProgress>;
 }
 
-export function GrammarLevelTOC({ level, tier, progress }: GrammarLevelTOCProps) {
+export function GrammarLevelTOC({ level, progress }: GrammarLevelTOCProps) {
   const color = levelColor(level);
-  const { levelProgress, categoryProgress } = progress;
+  const { levelProgress } = progress;
 
   return (
     <section style={{ marginBottom: 16 }}>
@@ -39,7 +30,7 @@ export function GrammarLevelTOC({ level, tier, progress }: GrammarLevelTOCProps)
           borderRadius: 999,
           background: "var(--border-light)",
           overflow: "hidden",
-          marginBottom: 12,
+          marginBottom: 4,
         }}
       >
         <div
@@ -52,51 +43,9 @@ export function GrammarLevelTOC({ level, tier, progress }: GrammarLevelTOCProps)
         />
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {GRAMMAR_CATEGORIES.map(cat => {
-          const cp = categoryProgress(cat);
-          const items = getTierItems(level, cat, tier);
-          const href = getCategoryHref(level, cat, tier);
-
-          return (
-            <Link
-              key={cat}
-              href={href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: "1px solid var(--border-light)",
-                background: "#fff",
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{CATEGORY_EMOJI[cat]}</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{CATEGORY_LABELS[cat]}</span>
-                <span style={{ display: "block", fontSize: 11, color: "var(--text-muted)" }}>
-                  {items.length} Themen
-                </span>
-              </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "3px 8px",
-                  borderRadius: 999,
-                  background: cp.pct >= 100 ? `${color}22` : "var(--bg-warm)",
-                  color: cp.pct >= 100 ? color : "var(--text-muted)",
-                }}
-              >
-                {cp.pct}%
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0, lineHeight: 1.45 }}>
+        Basic und Advanced pro Bereich unten wählen.
+      </p>
     </section>
   );
 }
