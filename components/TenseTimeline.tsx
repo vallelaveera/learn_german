@@ -6,6 +6,7 @@ import {
   GLIDE_MS,
   JETZT_POS,
   SUBJECTS,
+  TENSES,
   VERBS,
   parts,
   posToPx,
@@ -14,13 +15,54 @@ import {
   verbsForLevel,
   type BuildTenseId,
   type SubjectId,
+  type TenseDef,
   type VerbId,
 } from "@/constants/germanTenses";
 import type { TenseLevel } from "@/lib/tenses/types";
 import { FigSvg, TreeSvg } from "@/lib/tenses/timelineArt";
 
 const SCENE_TOKEN = 44;
-const SCENE_H = 132;
+const LABEL_BAND_H = 38;
+const SCENE_H = 128;
+const LABEL_MIN_GAP = 11;
+
+type LabelAnchor = "left" | "center" | "right";
+
+interface TimelineLabelLayout {
+  row: number;
+  anchor: LabelAnchor;
+}
+
+function computeTimelineLabelLayouts(tenses: TenseDef[]): Map<string, TimelineLabelLayout> {
+  const sorted = [...tenses].sort((a, b) => a.pos - b.pos);
+  const rowLastPos = [-999, -999];
+  const layouts = new Map<string, TimelineLabelLayout>();
+
+  for (const t of sorted) {
+    let row = 0;
+    if (t.pos - rowLastPos[0] < LABEL_MIN_GAP) row = 1;
+    if (row === 1 && t.pos - rowLastPos[1] < LABEL_MIN_GAP) row = 0;
+    rowLastPos[row] = t.pos;
+
+    let anchor: LabelAnchor = "center";
+    if (t.pos <= 10) anchor = "left";
+    else if (t.pos >= 78) anchor = "right";
+
+    layouts.set(t.id, { row, anchor });
+  }
+  return layouts;
+}
+
+function labelPositionStyle(pos: number, row: number, anchor: LabelAnchor): React.CSSProperties {
+  const top = 2 + row * 16;
+  if (anchor === "left") {
+    return { left: 2, top, transform: "none" };
+  }
+  if (anchor === "right") {
+    return { right: 2, left: "auto", top, transform: "none" };
+  }
+  return { left: `${pos}%`, top, transform: "translateX(-50%)" };
+}
 
 function sceneTokenPx(pos: number, roadW: number): number {
   if (roadW <= 0) return 0;
@@ -93,6 +135,8 @@ export function TenseTimeline({
 
   const availableTenses = useMemo(() => timelineTensesForLevel(level), [level]);
   const availableVerbs = useMemo(() => verbsForLevel(level), [level]);
+  const unlockedTenseIds = useMemo(() => new Set(availableTenses.map(t => t.id)), [availableTenses]);
+  const labelLayouts = useMemo(() => computeTimelineLabelLayouts(TENSES), []);
 
   const setVerbId = (id: VerbId) => {
     if (onVerbChange) onVerbChange(id);
@@ -256,8 +300,44 @@ export function TenseTimeline({
       >
         <div
           ref={roadRef}
-          style={{ position: "relative", height: SCENE_H, userSelect: "none" }}
+          style={{ position: "relative", height: LABEL_BAND_H + SCENE_H, userSelect: "none", overflow: "visible" }}
         >
+          {TENSES.map(t => {
+            const active = tenseId === t.id;
+            const unlocked = unlockedTenseIds.has(t.id);
+            const layout = labelLayouts.get(t.id) ?? { row: 0, anchor: "center" as LabelAnchor };
+            return (
+              <div
+                key={`label-${t.id}`}
+                style={{
+                  position: "absolute",
+                  zIndex: 3,
+                  opacity: active ? 1 : unlocked ? 0.78 : 0.38,
+                  ...labelPositionStyle(t.pos, layout.row, layout.anchor),
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: t.color,
+                    background: active ? "#fff" : "rgba(255,255,255,0.94)",
+                    border: `1.5px solid ${active ? t.color : unlocked ? "rgba(0,0,0,0.12)" : "rgba(0,0,0,0.08)"}`,
+                    borderRadius: 999,
+                    padding: "1px 5px",
+                    whiteSpace: "nowrap",
+                    boxShadow: active ? `0 0 0 2px ${t.color}22` : "none",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {t.short}
+                </span>
+              </div>
+            );
+          })}
+
+          <div style={{ position: "absolute", left: 0, right: 0, top: LABEL_BAND_H, bottom: 0 }}>
           <div className="edge" style={{ position: "absolute", left: 4, bottom: 38, opacity: 0.9 }}>
             <FigSvg kind="father" size={40} />
           </div>
@@ -303,40 +383,6 @@ export function TenseTimeline({
             />
             <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.1em", color: "#B45309" }}>JETZT</span>
           </div>
-
-          {availableTenses.map(t => {
-            const active = tenseId === t.id;
-            return (
-              <div
-                key={t.id}
-                style={{
-                  position: "absolute",
-                  left: `${t.pos}%`,
-                  top: 2,
-                  transform: "translateX(-50%)",
-                  zIndex: 3,
-                  opacity: active ? 1 : 0.72,
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-block",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: t.color,
-                    background: active ? "#fff" : "rgba(255,255,255,0.92)",
-                    border: `1.5px solid ${active ? t.color : "rgba(0,0,0,0.12)"}`,
-                    borderRadius: 999,
-                    padding: "2px 7px",
-                    whiteSpace: "nowrap",
-                    boxShadow: active ? `0 0 0 2px ${t.color}22` : "none",
-                  }}
-                >
-                  {t.short}
-                </span>
-              </div>
-            );
-          })}
 
           {tense.showThread && roadW > 0 && (
             <svg
@@ -462,6 +508,7 @@ export function TenseTimeline({
           >
             <span>Vergangenheit</span>
             <span>Zukunft</span>
+          </div>
           </div>
         </div>
       </div>
