@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2 } from "lucide-react";
@@ -15,6 +15,8 @@ import {
   type SentenceExerciseCategory,
 } from "@/lib/exercises/categories";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { SessionReportActions } from "@/components/exercises/SessionReportActions";
+import { useSessionReportLog } from "@/hooks/useSessionReportLog";
 import { SentenceIllustration } from "@/components/illustrations/SentenceIllustration";
 import { resolveIllustrationId } from "@/lib/content/illustration-lookup";
 import { loadPreviewDurationSetting, resolvePreviewSeconds } from "@/lib/exercises/sentence-preview-duration";
@@ -94,6 +96,9 @@ function SentencesPractice({
     typeof window === "undefined" ? 5 : resolvePreviewSeconds(loadPreviewDurationSetting()),
   );
   const [previewAudioDone, setPreviewAudioDone] = useState(false);
+  const { items: reportItems, logItem, resetLog, getStartedAt } = useSessionReportLog();
+  const previewRunRef = useRef(0);
+  const prevGermanRef = useRef<string | null>(null);
 
   const current = exercises[index];
   const illustrationId = current
@@ -123,12 +128,13 @@ function SentencesPractice({
       setWrongId(null);
       setShowEnHint(false);
       setPhase("preview");
+      resetLog();
       return true;
     } finally {
       if (isMore) setLoadingMore(false);
       else setLoading(false);
     }
-  }, [exercisesUrl, router]);
+  }, [exercisesUrl, router, resetLog]);
 
   const playGerman = useCallback(() => {
     if (!current) return;
@@ -138,8 +144,12 @@ function SentencesPractice({
 
   useEffect(() => {
     if (!current) return;
-    void prefetchExerciseGerman(current.german);
-    return () => revokeExerciseSpeechPrefetch(current.german);
+    const key = current.german.trim();
+    if (prevGermanRef.current && prevGermanRef.current !== key) {
+      revokeExerciseSpeechPrefetch(prevGermanRef.current);
+    }
+    prevGermanRef.current = key;
+    void prefetchExerciseGerman(key);
   }, [current?.id, current?.german]);
 
   useEffect(() => {
@@ -149,23 +159,24 @@ function SentencesPractice({
   useEffect(() => {
     if (phase !== "preview" || !current) return;
 
-    let cancelled = false;
+    const runId = ++previewRunRef.current;
     setPreviewAudioDone(false);
 
     void (async () => {
       unlockExerciseAudio();
       await prefetchExerciseGerman(current.german);
-      if (cancelled) return;
+      if (runId !== previewRunRef.current) return;
       await speakExercisePrompt(current.german, "de");
-      if (!cancelled) setPreviewAudioDone(true);
+      if (runId !== previewRunRef.current) return;
+      setPreviewAudioDone(true);
     })();
-
-    return () => {
-      cancelled = true;
-      setPreviewAudioDone(false);
-      stopExerciseSpeech();
-    };
   }, [phase, current?.id, current?.german, index]);
+
+  useEffect(() => {
+    if (phase === "preview") return;
+    previewRunRef.current += 1;
+    stopExerciseSpeech();
+  }, [phase]);
 
   const handlePreviewCountdownComplete = useCallback(() => {
     setPreviewAudioDone(false);
@@ -209,6 +220,14 @@ function SentencesPractice({
     if (!current || wrongId) return;
     const expected = current.words[built.length];
     if (chip.word !== expected) {
+      logItem({
+        prompt: current.german,
+        userAnswer: chip.word,
+        correctAnswer: expected ?? "",
+        correct: false,
+        english: current.english,
+        explanation: current.note,
+      });
       setWrongId(chip.id);
       setTimeout(() => setWrongId(null), 500);
       return;
@@ -218,6 +237,13 @@ function SentencesPractice({
     if (next.length === current.words.length) {
       setScore(s => s + 1);
       saveResult(true);
+      logItem({
+        prompt: current.german,
+        correctAnswer: current.german,
+        correct: true,
+        english: current.english,
+        explanation: current.note,
+      });
       setPhase("complete");
       setTimeout(() => nextSentence(), 2000);
     }
@@ -271,6 +297,17 @@ function SentencesPractice({
             Keine neuen Sätze gerade — schau in ein paar Tagen wieder vorbei.
           </p>
         )}
+        <SessionReportActions
+          meta={{
+            type: "sentences",
+            category,
+            title: meta?.label ?? "Sätze üben",
+          }}
+          score={score}
+          total={exercises.length}
+          items={reportItems}
+          startedAt={getStartedAt()}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
           {!noMore && (
             <button

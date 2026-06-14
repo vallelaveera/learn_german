@@ -14,6 +14,12 @@ export interface ParsedExercise {
   options?: string[];
   tokens?: string[];
   contextFlag?: boolean;
+  /** Grammar rule explanation (from verified example `note`). */
+  explanation?: string;
+  /** Full German sentence for context-flag exercises. */
+  contextSentence?: string;
+  /** Banner text for context-flag exercises. */
+  contextNote?: string;
 }
 
 const TYPE_PREFIX = /^(FLASHCARD|FILL-BLANK|DRAG-SORT|SENTENCE-BUILD|MULTIPLE-CHOICE):\s*/i;

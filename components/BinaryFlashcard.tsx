@@ -52,7 +52,6 @@ export function BinaryFlashcard({
   useEffect(() => {
     if (!speakOnShow || feedback) return;
     playPrompt();
-    return () => stopExerciseSpeech();
   }, [card.id, index, direction, speakOnShow, feedback, playPrompt]);
 
   const handleChoose = (option: "A" | "B") => {

@@ -14,7 +14,9 @@
     "cap:sync": "npx cap sync android",
     "cap:android": "npx cap open android",
     "cap:run:android": "npx cap run android",
-    "offline:sample": "node scripts/generate-offline-sample.mjs"
+    "offline:sample": "node scripts/generate-offline-sample.mjs",
+    "import:german-examples": "npx ts-node -P scripts/tsconfig.json scripts/import-german-examples.ts",
+    "verify:german-examples": "npx ts-node -P scripts/tsconfig.json scripts/verify-german-examples-import.ts"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",
@@ -24,6 +26,7 @@
     "@soniox/speech-to-text-web": "^1.4.0",
     "@vercel/blob": "^2.4.0",
     "@vercel/kv": "^2.0.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.17.0",
     "next": "14.2.5",
     "razorpay": "^2.9.6",

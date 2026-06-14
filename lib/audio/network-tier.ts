@@ -48,8 +48,7 @@ export function getTtsStreamChunkSize(tier: NetworkTier = detectNetworkTier()): 
   return TTS_CHUNK_DESKTOP;
 }
 
-/** Android WebView: decode full MP3 via <audio> — avoids crackling from partial decodeAudioData. */
-export function shouldBufferTtsBeforePlay(tier: NetworkTier = detectNetworkTier()): boolean {
-  if (!isAndroidNative()) return false;
-  return tier !== "fast";
+/** Buffer full MP3 before play — partial decodeAudioData chunks cause audible mid-sentence gaps. */
+export function shouldBufferTtsBeforePlay(_tier: NetworkTier = detectNetworkTier()): boolean {
+  return true;
 }

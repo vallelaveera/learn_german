@@ -176,6 +176,7 @@ export class StreamMp3Player {
       audio.src = url;
       await audio.play();
       this.dispatched = true;
+      this.opts.onBufferScheduled?.();
       await new Promise<void>((resolve, reject) => {
         audio!.onended = () => resolve();
         audio!.onerror = () => reject(new Error("TTS audio playback failed"));
