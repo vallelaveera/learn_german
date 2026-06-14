@@ -15,6 +15,7 @@ import {
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
 import type { TrainerLink } from "@/lib/grammar/trainer-routes";
+import { GrammarTierToggle } from "./GrammarTierToggle";
 
 interface GrammarCatalogScreenProps {
   level: VerifiedLevel;
@@ -45,7 +46,6 @@ export function GrammarCatalogScreen({
   const color = levelColor(level);
   const light = levelLightColor(level);
   const heading = title ?? CATEGORY_LABELS[category];
-  const tierLabel = tier === "basic" ? "Grundlagen" : "Fortgeschritten";
 
   return (
     <ExerciseShell backHref="/grammar" showTabBar={false}>
@@ -92,21 +92,6 @@ export function GrammarCatalogScreen({
               >
                 {level}
               </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "var(--text-muted)",
-                  padding: "3px 8px",
-                  borderRadius: 999,
-                  background: "var(--surface)",
-                  border: "1px solid var(--border-light)",
-                }}
-              >
-                {tierLabel}
-              </span>
             </div>
             <h1 className="ui-title-serif" style={{ fontSize: 22, margin: "0 0 4px", lineHeight: 1.25, color }}>
               {heading}
@@ -118,6 +103,8 @@ export function GrammarCatalogScreen({
             )}
           </div>
         </header>
+
+        <GrammarTierToggle level={level} category={category} tier={tier} color={color} light={light} />
 
         {interactiveTrainer && (
           <Link

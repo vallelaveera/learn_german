@@ -119,7 +119,7 @@ export default function GrammarPage() {
       <div className="ui-page" style={{ paddingTop: 8 }}>
         <div style={{ marginBottom: 16 }}>
           <p className="ui-muted" style={{ margin: "0 0 4px", fontSize: 13, lineHeight: 1.5 }}>
-            Wähle Level und Bereich — Basic oder Advanced in jeder Kachel.
+            Wähle Level und Bereich — Basic oder Advanced findest du in jedem Thema.
           </p>
           <p style={{ fontSize: 12, color, margin: 0, fontWeight: 600 }}>
             CEFR {levelId}

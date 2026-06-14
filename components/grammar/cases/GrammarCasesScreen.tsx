@@ -1,14 +1,18 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Hammer, BookOpen, DoorOpen, BarChart3 } from "lucide-react";
 import { ExerciseBackLink, ExerciseShell } from "@/components/layout/ExerciseShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
+import { GrammarTierToggle } from "@/components/grammar/catalog/GrammarTierToggle";
 import type { CaseLevel, CaseTab } from "@/lib/cases/types";
 import { CASE_LEVELS } from "@/lib/cases/types";
 import { CASE_TAB_THEMES } from "@/lib/cases/theme";
 import { speakMayaGerman } from "@/lib/cases/speakMaya";
 import { useGermanCases } from "@/hooks/useGermanCases";
+import { levelColor, levelLightColor } from "@/lib/grammar/verified-curriculum";
+import { parseGrammarTier, parseVerifiedLevel } from "@/lib/grammar/tier-preference";
 import { CasesBuildTab } from "./CasesBuildTab";
 import { CasesPatternsTab } from "./CasesPatternsTab";
 import { CasesPortalsTab } from "./CasesPortalsTab";
@@ -22,12 +26,17 @@ const TABS: { id: CaseTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function GrammarCasesScreen() {
+  const searchParams = useSearchParams();
+  const catalogLevel = parseVerifiedLevel(searchParams.get("level"), "B1");
+  const catalogTier = parseGrammarTier(searchParams.get("tier"));
+  const catalogColor = levelColor(catalogLevel);
+  const catalogLight = levelLightColor(catalogLevel);
   const [tab, setTab] = useState<CaseTab>("build");
   const [speaking, setSpeaking] = useState(false);
   const casesState = useGermanCases();
   const theme = CASE_TAB_THEMES[tab];
 
-  const level = Math.floor(casesState.xp / 100) + 1;
+  const xpLevel = Math.floor(casesState.xp / 100) + 1;
   const xpInLevel = casesState.xp % 100;
 
   const onSpeak = useCallback(async (text: string) => {
@@ -66,6 +75,14 @@ export function GrammarCasesScreen() {
       <div style={{ padding: "0 18px 18px", ...tabStyle }}>
         <ExerciseBackLink href="/grammar" label="← Grammatik" />
 
+        <GrammarTierToggle
+          level={catalogLevel}
+          category="cases"
+          tier={catalogTier}
+          color={catalogColor}
+          light={catalogLight}
+        />
+
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
             <p
@@ -101,7 +118,7 @@ export function GrammarCasesScreen() {
             }}
           >
             <span style={{ fontSize: 10, opacity: 0.85 }}>LVL</span>
-            {level}
+            {xpLevel}
           </div>
         </div>
 
