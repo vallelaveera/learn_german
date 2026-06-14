@@ -6,7 +6,7 @@ export interface CallSettings {
 }
 
 export const DEFAULT_CALL_SETTINGS: CallSettings = {
-  pauseBetweenTurnsMs: 400,
+  pauseBetweenTurnsMs: 250,
   earlyMicMs: 500,
 };
 
