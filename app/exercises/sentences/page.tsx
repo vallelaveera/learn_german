@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Volume2 } from "lucide-react";
@@ -97,6 +97,8 @@ function SentencesPractice({
   );
   const [previewAudioDone, setPreviewAudioDone] = useState(false);
   const { items: reportItems, logItem, resetLog, getStartedAt } = useSessionReportLog();
+  const previewRunRef = useRef(0);
+  const prevGermanRef = useRef<string | null>(null);
 
   const current = exercises[index];
   const illustrationId = current
@@ -142,8 +144,12 @@ function SentencesPractice({
 
   useEffect(() => {
     if (!current) return;
-    void prefetchExerciseGerman(current.german);
-    return () => revokeExerciseSpeechPrefetch(current.german);
+    const key = current.german.trim();
+    if (prevGermanRef.current && prevGermanRef.current !== key) {
+      revokeExerciseSpeechPrefetch(prevGermanRef.current);
+    }
+    prevGermanRef.current = key;
+    void prefetchExerciseGerman(key);
   }, [current?.id, current?.german]);
 
   useEffect(() => {
@@ -153,23 +159,24 @@ function SentencesPractice({
   useEffect(() => {
     if (phase !== "preview" || !current) return;
 
-    let cancelled = false;
+    const runId = ++previewRunRef.current;
     setPreviewAudioDone(false);
 
     void (async () => {
       unlockExerciseAudio();
       await prefetchExerciseGerman(current.german);
-      if (cancelled) return;
+      if (runId !== previewRunRef.current) return;
       await speakExercisePrompt(current.german, "de");
-      if (!cancelled) setPreviewAudioDone(true);
+      if (runId !== previewRunRef.current) return;
+      setPreviewAudioDone(true);
     })();
-
-    return () => {
-      cancelled = true;
-      setPreviewAudioDone(false);
-      stopExerciseSpeech();
-    };
   }, [phase, current?.id, current?.german, index]);
+
+  useEffect(() => {
+    if (phase === "preview") return;
+    previewRunRef.current += 1;
+    stopExerciseSpeech();
+  }, [phase]);
 
   const handlePreviewCountdownComplete = useCallback(() => {
     setPreviewAudioDone(false);
