@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { FreisprechenCall } from "@/components/call/FreisprechenCall";
 import { TippenCall } from "@/components/call/TippenCall";
+import { BrowserCall } from "@/components/call/BrowserCall";
 import { CallReport } from "@/components/call/CallReport";
 import { TabBar } from "@/components/layout/TabBar";
 import { computeCallReportStats } from "@/lib/call-report-stats";
@@ -11,7 +12,7 @@ import { buildCallContextUrl } from "@/lib/grammar/context-url";
 import type { GrammarPointWithLevel } from "@/lib/grammar/curriculum";
 import { Message } from "@/lib/types";
 
-type CallMode = "freisprechen" | "tippen";
+type CallMode = "freisprechen" | "tippen" | "browser";
 
 function CallPageInner() {
   const searchParams = useSearchParams();
@@ -22,7 +23,9 @@ function CallPageInner() {
   const [grammarId, setGrammarId] = useState<string | null>(grammarFromUrl);
   const [grammarFocus, setGrammarFocus] = useState<GrammarPointWithLevel | null>(null);
   const [pillDismissed, setPillDismissed] = useState(false);
-  const [mode, setMode] = useState<CallMode>(paramMode === "tippen" ? "tippen" : "freisprechen");
+  const [mode, setMode] = useState<CallMode>(
+    paramMode === "tippen" ? "tippen" : paramMode === "browser" ? "browser" : "freisprechen",
+  );
   const [report, setReport] = useState<{ messages: Message[]; durationSec: number } | null>(null);
   const [reportMeta, setReportMeta] = useState<{ currentLevel: string; completedCalls: number; userName?: string } | null>(null);
 
@@ -70,7 +73,11 @@ function CallPageInner() {
   const switchMode = (next: CallMode) => {
     if (report) return;
     setMode(next);
-    router.replace(next === "tippen" ? "/call?mode=tippen" : "/call?mode=freisprechen", { scroll: false });
+    const query =
+      next === "tippen" ? "/call?mode=tippen"
+      : next === "browser" ? "/call?mode=browser"
+      : "/call?mode=freisprechen";
+    router.replace(query, { scroll: false });
   };
 
   return (
@@ -102,6 +109,7 @@ function CallPageInner() {
             [
               ["freisprechen", "Freisprechen"],
               ["tippen", "Tippen"],
+              ["browser", "Browser 🌐"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -172,9 +180,17 @@ function CallPageInner() {
             grammarId={grammarId}
             onCallEnded={handleCallEnded}
           />
-        ) : (
+        ) : mode === "tippen" ? (
           <TippenCall
             key="tippen"
+            embedded
+            scenarioId={scenarioId}
+            grammarId={grammarId}
+            onCallEnded={handleCallEnded}
+          />
+        ) : (
+          <BrowserCall
+            key="browser"
             embedded
             scenarioId={scenarioId}
             grammarId={grammarId}
