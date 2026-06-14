@@ -84,6 +84,8 @@ function CallPageInner() {
     <div
       className="ui-phone-shell"
       style={{
+        height: "100dvh",
+        maxHeight: "100dvh",
         minHeight: "100dvh",
         maxWidth: 390,
         margin: "0 auto",
@@ -92,6 +94,7 @@ function CallPageInner() {
         flexDirection: "column",
         background: "var(--bg-warm)",
         paddingBottom: "var(--shell-bottom-tab)",
+        overflow: "hidden",
       }}
     >
       {!report && (
@@ -118,14 +121,19 @@ function CallPageInner() {
               onClick={() => switchMode(key)}
               style={{
                 flex: 1,
+                minWidth: 0,
                 minHeight: 44,
                 borderRadius: 10,
                 border: "0.5px solid var(--border)",
                 background: mode === key ? "#7F77DD" : "var(--surface)",
                 color: mode === key ? "#fff" : "var(--text-muted)",
-                fontSize: 13,
+                fontSize: 11,
                 fontFamily: "var(--font-mono)",
                 cursor: "pointer",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                padding: "0 4px",
               }}
             >
               {label}
@@ -171,7 +179,7 @@ function CallPageInner() {
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {mode === "freisprechen" ? (
           <FreisprechenCall
             key="freisprechen"

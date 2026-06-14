@@ -75,6 +75,9 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
   const messagesRef = useRef<Message[]>([]);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const callStateRef = useRef<CallState>("idle");
+  const conversationActiveRef = useRef(false);
+  const sendToGptRef = useRef<(msgs: Message[]) => Promise<void>>(async () => {});
+  const resumeListeningRef = useRef<() => void>(() => {});
   const router = useRouter();
   const finishSessionRef = useRef<() => void>(() => {});
 
@@ -98,12 +101,42 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
     return getGermanFemaleVoice();
   }, [selectedVoiceUri, voices]);
 
+  const resumeListening = useCallback(() => {
+    if (
+      !conversationActiveRef.current
+      || pendingEndRef.current
+      || _isSending
+      || !sttSupported
+      || !recognitionRef.current
+    ) return;
+    if (callStateRef.current === "thinking" || callStateRef.current === "speaking") return;
+    try {
+      setCallState("listening");
+      recognitionRef.current.start();
+    } catch {
+      setCallState("idle");
+    }
+  }, [sttSupported]);
+
+  useEffect(() => { resumeListeningRef.current = resumeListening; }, [resumeListening]);
+
+  const afterMayaSpeech = useCallback(() => {
+    setCallState("idle");
+    resumeListeningRef.current();
+  }, []);
+
   useEffect(() => {
     const Recognition = getSpeechRecognitionCtor();
     setSttSupported(!!Recognition);
     setTtsSupported(typeof window !== "undefined" && !!window.speechSynthesis);
 
-    void initGermanTTS().then(found => setVoices(found));
+    void initGermanTTS().then(found => {
+      setVoices(found);
+      const googleDeutsch = found.find(v =>
+        v.name === "Google Deutsch" || v.name.includes("Google Deutsch"),
+      );
+      if (googleDeutsch) setSelectedVoiceUri(googleDeutsch.voiceURI);
+    });
 
     if (!Recognition) return;
 
@@ -123,7 +156,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       const updated = [...messagesRef.current, userMsg];
       setMessages(updated);
       messagesRef.current = updated;
-      void sendToGpt(updated);
+      void sendToGptRef.current(updated);
     };
 
     recognition.onerror = () => {
@@ -131,7 +164,9 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
     };
 
     recognition.onend = () => {
-      if (callStateRef.current === "listening") setCallState("idle");
+      if (callStateRef.current === "listening" && !_isSending) {
+        setCallState("idle");
+      }
     };
 
     recognitionRef.current = recognition;
@@ -161,14 +196,17 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
           const msg: Message = { role: "assistant", content: data.opening, timestamp: Date.now() };
           setMessages([msg]);
           messagesRef.current = [msg];
+          conversationActiveRef.current = true;
           if (!mutedRef.current && ttsSupported) {
             setCallState("speaking");
-            speakGerman(data.opening, resolvedVoice(), 0.9, () => setCallState("idle"));
+            speakGerman(data.opening, resolvedVoice(), 0.9, afterMayaSpeech);
+          } else {
+            resumeListeningRef.current();
           }
         }
       })
       .catch(console.error);
-  }, [router, scenarioId, grammarId, resolvedVoice, ttsSupported]);
+  }, [router, scenarioId, grammarId, resolvedVoice, ttsSupported, afterMayaSpeech]);
 
   const speakStreamSentences = useCallback((token: string, state: {
     buffer: string;
@@ -244,9 +282,9 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       }
 
       if (!mutedRef.current && ttsSupported && (streamState.spokenCount > 0 || unspoken.length > 0)) {
-        whenGermanSpeechIdle(() => setCallState("idle"));
+        whenGermanSpeechIdle(afterMayaSpeech);
       } else {
-        setCallState("idle");
+        afterMayaSpeech();
       }
 
       const assistantMsg: Message = {
@@ -272,10 +310,13 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       _isSending = false;
       setCallState("idle");
     }
-  }, [systemPrompt, speakStreamSentences, resolvedVoice, ttsSupported]);
+  }, [systemPrompt, speakStreamSentences, resolvedVoice, ttsSupported, afterMayaSpeech]);
+
+  useEffect(() => { sendToGptRef.current = sendToGpt; }, [sendToGpt]);
 
   const finishSession = useCallback(() => {
     if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+    conversationActiveRef.current = false;
     _isSending = false;
     recognitionRef.current?.abort();
     stopSpeaking();
@@ -323,7 +364,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
 
     if (callState === "speaking") {
       stopSpeaking();
-      setCallState("idle");
+      afterMayaSpeech();
       return;
     }
     if (callState === "listening") {
@@ -333,6 +374,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
     }
     if (callState === "thinking") return;
 
+    conversationActiveRef.current = true;
     try {
       setCallState("listening");
       recognitionRef.current.start();
@@ -351,16 +393,27 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
   };
 
   const stateLabel: Record<CallState, string> = {
-    idle: sttSupported ? "Tippe und sprich mit Maya" : "Spracherkennung wird in diesem Browser nicht unterstützt",
+    idle: sttSupported ? "Sprich mit Maya — Mikrofon ist bereit" : "Spracherkennung wird in diesem Browser nicht unterstützt",
     listening: "Sprich jetzt...",
     thinking: "Maya denkt nach...",
-    speaking: "Maya spricht — tippen zum Stoppen",
+    speaking: "Maya spricht — tippen zum Überspringen",
   };
 
   const bars = Array.from({ length: 7 });
 
+  const rootStyle = embedded
+    ? {
+        flex: 1,
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column" as const,
+        overflow: "hidden",
+        background: "var(--bg)",
+      }
+    : undefined;
+
   return (
-    <div className={styles.page}>
+    <div className={embedded ? undefined : styles.page} style={rootStyle}>
       <div
         style={{
           display: "flex",
@@ -389,7 +442,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
                 padding: "4px 8px",
               }}
             >
-              <option value="">Auto (beste Stimme)</option>
+              <option value="">Google Deutsch (Auto)</option>
               {voices.map(v => (
                 <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>
               ))}
@@ -444,9 +497,9 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
           )}
         </div>
         <div className={styles.avatarInfo}>
-          <div className={styles.avatarName}>Maya{user ? ` · ${user.name}` : ""} · GPT-4o</div>
+          <div className={styles.avatarName}>Maya{user ? ` · ${user.name}` : ""}</div>
           <div className={styles.avatarSub}>
-            {user?.streak ? `${user.streak} Tage` : "Browser-Stimme"}
+            {user?.streak ? `${user.streak} Tage` : "Deutsche Lehrerin"}
             {daysSince >= 3 ? ` · ${daysSince}d Pause` : ""}
           </div>
         </div>
@@ -456,7 +509,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
         {messages.length === 0 && (
           <div className={styles.emptyState}>
             <p className={styles.emptyTitle}>Hey{user ? ` ${user.name}` : ""}!</p>
-            <p className={styles.emptyHint}>Browser-Modus: GPT-4o + eingebaute Stimme.</p>
+            <p className={styles.emptyHint}>Tippe den Knopf und sprich Deutsch mit Maya.</p>
           </div>
         )}
         {messages.map((msg, i) => (

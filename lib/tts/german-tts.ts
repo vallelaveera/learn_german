@@ -1,3 +1,6 @@
+import { stripEmojis } from "@/lib/fish-tts";
+
+const PREFERRED_VOICE = "Google Deutsch";
 const FEMALE_GERMAN_VOICES = [
   "Anna",
   "Helena",
@@ -6,8 +9,6 @@ const FEMALE_GERMAN_VOICES = [
   "Marlene",
   "Vicki",
 ];
-
-let cachedVoice: SpeechSynthesisVoice | null = null;
 const speakQueue: string[] = [];
 let queueProcessing = false;
 let onIdleCallback: (() => void) | null = null;
@@ -37,15 +38,22 @@ export const getAllGermanVoices = (): SpeechSynthesisVoice[] => {
 };
 
 export const getGermanFemaleVoice = (): SpeechSynthesisVoice | null => {
-  if (cachedVoice) return cachedVoice;
   const german = getAllGermanVoices();
-  cachedVoice =
+  return (
+    german.find(v => v.name === PREFERRED_VOICE) ||
+    german.find(v => v.name.includes(PREFERRED_VOICE)) ||
     german.find(v => FEMALE_GERMAN_VOICES.some(n => v.name.includes(n))) ||
     german.find(v => v.localService) ||
     german[0] ||
-    null;
-  return cachedVoice;
+    null
+  );
 };
+
+/** Text safe for speech — no hint lines, no emojis. */
+export function textForGermanSpeech(text: string): string {
+  const spoken = text.split("💡")[0];
+  return stripEmojis(spoken).replace(/\s+/g, " ").trim();
+}
 
 export const initGermanTTS = (): Promise<SpeechSynthesisVoice[]> => {
   return new Promise(resolve => {
@@ -69,8 +77,13 @@ function processSpeakQueue(onDone?: () => void): void {
   }
 
   queueProcessing = true;
-  const text = speakQueue.shift()!;
-  const utterance = new SpeechSynthesisUtterance(text);
+  const next = speakQueue.shift()!;
+  if (!next) {
+    queueProcessing = false;
+    processSpeakQueue(onDone);
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(next);
   utterance.lang = "de-DE";
   utterance.rate = queueRate;
   utterance.pitch = 1.1;
@@ -99,9 +112,11 @@ export const speakGerman = (
   onDone?: () => void,
 ): void => {
   if (typeof window === "undefined" || !window.speechSynthesis || !text.trim()) return;
+  const cleaned = textForGermanSpeech(text);
+  if (!cleaned) return;
   queueVoice = voice ?? getGermanFemaleVoice();
   queueRate = rate;
-  speakQueue.push(text.trim());
+  speakQueue.push(cleaned);
   processSpeakQueue(onDone);
 };
 
