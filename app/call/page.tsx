@@ -3,7 +3,6 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { FreisprechenCall } from "@/components/call/FreisprechenCall";
-import { TippenCall } from "@/components/call/TippenCall";
 import { BrowserCall } from "@/components/call/BrowserCall";
 import { CallReport } from "@/components/call/CallReport";
 import { TabBar } from "@/components/layout/TabBar";
@@ -12,7 +11,12 @@ import { buildCallContextUrl } from "@/lib/grammar/context-url";
 import type { GrammarPointWithLevel } from "@/lib/grammar/curriculum";
 import { Message } from "@/lib/types";
 
-type CallMode = "freisprechen" | "tippen" | "browser";
+type CallMode = "freisprechen" | "browser";
+
+function resolveCallMode(param: string | null): CallMode {
+  if (param === "freisprechen") return "freisprechen";
+  return "browser";
+}
 
 function CallPageInner() {
   const searchParams = useSearchParams();
@@ -23,9 +27,7 @@ function CallPageInner() {
   const [grammarId, setGrammarId] = useState<string | null>(grammarFromUrl);
   const [grammarFocus, setGrammarFocus] = useState<GrammarPointWithLevel | null>(null);
   const [pillDismissed, setPillDismissed] = useState(false);
-  const [mode, setMode] = useState<CallMode>(
-    paramMode === "tippen" ? "tippen" : paramMode === "browser" ? "browser" : "freisprechen",
-  );
+  const [mode, setMode] = useState<CallMode>(() => resolveCallMode(paramMode));
   const [report, setReport] = useState<{ messages: Message[]; durationSec: number } | null>(null);
   const [reportMeta, setReportMeta] = useState<{ currentLevel: string; completedCalls: number; userName?: string } | null>(null);
 
@@ -73,11 +75,7 @@ function CallPageInner() {
   const switchMode = (next: CallMode) => {
     if (report) return;
     setMode(next);
-    const query =
-      next === "tippen" ? "/call?mode=tippen"
-      : next === "browser" ? "/call?mode=browser"
-      : "/call?mode=freisprechen";
-    router.replace(query, { scroll: false });
+    router.replace(next === "freisprechen" ? "/call?mode=freisprechen" : "/call", { scroll: false });
   };
 
   return (
@@ -110,9 +108,8 @@ function CallPageInner() {
         >
           {(
             [
+              ["browser", "Anruf"],
               ["freisprechen", "Freisprechen"],
-              ["tippen", "Tippen"],
-              ["browser", "Browser 🌐"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -183,14 +180,6 @@ function CallPageInner() {
         {mode === "freisprechen" ? (
           <FreisprechenCall
             key="freisprechen"
-            embedded
-            scenarioId={scenarioId}
-            grammarId={grammarId}
-            onCallEnded={handleCallEnded}
-          />
-        ) : mode === "tippen" ? (
-          <TippenCall
-            key="tippen"
             embedded
             scenarioId={scenarioId}
             grammarId={grammarId}

@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useRouter } from "next/navigation";
+import { useCallRecorder } from "@/components/CallRecorder";
 import { Message } from "@/lib/types";
 import { parseTutorResponse, attachCorrectionToLastUser, markLastUserGrammarCorrect } from "@/lib/tutor-response";
 import { CallGrammarTurnBadge } from "@/components/call/CallGrammarProgress";
@@ -19,38 +20,6 @@ import {
 type Phase = "idle" | "active";
 type CallState = "listening" | "thinking" | "speaking";
 
-type BrowserSpeechRecognition = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
-  onend: (() => void) | null;
-};
-
-type BrowserSpeechRecognitionCtor = new () => BrowserSpeechRecognition;
-
-type SpeechRecognitionResultEvent = {
-  resultIndex: number;
-  results: {
-    length: number;
-    [index: number]: {
-      isFinal: boolean;
-      [index: number]: { transcript: string };
-    };
-  };
-};
-
-declare global {
-  interface Window {
-    SpeechRecognition?: BrowserSpeechRecognitionCtor;
-    webkitSpeechRecognition?: BrowserSpeechRecognitionCtor;
-  }
-}
-
 export interface BrowserCallProps {
   onCallEnded?: (messages: Message[], durationSec: number) => void;
   embedded?: boolean;
@@ -59,14 +28,26 @@ export interface BrowserCallProps {
 }
 
 let _bc_active = false;
-let _isSending = false;
+let _bc_sending = false;
+let _bc_mic_start = 0;
+let _bc_mic_running = false;
 
-const SILENCE_DURATION_MS = 2000;
+const SPEECH_THRESHOLD = 42;
+const SILENCE_THRESHOLD = 30;
+const SPEECH_FRAMES_MIN = 12;
+const SILENCE_DURATION_ENDPOINT = 2000;
+const SILENCE_DURATION_FALLBACK = 2000;
+const MIC_WARMUP_MS = 1000;
+const PAUSE_BETWEEN_TURNS_MS = 250;
 
-function getSpeechRecognitionCtor(): BrowserSpeechRecognitionCtor | null {
-  if (typeof window === "undefined") return null;
-  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
-}
+const looksIncomplete = (text: string) => {
+  const t = text.trim();
+  if (!t) return true;
+  if (/\s[a-zäöüß]$/i.test(t)) return true;
+  const last = t.split(/\s+/).pop()?.replace(/[.!?,…:;]+$/g, "") ?? "";
+  if (last.length === 1 && !/[.!?]$/.test(t)) return true;
+  return false;
+};
 
 async function ensureMicPermission(): Promise<boolean> {
   if (!navigator.mediaDevices?.getUserMedia) return false;
@@ -92,6 +73,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
   const [messages, setMessages] = useState<Message[]>([]);
   const [liveText, setLiveText] = useState("");
   const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0);
   const [sessionId] = useState(() => uuidv4());
   const [sessionStart] = useState(() => Date.now());
   const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
@@ -102,26 +84,36 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
   const [cachedOpening, setCachedOpening] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sttSupported, setSttSupported] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [jetztDuActive, setJetztDuActive] = useState(false);
   const [showJetztDuNudge, setShowJetztDuNudge] = useState(false);
   const [showMayaReplyNudge, setShowMayaReplyNudge] = useState(false);
 
   const pendingEndRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
-  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const callStateRef = useRef<CallState>("listening");
   const isMutedRef = useRef(false);
+  const jetztDuRef = useRef(false);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const speechBufferRef = useRef("");
-  const interimRef = useRef("");
+  const nonFinalRef = useRef("");
+  const isSpeakingRef = useRef(false);
+  const speechFramesRef = useRef(0);
+  const sttEndpointRef = useRef(false);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const micLiveRef = useRef(false);
+  const ttsSessionRef = useRef(0);
+
   const sendToGptRef = useRef<(msgs: Message[]) => Promise<void>>(async () => {});
-  const commitTurnRef = useRef<() => void>(() => {});
-  const startListeningRef = useRef<() => void>(() => {});
-  const stopListeningRef = useRef<() => void>(() => {});
+  const tryCommitTurnRef = useRef<(force?: boolean) => void>(() => {});
+  const startRef = useRef<() => Promise<void>>(async () => {});
+  const stopRef = useRef<() => Promise<Blob | null>>(async () => null);
+  const setMutedRef = useRef<(muted: boolean) => void>(() => {});
+  const setTranscriptPausedRef = useRef<(paused: boolean) => void>(() => {});
+  const restartMicRef = useRef<() => Promise<void>>(async () => {});
+  const activateMicAfterTTSRef = useRef<() => Promise<void>>(async () => {});
   const endCallRef = useRef<() => void>(() => {});
   const router = useRouter();
 
@@ -136,10 +128,17 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
   useEffect(() => { callStateRef.current = callState; }, [callState]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { jetztDuRef.current = jetztDuActive; }, [jetztDuActive]);
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, liveText, callState]);
+
+  const setJetztDu = useCallback((active: boolean) => {
+    jetztDuRef.current = active;
+    setJetztDuActive(active);
+    if (active) setShowJetztDuNudge(true);
+  }, []);
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -148,48 +147,79 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
     }
   }, []);
 
-  const stopListening = useCallback(() => {
-    clearSilenceTimer();
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-  }, [clearSilenceTimer]);
-
-  const startListening = useCallback(() => {
-    if (!_bc_active || _isSending || isMutedRef.current || !recognitionRef.current) return;
-    if (callStateRef.current !== "listening") return;
-    try {
-      recognitionRef.current.start();
-    } catch {}
-  }, []);
-
-  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
-  useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
-
   const scheduleSilenceSend = useCallback(() => {
-    if (!_bc_active || _isSending || isMutedRef.current) return;
-    clearSilenceTimer();
+    if (silenceTimerRef.current) return;
+    const duration = sttEndpointRef.current ? SILENCE_DURATION_ENDPOINT : SILENCE_DURATION_FALLBACK;
     silenceTimerRef.current = setTimeout(() => {
       silenceTimerRef.current = null;
-      commitTurnRef.current();
-    }, SILENCE_DURATION_MS);
-  }, [clearSilenceTimer]);
+      tryCommitTurnRef.current();
+    }, duration);
+  }, []);
 
-  const afterMayaSpeech = useCallback(() => {
+  const activateMicAfterTTS = useCallback(async () => {
     if (!_bc_active) return;
     if (pendingEndRef.current) {
       pendingEndRef.current = false;
       endCallRef.current();
       return;
     }
-    setCallState("listening");
-    setShowJetztDuNudge(true);
-    setShowMayaReplyNudge(false);
-    speechBufferRef.current = "";
-    interimRef.current = "";
-    setLiveText("");
-    startListeningRef.current();
+    await new Promise(resolve => setTimeout(resolve, PAUSE_BETWEEN_TURNS_MS));
+    if (!_bc_active) return;
+    await restartMicRef.current();
   }, []);
+
+  const restartMic = useCallback(async () => {
+    if (!_bc_active || _bc_mic_running) return;
+    _bc_mic_running = true;
+    try {
+      await stopRef.current();
+      micLiveRef.current = false;
+      if (!_bc_active) return;
+      speechBufferRef.current = "";
+      nonFinalRef.current = "";
+      isSpeakingRef.current = false;
+      speechFramesRef.current = 0;
+      sttEndpointRef.current = false;
+      setLiveText("");
+      _bc_mic_start = Date.now();
+      setTranscriptPausedRef.current(false);
+      setJetztDu(true);
+      setCallState("listening");
+      await startRef.current();
+      micLiveRef.current = true;
+      if (isMutedRef.current) setMutedRef.current(true);
+    } finally {
+      _bc_mic_running = false;
+    }
+  }, [setJetztDu]);
+
+  const speakMaya = useCallback((text: string) => {
+    const session = ++ttsSessionRef.current;
+    setShowMayaReplyNudge(false);
+    setCallState("speaking");
+    setJetztDu(false);
+    setTranscriptPausedRef.current(true);
+    speechBufferRef.current = "";
+    nonFinalRef.current = "";
+    setLiveText("");
+    _bc_sending = true;
+    void stopRef.current();
+
+    const finish = () => {
+      if (session !== ttsSessionRef.current) return;
+      _bc_sending = false;
+      void activateMicAfterTTSRef.current();
+    };
+
+    if (!text.trim()) {
+      finish();
+      return;
+    }
+
+    speakGerman(text, voiceRef.current, 0.9, () => {
+      whenGermanSpeechIdle(finish);
+    });
+  }, [setJetztDu]);
 
   const speakStreamSentences = useCallback((token: string, state: {
     buffer: string;
@@ -206,10 +236,12 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
   }, []);
 
   const sendToGpt = useCallback(async (msgs: Message[]) => {
+    _bc_sending = true;
+    setJetztDu(false);
     setCallState("thinking");
     setShowMayaReplyNudge(true);
-    setShowJetztDuNudge(false);
-    stopListeningRef.current();
+    setTranscriptPausedRef.current(true);
+    await stopRef.current();
     stopSpeaking();
 
     try {
@@ -264,121 +296,175 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       const unspoken = germanSentences.slice(streamState.spokenCount);
       unspoken.forEach(s => speakGerman(s.trim(), voiceRef.current));
 
-      if (streamState.spokenCount > 0 || unspoken.length > 0) {
-        whenGermanSpeechIdle(afterMayaSpeech);
-      } else {
-        afterMayaSpeech();
-      }
-
-      const assistantMsg: Message = {
-        role: "assistant",
-        content: parsed.german,
-        translation: parsed.hint,
-        timestamp: Date.now(),
+      const finishSpeech = () => {
+        _bc_sending = false;
+        void activateMicAfterTTSRef.current();
       };
 
-      setMessages(() => {
-        let updated = msgs;
+      if (streamState.spokenCount > 0 || unspoken.length > 0) {
+        whenGermanSpeechIdle(finishSpeech);
+      } else {
+        finishSpeech();
+      }
+
+      setMessages(prev => {
+        let updated = prev;
         if (parsed.correction) {
           updated = attachCorrectionToLastUser(updated, parsed.correction);
         } else {
           updated = markLastUserGrammarCorrect(updated);
         }
+        const assistantMsg: Message = {
+          role: "assistant",
+          content: parsed.german,
+          translation: parsed.hint,
+          timestamp: Date.now(),
+        };
         updated = [...updated, assistantMsg];
         messagesRef.current = updated;
         return updated;
       });
-      _isSending = false;
     } catch {
-      _isSending = false;
-      if (_bc_active) afterMayaSpeech();
+      _bc_sending = false;
+      if (_bc_active) void restartMicRef.current();
     }
-  }, [systemPrompt, speakStreamSentences, afterMayaSpeech]);
+  }, [systemPrompt, speakStreamSentences, setJetztDu]);
 
   useEffect(() => { sendToGptRef.current = sendToGpt; }, [sendToGpt]);
 
-  const commitTurn = useCallback(() => {
-    if (_isSending || !_bc_active || isMutedRef.current) return;
-    const text = (speechBufferRef.current + interimRef.current).replace(/<end>/g, "").trim();
+  const tryCommitTurn = useCallback(async (force = false) => {
+    if (_bc_sending || !_bc_active) return;
+    clearSilenceTimer();
+
+    if (nonFinalRef.current.trim()) {
+      speechBufferRef.current += nonFinalRef.current;
+      nonFinalRef.current = "";
+    }
+
+    const text = speechBufferRef.current.trim();
     if (!text) return;
 
-    speechBufferRef.current = "";
-    interimRef.current = "";
-    setLiveText("");
-    clearSilenceTimer();
-    stopListeningRef.current();
-    _isSending = true;
+    if (!force && looksIncomplete(text)) {
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null;
+        tryCommitTurnRef.current(true);
+      }, sttEndpointRef.current ? 600 : 800);
+      return;
+    }
 
-    const userMsg: Message = { role: "user", content: text, timestamp: Date.now() };
+    isSpeakingRef.current = false;
+    speechFramesRef.current = 0;
+    speechBufferRef.current = "";
+    nonFinalRef.current = "";
+    sttEndpointRef.current = false;
+    setLiveText("");
+    setShowJetztDuNudge(false);
+
+    const userMsg: Message = {
+      role: "user",
+      content: text.replace(/<end>/g, "").trim(),
+      timestamp: Date.now(),
+    };
     const updated = [...messagesRef.current, userMsg];
     setMessages(updated);
     messagesRef.current = updated;
     void sendToGptRef.current(updated);
   }, [clearSilenceTimer]);
 
-  useEffect(() => { commitTurnRef.current = commitTurn; }, [commitTurn]);
+  useEffect(() => { tryCommitTurnRef.current = (force?: boolean) => { void tryCommitTurn(force); }; }, [tryCommitTurn]);
+
+  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (isMutedRef.current || !jetztDuRef.current) return;
+    setShowJetztDuNudge(false);
+    if (isFinal) {
+      speechBufferRef.current += text;
+      nonFinalRef.current = "";
+      setLiveText(speechBufferRef.current);
+      sttEndpointRef.current = false;
+    } else {
+      nonFinalRef.current = text;
+      setLiveText(speechBufferRef.current + text);
+      sttEndpointRef.current = false;
+      clearSilenceTimer();
+    }
+  }, [clearSilenceTimer]);
+
+  const handleFinished = useCallback(() => {
+    if (!_bc_active || _bc_sending || isMutedRef.current || !jetztDuRef.current) return;
+    sttEndpointRef.current = true;
+    if (speechBufferRef.current.trim() || nonFinalRef.current.trim()) {
+      clearSilenceTimer();
+      scheduleSilenceSend();
+    }
+  }, [clearSilenceTimer, scheduleSilenceSend]);
+
+  const handleVolume = useCallback((vol: number) => {
+    if (isMutedRef.current) {
+      setVolume(0);
+      return;
+    }
+    if (callStateRef.current === "listening") setVolume(vol);
+    if (!_bc_active || _bc_sending) return;
+    if (Date.now() - _bc_mic_start < MIC_WARMUP_MS) return;
+
+    if (vol >= SPEECH_THRESHOLD) {
+      speechFramesRef.current++;
+      if (speechFramesRef.current >= SPEECH_FRAMES_MIN) {
+        isSpeakingRef.current = true;
+        setShowJetztDuNudge(false);
+      }
+      sttEndpointRef.current = false;
+    } else if (vol < SILENCE_THRESHOLD) {
+      speechFramesRef.current = 0;
+    }
+
+    if (!isSpeakingRef.current) {
+      clearSilenceTimer();
+      return;
+    }
+
+    if (vol >= SILENCE_THRESHOLD) {
+      clearSilenceTimer();
+    } else if (speechBufferRef.current.trim() && !nonFinalRef.current.trim()) {
+      scheduleSilenceSend();
+    }
+  }, [clearSilenceTimer, scheduleSilenceSend]);
+
+  const handleRecorderError = useCallback((e: string) => {
+    if (e.includes("429")) {
+      setError("Zu viele Verbindungen. Bitte warte einen Moment.");
+      endCallRef.current();
+      return;
+    }
+    setError(e);
+  }, []);
+
+  const getContext = useCallback(() => {
+    const lastMaya = [...messagesRef.current].reverse().find(m => m.role === "assistant");
+    return lastMaya?.content ?? "";
+  }, []);
+
+  const { start, stop, setMuted, setTranscriptPaused } = useCallRecorder({
+    apiKey: process.env.NEXT_PUBLIC_SONIOX_API_KEY ?? "",
+    onTranscript: handleTranscript,
+    onFinished: handleFinished,
+    onError: handleRecorderError,
+    onVolume: handleVolume,
+    getContext,
+  });
+
+  useEffect(() => { startRef.current = start; }, [start]);
+  useEffect(() => { stopRef.current = stop; }, [stop]);
+  useEffect(() => { setMutedRef.current = setMuted; }, [setMuted]);
+  useEffect(() => { setTranscriptPausedRef.current = setTranscriptPaused; }, [setTranscriptPaused]);
+  useEffect(() => { restartMicRef.current = restartMic; }, [restartMic]);
+  useEffect(() => { activateMicAfterTTSRef.current = activateMicAfterTTS; }, [activateMicAfterTTS]);
 
   useEffect(() => {
-    const Recognition = getSpeechRecognitionCtor();
-    setSttSupported(!!Recognition);
-
     void initGermanTTS().then(() => {
       voiceRef.current = getGermanFemaleVoice();
     });
-
-    if (!Recognition) return;
-
-    const recognition = new Recognition();
-    recognition.lang = "de-DE";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = event => {
-      if (!_bc_active || _isSending || isMutedRef.current || callStateRef.current !== "listening") return;
-
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const chunk = event.results[i][0]?.transcript ?? "";
-        if (event.results[i].isFinal) {
-          speechBufferRef.current += chunk;
-        } else {
-          interim += chunk;
-        }
-      }
-      interimRef.current = interim;
-      setLiveText(speechBufferRef.current + interim);
-      setShowJetztDuNudge(false);
-      scheduleSilenceSend();
-    };
-
-    recognition.onerror = (event) => {
-      if (event.error === "no-speech" || event.error === "aborted") return;
-      if (_bc_active) setError("Spracherkennung unterbrochen — bitte erneut versuchen.");
-    };
-
-    recognition.onend = () => {
-      if (
-        _bc_active
-        && callStateRef.current === "listening"
-        && !_isSending
-        && !isMutedRef.current
-      ) {
-        try {
-          recognition.start();
-        } catch {}
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      _bc_active = false;
-      recognition.abort();
-      recognitionRef.current = null;
-      clearSilenceTimer();
-      stopSpeaking();
-    };
-  }, [scheduleSilenceSend, clearSilenceTimer]);
+  }, []);
 
   useEffect(() => {
     const contextUrl = buildCallContextUrl({ scenarioId, grammarId });
@@ -397,36 +483,31 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
         if (data.homeworkSummary?.remainingReps != null) {
           pendingHomeworkRepsRef.current = data.homeworkSummary.remainingReps;
         }
-        if (data.opening) {
-          setCachedOpening(data.opening);
-        }
+        if (data.opening) setCachedOpening(data.opening);
       })
       .catch(console.error)
       .finally(() => setContextReady(true));
   }, [router, scenarioId, grammarId]);
 
   const startCall = useCallback(async () => {
-    if (!sttSupported) {
-      setError("Spracherkennung wird in diesem Browser nicht unterstützt.");
-      return;
-    }
     if (navigator.vibrate) navigator.vibrate(40);
 
     _bc_active = true;
-    _isSending = true;
+    _bc_sending = true;
     pendingEndRef.current = false;
     setError(null);
     setLiveText("");
     setDuration(0);
     speechBufferRef.current = "";
-    interimRef.current = "";
+    nonFinalRef.current = "";
     isMutedRef.current = false;
     setIsMuted(false);
+    setJetztDu(false);
 
     const micOk = await ensureMicPermission();
     if (!micOk) {
       _bc_active = false;
-      _isSending = false;
+      _bc_sending = false;
       setError("Mikrofon-Zugriff nötig — bitte erlauben und erneut starten.");
       return;
     }
@@ -458,20 +539,18 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
     const msg: Message = { role: "assistant", content: opening, timestamp: Date.now() };
     setMessages([msg]);
     messagesRef.current = [msg];
-    setCallState("speaking");
-    _isSending = false;
-
-    speakGerman(opening, voiceRef.current, 0.9, afterMayaSpeech);
-  }, [sttSupported, cachedOpening, scenarioId, grammarId, user?.name, afterMayaSpeech]);
+    speakMaya(opening);
+  }, [cachedOpening, scenarioId, grammarId, user?.name, speakMaya, setJetztDu]);
 
   const endCall = useCallback(() => {
     if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
     _bc_active = false;
-    _isSending = false;
+    _bc_sending = false;
     pendingEndRef.current = false;
     clearSilenceTimer();
-    stopListeningRef.current();
+    void stopRef.current();
     stopSpeaking();
+    ttsSessionRef.current++;
     if (durationRef.current) {
       clearInterval(durationRef.current);
       durationRef.current = null;
@@ -502,29 +581,45 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
     setCallState("listening");
     setShowJetztDuNudge(false);
     setShowMayaReplyNudge(false);
-  }, [clearSilenceTimer, sessionStart, sessionId, duration, onCallEnded]);
+    setJetztDu(false);
+    micLiveRef.current = false;
+  }, [clearSilenceTimer, sessionStart, sessionId, duration, onCallEnded, setJetztDu]);
 
   useEffect(() => { endCallRef.current = endCall; }, [endCall]);
+
+  useEffect(() => {
+    return () => {
+      _bc_active = false;
+      clearSilenceTimer();
+      void stopRef.current();
+      stopSpeaking();
+      if (durationRef.current) clearInterval(durationRef.current);
+    };
+  }, [clearSilenceTimer]);
 
   const toggleMute = useCallback(() => {
     const next = !isMutedRef.current;
     isMutedRef.current = next;
     setIsMuted(next);
+    setMutedRef.current(next);
     if (next) {
       clearSilenceTimer();
       speechBufferRef.current = "";
-      interimRef.current = "";
+      nonFinalRef.current = "";
+      isSpeakingRef.current = false;
+      speechFramesRef.current = 0;
       setLiveText("");
-      stopListeningRef.current();
+      setVolume(0);
     } else if (_bc_active && callStateRef.current === "listening") {
-      startListeningRef.current();
+      void restartMicRef.current();
     }
+    if (navigator.vibrate) navigator.vibrate(20);
   }, [clearSilenceTimer]);
 
   const fmt = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  const canCall = contextReady && !limitReached && sttSupported;
+  const canCall = contextReady && !limitReached;
 
   if (phase === "idle") {
     return (
@@ -546,12 +641,6 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
         <p style={{ fontSize: 12, color: "#8a7060", marginBottom: 24, textAlign: "center", lineHeight: 1.7, maxWidth: 280 }}>
           Sprich einfach — Maya hört automatisch zu und antwortet wenn du fertig bist
         </p>
-
-        {!sttSupported && (
-          <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 16, textAlign: "center", maxWidth: 280 }}>
-            Spracherkennung wird in diesem Browser nicht unterstützt
-          </p>
-        )}
 
         {contextReady && limitReached && (
           <p style={{ fontSize: 12, color: "var(--red)", marginBottom: 16, textAlign: "center" }}>
@@ -630,7 +719,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: "#8a7060", letterSpacing: "0.08em", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-            {isMuted && callState === "listening" ? "STUMM" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
+            {isMuted && callState === "listening" ? "STUMM" : callState === "listening" && jetztDuActive ? "JETZT DU" : callState === "listening" ? "HOERT ZU" : callState === "thinking" ? "DENKT NACH" : "SPRICHT"}
           </span>
         </div>
         <span style={{ fontSize: 13, color: "#8a7060", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{fmt(duration)}</span>
@@ -673,7 +762,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
             </div>
           ))}
 
-          {showJetztDuNudge && callState === "listening" && !liveText && (
+          {showJetztDuNudge && jetztDuActive && callState === "listening" && !liveText && (
             <div style={{ maxWidth: "85%", alignSelf: "flex-start" }}>
               <div style={{ padding: "8px 14px", borderRadius: 20, background: "rgba(212,168,67,0.14)", border: "1px solid rgba(212,168,67,0.35)" }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: "#7c4daa", margin: 0 }}>Jetzt du — sprich laut</p>
@@ -689,7 +778,7 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
             </div>
           )}
 
-          {liveText && callState === "listening" && (
+          {liveText && callState === "listening" && jetztDuActive && (
             <div style={{ maxWidth: "85%", alignSelf: "flex-end" }}>
               <div style={{ padding: "10px 14px", borderRadius: "16px 16px 4px 16px", background: "linear-gradient(135deg, #7c4daa, #e8643a)" }}>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{user?.name ?? "Du"}</div>
@@ -726,19 +815,20 @@ export function BrowserCall({ onCallEnded, embedded, scenarioId, grammarId }: Br
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 2, height: 18 }}>
           {Array.from({ length: 9 }, (_, i) => {
-            const height = isMuted
+            const barHeight = isMuted
               ? 3
               : callState === "listening"
-              ? 5 + Math.abs(Math.sin((Date.now() / 200 + i) * 0.7)) * 10
+              ? Math.max(3, Math.min(18, (volume / 50) * 18 * Math.abs(Math.sin((i + 1) * 0.7))))
               : callState === "speaking"
               ? 5 + Math.abs(Math.sin(i * 0.8)) * 8
               : 3;
             return (
               <div key={i} style={{
-                width: 3, borderRadius: 2, height: `${height}px`,
+                width: 3, borderRadius: 2, height: `${barHeight}px`,
+                transition: callState === "speaking" || callState === "thinking" ? "none" : "height 0.1s",
                 background: callState === "speaking"
                   ? `rgba(39,174,96,${0.4 + i * 0.06})`
-                  : callState === "listening" && !isMuted
+                  : callState === "listening" && volume > SPEECH_THRESHOLD && !isMuted
                   ? `rgba(212,168,67,${0.4 + i * 0.06})`
                   : "rgba(127,119,221,0.15)",
               }} />

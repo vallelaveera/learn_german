@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
@@ -37,6 +37,7 @@ import {
   getArticleTrainerHref,
   getDefaultArticleTrainerPointForLevel,
 } from "@/lib/articles/scope";
+import { scrollMainToElement } from "@/lib/ui/scroll-main";
 
 function mapToVerifiedLevel(levelId: GrammarLevelId): VerifiedLevel {
   return levelId;
@@ -48,6 +49,8 @@ export default function GrammarPage() {
   const [levelReady, setLevelReady] = useState(false);
   const [explainers, setExplainers] = useState<GrammarExplainersFile | null>(null);
   const [explainerCollapsed, setExplainerCollapsedState] = useState(false);
+  const exercisesRef = useRef<HTMLElement>(null);
+  const scrollToExercisesRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -72,6 +75,12 @@ export default function GrammarPage() {
     setExplainerCollapsedState(isExplainerCollapsed(levelId));
   }, [levelId]);
 
+  useEffect(() => {
+    if (!explainerCollapsed || !scrollToExercisesRef.current) return;
+    scrollToExercisesRef.current = false;
+    scrollMainToElement(exercisesRef.current);
+  }, [explainerCollapsed]);
+
   const { exerciseCounts, totalExercises } = useGrammarLevelExercises(levelId);
   const progress = useGrammarCatalogProgress(levelId, exerciseCounts);
   const color = levelColor(levelId);
@@ -91,6 +100,7 @@ export default function GrammarPage() {
     : null;
 
   const collapseExplainer = useCallback(() => {
+    scrollToExercisesRef.current = true;
     setExplainerCollapsed(levelId, true);
     setExplainerCollapsedState(true);
   }, [levelId]);
@@ -135,13 +145,6 @@ export default function GrammarPage() {
           onChange={setLevelId}
         />
 
-        {progress.hydrated && (
-          <>
-            <GrammarLevelTOC level={levelId} progress={progress} totalExercises={totalExercises} />
-            <GrammarCategoryGrid level={levelId} progress={progress} exerciseCounts={exerciseCounts} />
-          </>
-        )}
-
         {explainer && grammarLevel && !explainerCollapsed && (
           <GrammarLevelExplainer
             explainer={explainer}
@@ -160,6 +163,15 @@ export default function GrammarPage() {
             onExpand={expandExplainer}
           />
         )}
+
+        <section ref={exercisesRef} aria-label="Grammatik-Übungen">
+          {progress.hydrated && (
+            <>
+              <GrammarLevelTOC level={levelId} progress={progress} totalExercises={totalExercises} />
+              <GrammarCategoryGrid level={levelId} progress={progress} exerciseCounts={exerciseCounts} />
+            </>
+          )}
+        </section>
 
         {articleTableHref && (
           <Link

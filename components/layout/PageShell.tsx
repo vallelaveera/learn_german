@@ -19,6 +19,8 @@ export function PageShell({ children, title, showTabBar = true, headerRight, min
       className="ui-phone-shell"
       style={{
         position: "relative",
+        height: "100dvh",
+        maxHeight: "100dvh",
         minHeight: "100dvh",
         background: "var(--bg-warm)",
         maxWidth: 390,
@@ -26,6 +28,7 @@ export function PageShell({ children, title, showTabBar = true, headerRight, min
         width: "100%",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <DecorativeBackground />
@@ -78,11 +81,12 @@ export function PageShell({ children, title, showTabBar = true, headerRight, min
           position: "relative",
           zIndex: 1,
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           overflowX: "hidden",
+          WebkitOverflowScrolling: "touch",
           display: fitViewport ? "flex" : undefined,
           flexDirection: fitViewport ? "column" : undefined,
-          minHeight: fitViewport ? 0 : undefined,
           paddingBottom: showTabBar ? "var(--shell-bottom-tab)" : "var(--shell-bottom)",
         }}
       >
