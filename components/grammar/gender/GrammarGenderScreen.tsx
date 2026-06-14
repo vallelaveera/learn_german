@@ -14,20 +14,22 @@ import { GenderProgressTab } from "./GenderProgressTab";
 import { GraduationModal } from "./GraduationModal";
 
 const TABS: { id: GenderTab; label: string; icon: React.ReactNode }[] = [
-  { id: "practice", label: "Practice", icon: <Sparkles size={16} /> },
   { id: "patterns", label: "Patterns", icon: <BookOpen size={16} /> },
+  { id: "practice", label: "Practice", icon: <Sparkles size={16} /> },
   { id: "sort", label: "Sort", icon: <LayoutGrid size={16} /> },
   { id: "progress", label: "Progress", icon: <BarChart3 size={16} /> },
 ];
 
 export function GrammarGenderScreen() {
-  const [tab, setTab] = useState<GenderTab>("practice");
+  const [tab, setTab] = useState<GenderTab>("patterns");
   const [speaking, setSpeaking] = useState(false);
   const gender = useGermanGender();
   const theme = GENDER_TAB_THEMES[tab];
 
   const level = Math.floor(gender.xp / 100) + 1;
   const xpInLevel = gender.xp % 100;
+  const xpBarPct = xpInLevel === 0 && gender.xp > 0 ? 100 : xpInLevel;
+  const xpBarLabel = xpInLevel === 0 && gender.xp > 0 ? 100 : xpInLevel;
 
   const onSpeak = useCallback(async (text: string) => {
     if (speaking) return;
@@ -107,13 +109,13 @@ export function GrammarGenderScreen() {
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: theme.tmid, marginBottom: 4 }}>
             <span>{gender.xp} XP</span>
-            <span>{xpInLevel}/100</span>
+            <span>{xpBarLabel}/100</span>
           </div>
           <div style={{ height: 8, borderRadius: 999, background: theme.tbg, overflow: "hidden" }}>
             <div
               style={{
                 height: "100%",
-                width: `${xpInLevel}%`,
+                width: `${xpBarPct}%`,
                 background: theme.tc,
                 borderRadius: 999,
                 transition: "width 0.3s ease",

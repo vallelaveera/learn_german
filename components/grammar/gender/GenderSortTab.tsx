@@ -67,10 +67,10 @@ export function GenderSortTab({ theme, gender }: GenderSortTabProps) {
         nextFeedback[id] = "correct";
         nextLocked[id] = activeArticle;
         correctCount += 1;
-        gender.recordSortResult(true, id);
+        gender.recordSortResult(true, id, activeArticle);
       } else {
         nextFeedback[id] = "wrong";
-        gender.recordSortResult(false, id);
+        gender.recordSortResult(false, id, activeArticle);
       }
     }
 

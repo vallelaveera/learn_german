@@ -106,7 +106,7 @@ export function patternFullSentence(pattern: GenderPattern): string {
 }
 
 export function practiceWordPool(pattern: GenderPattern): string[] {
-  const all = [...pattern.keys, ...pattern.decoys];
+  const all = [...pattern.keys];
   for (let i = all.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [all[i], all[j]] = [all[j]!, all[i]!];

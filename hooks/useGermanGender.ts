@@ -135,17 +135,26 @@ export function useGermanGender() {
     });
   }, []);
 
-  const recordSortResult = useCallback((correct: boolean, wordId: string) => {
+  const recordSortResult = useCallback((correct: boolean, wordId: string, bucket: GenderArticle) => {
     setState(prev => {
       const learned = prev.stats.learned.includes(wordId)
         ? prev.stats.learned
         : [...prev.stats.learned, wordId];
       const sortStreak = correct ? prev.sortStreak + 1 : 0;
+      const stats = {
+        ...prev.stats,
+        der: { ...prev.stats.der },
+        die: { ...prev.stats.die },
+        das: { ...prev.stats.das },
+        learned,
+      };
+      stats[bucket].total += 1;
+      if (correct) stats[bucket].correct += 1;
       const next: GermanGenderState = {
         ...prev,
         streak: correct ? prev.streak + 1 : 0,
         sortStreak,
-        stats: { ...prev.stats, learned },
+        stats,
       };
       next.achievements = syncAchievements(next);
       return next;
