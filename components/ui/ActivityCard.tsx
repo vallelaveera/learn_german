@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type ActivityTone = "orange" | "blue" | "yellow" | "green" | "purple" | "neutral";
+type ActivityTone = "orange" | "blue" | "yellow" | "green" | "purple" | "teal" | "neutral";
 
 const TONES: Record<ActivityTone, { bg: string; color: string; shadow: string }> = {
   orange: { bg: "rgba(255, 107, 53, 0.14)", color: "#FF6B35", shadow: "rgba(255, 107, 53, 0.3)" },
@@ -8,6 +8,7 @@ const TONES: Record<ActivityTone, { bg: string; color: string; shadow: string }>
   yellow: { bg: "rgba(255, 209, 102, 0.2)", color: "#E89B0C", shadow: "rgba(244, 162, 97, 0.35)" },
   green: { bg: "rgba(56, 161, 105, 0.14)", color: "#38A169", shadow: "rgba(56, 161, 105, 0.3)" },
   purple: { bg: "rgba(128, 90, 213, 0.14)", color: "#805AD5", shadow: "rgba(128, 90, 213, 0.3)" },
+  teal: { bg: "rgba(14, 116, 144, 0.14)", color: "#0e7490", shadow: "rgba(14, 116, 144, 0.3)" },
   neutral: { bg: "#fff", color: "var(--text-muted)", shadow: "rgba(0,0,0,0.06)" },
 };
 

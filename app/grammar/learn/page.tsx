@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { GrammarCatalogScreen } from "@/components/grammar/catalog/GrammarCatalogScreen";
 import { GrammarExerciseSession } from "@/components/grammar/catalog/GrammarExerciseSession";
 import { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
+import { useGrammarLevelExercises } from "@/hooks/useGrammarExercises";
 import {
   GRAMMAR_CATEGORIES,
   VERIFIED_LEVELS,
@@ -31,11 +32,13 @@ function LearnPageInner() {
   const tier: GrammarTier = tierParam === "advanced" ? "advanced" : "basic";
 
   const block = getCategoryBlock(level, category);
+  const { getExercises, exerciseCounts } = useGrammarLevelExercises(level);
+  const exercises = getExercises(category, tier);
   const color = levelColor(level);
   const light = levelLightColor(level);
   const items = getTierItems(level, category, tier);
   const interactiveTrainer = getInteractiveTrainerLink(level, category, tier);
-  const progress = useGrammarCatalogProgress(level);
+  const progress = useGrammarCatalogProgress(level, exerciseCounts);
 
   return (
     <GrammarCatalogScreen
@@ -46,9 +49,10 @@ function LearnPageInner() {
       theoryItems={items}
       typicalMistakes={block.typicalMistakes}
       interactiveTrainer={interactiveTrainer}
+      exerciseCount={exercises.length}
     >
       <GrammarExerciseSession
-        exercises={block.exercises}
+        exercises={exercises}
         levelColor={color}
         levelLightColor={light}
         onExerciseDone={idx => progress.markExerciseDone(category, tier, idx)}

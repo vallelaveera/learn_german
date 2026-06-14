@@ -9,6 +9,7 @@ import { ActivityCard } from "@/components/ui/ActivityCard";
 import {
   CallActivityIcon,
   GrammarActivityIcon,
+  OfflineActivityIcon,
   SentencesActivityIcon,
   WordsActivityIcon,
 } from "@/components/ui/ActivityIcons";
@@ -159,6 +160,14 @@ function ModePageInner() {
             label="Wörter üben"
             subtext="Kategorien · Flashcards mit Maya"
             onClick={() => router.push("/exercises/words")}
+          />
+          <ActivityCard
+            compact
+            tone="teal"
+            icon={<OfflineActivityIcon color="#0e7490" />}
+            label="Offline lernen"
+            subtext="Wörter & Sätze · ohne Internet"
+            onClick={() => router.push("/offline")}
           />
         </div>
 

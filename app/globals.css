@@ -35,9 +35,9 @@
   --bubble-maya: rgba(255, 255, 255, 0.95);
   --bubble-user: linear-gradient(135deg, #FF9A56, #FF6B35);
   --bubble-user-text: #ffffff;
-  --font-serif: 'Fraunces', Georgia, serif;
-  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'DM Mono', 'Courier New', monospace;
+  --font-serif: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  --font-sans: var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-dm-mono), 'DM Mono', 'Courier New', monospace;
   --radius: 12px;
   --radius-lg: 20px;
   --radius-xl: 28px;
@@ -53,11 +53,15 @@
 html {
   height: 100%;
   height: -webkit-fill-available;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
   min-height: 100%;
   min-height: -webkit-fill-available;
+  max-width: 100vw;
+  overflow-x: hidden;
   background: var(--bg);
   background-image:
     radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255, 154, 86, 0.35), transparent 55%),
@@ -232,6 +236,8 @@ input, textarea, select {
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
+  min-height: 48px;
+  min-width: 48px;
 }
 .ui-progress-track {
   height: 8px;
@@ -319,6 +325,71 @@ input, textarea, select {
 .animate-pop-in { animation: pop-in 0.3s ease forwards; }
 .animate-slide-up { animation: slide-up 0.28s ease forwards; }
 
+/* ── Native app (Capacitor WebView) ── */
+html.native-app,
+html.native-app body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+}
+
+html.native-app *:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html.native-app input,
+html.native-app textarea,
+html.native-app select,
+html.native-app [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.native-page-root {
+  min-height: 100dvh;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.animate-page-enter {
+  animation: page-enter 0.22s ease-out;
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Small phones (360px) ── */
+@media (max-width: 400px) {
+  .ui-page { padding: 12px 14px 20px; }
+  .ui-phone-shell {
+    max-width: 100%;
+    margin: 0;
+    border-radius: 0;
+    min-height: 100dvh;
+  }
+  .ui-tab-bar {
+    max-width: 100%;
+    padding: 0 8px;
+  }
+  .ui-hero {
+    padding: 20px 16px 18px;
+    margin-bottom: 14px;
+  }
+  .ui-title-serif { word-break: break-word; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .ui-btn-primary:hover,
+  .ui-btn-ghost:hover,
+  .ui-tab-item:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+}
+
 @keyframes illus-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -405,6 +476,7 @@ input, textarea, select {
   justify-content: center;
   gap: 3px;
   min-height: 52px;
+  min-width: 48px;
   text-decoration: none;
   color: var(--text-dim);
   border-radius: 999px;

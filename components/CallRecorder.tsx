@@ -116,6 +116,7 @@ export function useCallRecorder({
           return;
         }
         analyser.getByteFrequencyData(data);
+        // Speech band only — ignore low rumble and high hiss for VAD volume
         const start = Math.floor(data.length * 0.08);
         const end = Math.floor(data.length * 0.55);
         let sum = 0;

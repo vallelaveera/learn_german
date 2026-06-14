@@ -3,6 +3,7 @@
 import { GrammarCatalogScreen } from "./GrammarCatalogScreen";
 import { GrammarExerciseSession } from "./GrammarExerciseSession";
 import { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
+import { useGrammarLevelExercises } from "@/hooks/useGrammarExercises";
 import {
   getCategoryBlock,
   getTierItems,
@@ -29,10 +30,12 @@ export function GrammarVerifiedTrainerScreen({
   subtitle,
 }: GrammarVerifiedTrainerScreenProps) {
   const block = getCategoryBlock(level, category);
+  const { getExercises, exerciseCounts } = useGrammarLevelExercises(level);
+  const exercises = getExercises(category, tier);
   const color = levelColor(level);
   const light = levelLightColor(level);
   const items = getTierItems(level, category, tier);
-  const { markExerciseDone, markTrainerVisited } = useGrammarCatalogProgress(level);
+  const { markExerciseDone, markTrainerVisited } = useGrammarCatalogProgress(level, exerciseCounts);
 
   return (
     <GrammarCatalogScreen
@@ -43,9 +46,10 @@ export function GrammarVerifiedTrainerScreen({
       subtitle={subtitle}
       theoryItems={items}
       typicalMistakes={block.typicalMistakes}
+      exerciseCount={exercises.length}
     >
       <GrammarExerciseSession
-        exercises={block.exercises}
+        exercises={exercises}
         levelColor={color}
         levelLightColor={light}
         onExerciseDone={idx => markExerciseDone(category, tier, idx)}

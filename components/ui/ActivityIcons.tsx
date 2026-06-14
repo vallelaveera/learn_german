@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Download,
   MessageSquareText,
   PhoneCall,
   SquareLibrary,
@@ -27,4 +28,8 @@ export function WordsActivityIcon({ color = "#4A90E2", size = 26 }: ActivityIcon
 
 export function GrammarActivityIcon({ color = "#38A169", size = 26 }: ActivityIconProps) {
   return <BookOpen size={size} color={color} strokeWidth={stroke} aria-hidden />;
+}
+
+export function OfflineActivityIcon({ color = "#0e7490", size = 26 }: ActivityIconProps) {
+  return <Download size={size} color={color} strokeWidth={stroke} aria-hidden />;
 }

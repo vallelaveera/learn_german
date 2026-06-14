@@ -12,6 +12,7 @@ import {
   GrammarLevelExplainer,
 } from "@/components/grammar/GrammarLevelExplainer";
 import { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
+import { useGrammarLevelExercises } from "@/hooks/useGrammarExercises";
 import {
   defaultGrammarLevelId,
   getGrammarLevel,
@@ -71,7 +72,8 @@ export default function GrammarPage() {
     setExplainerCollapsedState(isExplainerCollapsed(levelId));
   }, [levelId]);
 
-  const progress = useGrammarCatalogProgress(levelId);
+  const { exerciseCounts, totalExercises } = useGrammarLevelExercises(levelId);
+  const progress = useGrammarCatalogProgress(levelId, exerciseCounts);
   const color = levelColor(levelId);
   const light = levelLightColor(levelId);
   const grammarLevel = getGrammarLevel(levelId as GrammarLevelId);
@@ -135,8 +137,8 @@ export default function GrammarPage() {
 
         {progress.hydrated && (
           <>
-            <GrammarLevelTOC level={levelId} progress={progress} />
-            <GrammarCategoryGrid level={levelId} progress={progress} />
+            <GrammarLevelTOC level={levelId} progress={progress} totalExercises={totalExercises} />
+            <GrammarCategoryGrid level={levelId} progress={progress} exerciseCounts={exerciseCounts} />
           </>
         )}
 

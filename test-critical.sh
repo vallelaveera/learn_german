@@ -150,7 +150,7 @@ grep -q 'localStorage.setItem("maya_voice", "soniox")' app/mode/page.tsx \
   && check "mode page: call sets soniox" "ok" \
   || check "mode page: call sets soniox" "fail"
 
-grep -q 'router\.push\("/call")' app/mode/page.tsx \
+grep -qF 'router.push("/call")' app/mode/page.tsx \
   && check "mode page: call routes directly to /call" "ok" \
   || check "mode page: call routes directly to /call" "fail"
 
@@ -318,9 +318,7 @@ test -f components/BinaryFlashcard.tsx \
   && check "BinaryFlashcard component" "ok" \
   || check "BinaryFlashcard component" "fail"
 
-grep -q 'exercises/warmup' app/mode/page.tsx \
-  && check "mode: call routes via warmup" "ok" \
-  || check "mode: call routes via warmup" "fail"
+check_absent "mode: call does not route via warmup" "app/mode/page.tsx" 'exercises/warmup'
 
 grep -q 'api/exercises/placement' app/exercises/placement/page.tsx \
   && check "placement page calls API" "ok" \

@@ -33,7 +33,10 @@ export interface CategoryBlock {
   basic: string[];
   advanced: string[];
   typicalMistakes: string[];
+  /** Legacy shared pool — treated as Basic when exercisesBasic is absent */
   exercises: string[];
+  exercisesBasic?: string[];
+  exercisesAdvanced?: string[];
   appCoverage: AppCoverage;
 }
 
@@ -70,6 +73,22 @@ export function getTierItems(
 ): string[] {
   const block = getCategoryBlock(level, category);
   return tier === "basic" ? block.basic : block.advanced;
+}
+
+/** Base exercise specs from verified JSON for one tier (before KV enrichment). */
+export function getBaseTierExercises(block: CategoryBlock, tier: GrammarTier): string[] {
+  if (tier === "basic") {
+    return block.exercisesBasic ?? block.exercises ?? [];
+  }
+  return block.exercisesAdvanced ?? [];
+}
+
+export function getTierExerciseCount(
+  level: VerifiedLevel,
+  category: GrammarCategory,
+  tier: GrammarTier,
+): number {
+  return getBaseTierExercises(getCategoryBlock(level, category), tier).length;
 }
 
 export function countCatalogItems(level: VerifiedLevel, tier?: GrammarTier): number {

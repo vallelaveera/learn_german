@@ -27,6 +27,7 @@ interface GrammarCatalogScreenProps {
   theoryItems: string[];
   typicalMistakes?: string[];
   interactiveTrainer?: TrainerLink | null;
+  exerciseCount?: number;
   children: ReactNode;
 }
 
@@ -40,6 +41,7 @@ export function GrammarCatalogScreen({
   theoryItems,
   typicalMistakes = [],
   interactiveTrainer,
+  exerciseCount,
   children,
 }: GrammarCatalogScreenProps) {
   const [theoryOpen, setTheoryOpen] = useState(false);
@@ -206,7 +208,7 @@ export function GrammarCatalogScreen({
               margin: "0 0 14px",
             }}
           >
-            Übungen
+            Übungen · {tier === "basic" ? "Basic" : "Advanced"}{typeof exerciseCount === "number" ? ` · ${exerciseCount} Sitzungen` : ""}
           </p>
           {children}
         </section>
