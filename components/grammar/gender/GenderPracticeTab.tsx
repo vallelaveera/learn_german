@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Volume2 } from "lucide-react";
-import { getPatternForRound, patternFullSentence, practiceWordPool } from "@/lib/gender/germanPatterns";
+import { getPatternForRound, GERMAN_PATTERNS, patternFullSentence, practiceWordPool } from "@/lib/gender/germanPatterns";
 import { pickRandomNouns } from "@/lib/gender/germanNouns";
-import type { GenderNoun } from "@/lib/gender/types";
+import type { GenderArticle, GenderNoun } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
 import type { GenderTabTheme } from "@/lib/gender/theme";
 import type { UseGermanGenderReturn } from "@/hooks/useGermanGender";
+import { GenderArticleTabs } from "./GenderArticleTabs";
 import { GenderHighlightedSentence } from "./GenderHighlightedSentence";
 import { GenderArticleDragSort } from "./GenderArticleDragSort";
 
@@ -21,12 +22,17 @@ interface GenderPracticeTabProps {
 type Phase = 0 | 1 | 2;
 
 export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: GenderPracticeTabProps) {
-  const pattern = useMemo(() => getPatternForRound(gender.roundNum), [gender.roundNum]);
+  const [articleTab, setArticleTab] = useState<GenderArticle>(() =>
+    getPatternForRound(gender.roundNum).article,
+  );
+  const pattern = useMemo(
+    () => GERMAN_PATTERNS.find(p => p.article === articleTab)!,
+    [articleTab],
+  );
   const fullSentence = useMemo(() => patternFullSentence(pattern), [pattern]);
   const articleColor = GENDER_ARTICLE_COLORS[pattern.article];
 
   const [phase, setPhase] = useState<Phase>(gender.graduated ? 2 : 0);
-  const autoSpokeRound = useRef<number | null>(null);
   const [fills, setFills] = useState<(string | null)[]>(() => pattern.keys.map(() => null));
   const [pool, setPool] = useState<string[]>(() => practiceWordPool(pattern));
   const [checkState, setCheckState] = useState<"idle" | "correct" | "wrong">("idle");
@@ -42,6 +48,10 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
   const [dragResults, setDragResults] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    setArticleTab(getPatternForRound(gender.roundNum).article);
+  }, [gender.roundNum]);
+
+  useEffect(() => {
     if (gender.graduated) {
       setPhase(2);
       return;
@@ -50,15 +60,7 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
     setFills(pattern.keys.map(() => null));
     setPool(practiceWordPool(pattern));
     setCheckState("idle");
-    autoSpokeRound.current = null;
-  }, [gender.roundNum, gender.graduated, pattern]);
-
-  useEffect(() => {
-    if (gender.graduated || phase !== 0) return;
-    if (autoSpokeRound.current === gender.roundNum) return;
-    autoSpokeRound.current = gender.roundNum;
-    void onSpeak(fullSentence);
-  }, [phase, gender.graduated, gender.roundNum, fullSentence, onSpeak]);
+  }, [gender.graduated, pattern]);
 
   const accuracyPct =
     gender.sentenceTotal > 0
@@ -96,7 +98,6 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
       setDragResults({});
     } else {
       setPhase(0);
-      autoSpokeRound.current = null;
     }
   };
 
@@ -167,6 +168,8 @@ export function GenderPracticeTab({ theme, gender, onSpeak, speaking = false }: 
 
   return (
     <div>
+      <GenderArticleTabs value={articleTab} onChange={setArticleTab} inactiveBorder={theme.tbd} />
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <span
           style={{

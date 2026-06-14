@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { GenderArticle } from "@/lib/gender/types";
 import type { GenderTabTheme } from "@/lib/gender/theme";
 import type { UseGermanGenderReturn } from "@/hooks/useGermanGender";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
+import { GenderArticleTabs } from "./GenderArticleTabs";
 
 interface GenderProgressTabProps {
   theme: GenderTabTheme;
@@ -44,9 +46,12 @@ function masteryPct(correct: number, total: number): number {
 
 export function GenderProgressTab({ theme, gender }: GenderProgressTabProps) {
   const articles: GenderArticle[] = ["der", "die", "das"];
+  const [articleTab, setArticleTab] = useState<GenderArticle>("der");
 
   return (
     <div>
+      <GenderArticleTabs value={articleTab} onChange={setArticleTab} inactiveBorder={theme.tbd} />
+
       <div
         style={{
           display: "grid",
@@ -72,12 +77,15 @@ export function GenderProgressTab({ theme, gender }: GenderProgressTabProps) {
         ))}
       </div>
 
-      <p style={{ fontSize: 12, fontWeight: 700, color: theme.tc, margin: "0 0 8px" }}>Mastery by gender</p>
+      <p style={{ fontSize: 12, fontWeight: 700, color: theme.tc, margin: "0 0 8px" }}>
+        Mastery · <span style={{ color: GENDER_ARTICLE_COLORS[articleTab] }}>{articleTab}</span>
+      </p>
       {articles.map(article => {
         const { correct, total } = gender.stats[article];
         const pct = masteryPct(correct, total);
+        const isFocus = article === articleTab;
         return (
-          <div key={article} style={{ marginBottom: 10 }}>
+          <div key={article} style={{ marginBottom: 10, opacity: isFocus ? 1 : 0.55 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
               <span style={{ fontWeight: 700, color: GENDER_ARTICLE_COLORS[article] }}>{article}</span>
               <span style={{ color: theme.tmid }}>{pct}% · {correct}/{total}</span>

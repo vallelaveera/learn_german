@@ -5,6 +5,7 @@ import { GERMAN_PATTERNS, patternFullSentence } from "@/lib/gender/germanPattern
 import type { GenderArticle } from "@/lib/gender/types";
 import { GENDER_ARTICLE_COLORS } from "@/lib/gender/theme";
 import type { GenderTabTheme } from "@/lib/gender/theme";
+import { GenderArticleTabs } from "./GenderArticleTabs";
 import { GenderHighlightedSentence } from "./GenderHighlightedSentence";
 
 interface GenderPatternsTabProps {
@@ -18,28 +19,7 @@ export function GenderPatternsTab({ theme }: GenderPatternsTabProps) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-        {(["der", "die", "das"] as const).map(article => (
-          <button
-            key={article}
-            type="button"
-            onClick={() => setSubTab(article)}
-            style={{
-              flex: 1,
-              minHeight: 44,
-              borderRadius: 12,
-              border: subTab === article ? `2px solid ${GENDER_ARTICLE_COLORS[article]}` : `1.5px solid ${theme.tbd}`,
-              background: subTab === article ? `${GENDER_ARTICLE_COLORS[article]}18` : "#fff",
-              color: GENDER_ARTICLE_COLORS[article],
-              fontWeight: 800,
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            {article}
-          </button>
-        ))}
-      </div>
+      <GenderArticleTabs value={subTab} onChange={setSubTab} inactiveBorder={theme.tbd} />
 
       <p style={{ fontSize: 12, color: theme.tmid, margin: "0 0 10px", lineHeight: 1.5 }}>
         Endings and word types for <strong style={{ color: GENDER_ARTICLE_COLORS[subTab] }}>{subTab}</strong>
