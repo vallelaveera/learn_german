@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Hammer, BookOpen, Wrench, BarChart3 } from "lucide-react";
 import { ExerciseBackLink, ExerciseShell } from "@/components/layout/ExerciseShell";
+import { GrammarTierToggle } from "@/components/grammar/catalog/GrammarTierToggle";
 import type { TenseTab } from "@/lib/tenses/types";
 import { TENSE_LEVELS } from "@/lib/tenses/types";
 import { TENSE_TAB_THEMES } from "@/lib/tenses/theme";
 import { speakMayaTense } from "@/lib/tenses/speakMaya";
 import { useGermanTenses } from "@/hooks/useGermanTenses";
+import { levelColor, levelLightColor } from "@/lib/grammar/verified-curriculum";
+import { parseGrammarTier, parseVerifiedLevel } from "@/lib/grammar/tier-preference";
 import { TensesBuildTab } from "./TensesBuildTab";
 import { TensesPatternsTab } from "./TensesPatternsTab";
 import { TensesWorkshopTab } from "./TensesWorkshopTab";
@@ -21,12 +25,17 @@ const TABS: { id: TenseTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function GrammarTensesScreen() {
+  const searchParams = useSearchParams();
+  const catalogLevel = parseVerifiedLevel(searchParams.get("level"), "B1");
+  const catalogTier = parseGrammarTier(searchParams.get("tier"));
+  const catalogColor = levelColor(catalogLevel);
+  const catalogLight = levelLightColor(catalogLevel);
   const [tab, setTab] = useState<TenseTab>("build");
   const [speaking, setSpeaking] = useState(false);
   const tensesState = useGermanTenses();
   const theme = TENSE_TAB_THEMES[tab];
 
-  const level = Math.floor(tensesState.xp / 100) + 1;
+  const xpLevel = Math.floor(tensesState.xp / 100) + 1;
 
   const onSpeak = useCallback(async (text: string, _lang?: string) => {
     if (speaking) return;
@@ -63,6 +72,14 @@ export function GrammarTensesScreen() {
     <ExerciseShell backHref="/grammar" showTabBar={false}>
       <div style={{ padding: "0 18px 18px", ...tabStyle }}>
         <ExerciseBackLink href="/grammar" label="← Grammatik" />
+
+        <GrammarTierToggle
+          level={catalogLevel}
+          category="tenses"
+          tier={catalogTier}
+          color={catalogColor}
+          light={catalogLight}
+        />
 
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -116,7 +133,7 @@ export function GrammarTensesScreen() {
             }}
           >
             <span style={{ fontSize: 9, opacity: 0.85 }}>LVL</span>
-            {level}
+            {xpLevel}
           </div>
         </div>
 

@@ -111,6 +111,10 @@ export function GrammarExerciseSession({
     setInputFocused(false);
   }, []);
 
+  useEffect(() => {
+    resetExerciseState(parsed[index]);
+  }, [index, parsed, resetExerciseState]);
+
   const advance = useCallback(
     (correct: boolean) => {
       const nextCorrect = correct ? correctCount + 1 : correctCount;

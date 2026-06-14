@@ -22,6 +22,17 @@ function isVerifiedTrainerPath(href: string): boolean {
   return VERIFIED_TRAINER_PATHS.some(p => href.startsWith(p));
 }
 
+function trainerHrefWithContext(
+  href: string,
+  level: VerifiedLevel,
+  tier: GrammarTier,
+): string {
+  if (isVerifiedTrainerPath(href)) {
+    return `${href}?level=${level}&tier=${tier}`;
+  }
+  return `${href}?level=${level}`;
+}
+
 /** Legacy or verified interactive trainer (not the learn page). */
 export function getCategoryTrainerLink(
   level: VerifiedLevel,
@@ -92,10 +103,7 @@ export function getCategoryHref(
 
   const trainer = getCategoryTrainerLink(level, category);
   if (trainer?.ready) {
-    if (isVerifiedTrainerPath(trainer.href)) {
-      return `${trainer.href}?tier=${tier}`;
-    }
-    return trainer.href;
+    return trainerHrefWithContext(trainer.href, level, tier);
   }
 
   return getLearnHref(level, category, tier);
@@ -110,8 +118,5 @@ export function getInteractiveTrainerLink(
   if (tier === "advanced") return null;
   const trainer = getCategoryTrainerLink(level, category);
   if (!trainer?.ready) return null;
-  if (isVerifiedTrainerPath(trainer.href)) {
-    return { ...trainer, href: `${trainer.href}?tier=basic` };
-  }
-  return trainer;
+  return { ...trainer, href: trainerHrefWithContext(trainer.href, level, "basic") };
 }

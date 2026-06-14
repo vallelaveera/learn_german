@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, LayoutGrid, BarChart3, Sparkles } from "lucide-react";
 import { ExerciseBackLink, ExerciseShell } from "@/components/layout/ExerciseShell";
+import { GrammarTierToggle } from "@/components/grammar/catalog/GrammarTierToggle";
 import type { GenderTab } from "@/lib/gender/types";
 import { GENDER_TAB_THEMES } from "@/lib/gender/theme";
 import { speakMayaGenderSentence } from "@/lib/gender/speakMaya";
 import { useGermanGender } from "@/hooks/useGermanGender";
+import { levelColor, levelLightColor } from "@/lib/grammar/verified-curriculum";
+import { parseGrammarTier, parseVerifiedLevel } from "@/lib/grammar/tier-preference";
 import { GenderPracticeTab } from "./GenderPracticeTab";
 import { GenderPatternsTab } from "./GenderPatternsTab";
 import { GenderSortTab } from "./GenderSortTab";
@@ -21,6 +25,11 @@ const TABS: { id: GenderTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function GrammarGenderScreen() {
+  const searchParams = useSearchParams();
+  const catalogLevel = parseVerifiedLevel(searchParams.get("level"));
+  const catalogTier = parseGrammarTier(searchParams.get("tier"));
+  const catalogColor = levelColor(catalogLevel);
+  const catalogLight = levelLightColor(catalogLevel);
   const [tab, setTab] = useState<GenderTab>("patterns");
   const [speaking, setSpeaking] = useState(false);
   const gender = useGermanGender();
@@ -66,6 +75,14 @@ export function GrammarGenderScreen() {
     <ExerciseShell backHref="/grammar" showTabBar={false}>
       <div style={{ padding: "0 18px 18px", ...tabStyle }}>
         <ExerciseBackLink href="/grammar" label="← Grammatik" />
+
+        <GrammarTierToggle
+          level={catalogLevel}
+          category="derDieDas"
+          tier={catalogTier}
+          color={catalogColor}
+          light={catalogLight}
+        />
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
