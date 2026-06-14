@@ -2,7 +2,8 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
 import { GrammarHighlightedSentence } from "@/components/grammar/GrammarHighlightedSentence";
 import {
   parseGrammarFocusTerms,
@@ -22,15 +23,107 @@ export function GrammarFlashcardTrainer({ point }: GrammarFlashcardTrainerProps)
   const focusTerms = useMemo(() => parseGrammarFocusTerms(point.subtitle), [point.subtitle]);
   const [index, setIndex] = useState(0);
   const [showEnglish, setShowEnglish] = useState(false);
+  const [finished, setFinished] = useState(false);
 
-  const current = sentences[index];
-  const progress = ((index + 1) / sentences.length) * 100;
   const levelColor = getLevelColor(point.level);
+  const isLast = index >= sentences.length - 1;
+
+  const restart = () => {
+    setIndex(0);
+    setShowEnglish(false);
+    setFinished(false);
+  };
 
   const goTo = (next: number) => {
     setIndex(next);
     setShowEnglish(false);
   };
+
+  if (finished) {
+    return (
+      <div
+        style={{
+          minHeight: "100dvh",
+          background: "var(--bg)",
+          padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 88px)",
+        }}
+      >
+        <div style={{ maxWidth: 420, margin: "0 auto", textAlign: "center", paddingTop: 24 }}>
+          <SuccessIllustration width={140} height={140} />
+          <p
+            style={{
+              fontSize: 10,
+              color: levelColor,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              margin: "16px 0 6px",
+              textTransform: "uppercase",
+            }}
+          >
+            {point.level} · Karteikarten
+          </p>
+          <h1 className="ui-title-serif" style={{ fontSize: 22, margin: "0 0 8px", color: levelColor }}>
+            Geschafft!
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--text-muted)", margin: "0 0 24px", lineHeight: 1.5 }}>
+            {sentences.length} {sentences.length === 1 ? "Satz" : "Sätze"} · {point.title}
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 280, margin: "0 auto" }}>
+            <button
+              type="button"
+              onClick={restart}
+              style={{
+                minHeight: 48,
+                borderRadius: 12,
+                border: `1px solid ${levelColor}44`,
+                background: "#fff",
+                color: levelColor,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <RotateCcw size={16} />
+              Nochmal
+            </button>
+            <Link
+              href="/grammar"
+              style={{
+                minHeight: 48,
+                borderRadius: 12,
+                border: "none",
+                background: levelColor,
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 700,
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              Zurück zur Grammatik
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const current = sentences[index];
+  if (!current) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+        Keine Beispielsätze für dieses Thema.
+      </div>
+    );
+  }
+
+  const progress = ((index + 1) / sentences.length) * 100;
 
   return (
     <div
@@ -146,12 +239,14 @@ export function GrammarFlashcardTrainer({ point }: GrammarFlashcardTrainerProps)
           </button>
           <button
             type="button"
-            disabled={index >= sentences.length - 1}
-            onClick={() => goTo(index + 1)}
-            style={{ ...navButtonStyle(index >= sentences.length - 1, levelColor), flex: 1 }}
+            onClick={() => {
+              if (isLast) setFinished(true);
+              else goTo(index + 1);
+            }}
+            style={{ ...navButtonStyle(false, levelColor), flex: 1 }}
           >
-            Weiter
-            <ChevronRight size={16} />
+            {isLast ? "Fertig" : "Weiter"}
+            {!isLast && <ChevronRight size={16} />}
           </button>
         </div>
       </div>

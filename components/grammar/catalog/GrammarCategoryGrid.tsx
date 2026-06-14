@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   CATEGORY_EMOJI,
   CATEGORY_LABELS,
@@ -18,9 +19,10 @@ import type { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgres
 
 interface GrammarCategoryGridProps {
   level: VerifiedLevel;
-  tier: GrammarTier;
   progress: ReturnType<typeof useGrammarCatalogProgress>;
 }
+
+const TIER_STORAGE_KEY = "grammar_catalog_tiers_v1";
 
 const STATUS_LABEL: Record<string, string> = {
   EXISTS: "Üben →",
@@ -28,18 +30,114 @@ const STATUS_LABEL: Record<string, string> = {
   MISSING: "Lernen →",
 };
 
-function categorySubtitle(level: VerifiedLevel, cat: GrammarCategory, tier: GrammarTier): string {
-  const block = getCategoryBlock(level, cat);
-  const n = getTierItems(level, cat, tier).length;
-  const status = block.appCoverage.status;
-  if (status === "EXISTS") return `${n} Themen · Trainer verfügbar`;
-  if (status === "PARTIAL") return `${n} Themen · In Arbeit`;
-  return `${n} Themen · Lernmodul`;
+function defaultTiers(): Record<GrammarCategory, GrammarTier> {
+  return {
+    derDieDas: "basic",
+    cases: "basic",
+    tenses: "basic",
+    prepositions: "basic",
+  };
 }
 
-export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGridProps) {
+function loadTiers(level: VerifiedLevel): Record<GrammarCategory, GrammarTier> {
+  if (typeof window === "undefined") return defaultTiers();
+  try {
+    const raw = localStorage.getItem(TIER_STORAGE_KEY);
+    if (!raw) return defaultTiers();
+    const parsed = JSON.parse(raw) as Record<string, GrammarTier>;
+    const out = defaultTiers();
+    for (const cat of GRAMMAR_CATEGORIES) {
+      const key = `${level}:${cat}`;
+      if (parsed[key] === "advanced") out[cat] = "advanced";
+    }
+    return out;
+  } catch {
+    return defaultTiers();
+  }
+}
+
+function saveTiers(level: VerifiedLevel, tiers: Record<GrammarCategory, GrammarTier>) {
+  const patch: Record<string, GrammarTier> = {};
+  for (const cat of GRAMMAR_CATEGORIES) {
+    patch[`${level}:${cat}`] = tiers[cat];
+  }
+  try {
+    const raw = localStorage.getItem(TIER_STORAGE_KEY);
+    const existing = raw ? (JSON.parse(raw) as Record<string, GrammarTier>) : {};
+    localStorage.setItem(TIER_STORAGE_KEY, JSON.stringify({ ...existing, ...patch }));
+  } catch {
+    // ignore
+  }
+}
+
+function CategoryTierToggle({
+  tier,
+  color,
+  light,
+  onChange,
+}: {
+  tier: GrammarTier;
+  color: string;
+  light: string;
+  onChange: (tier: GrammarTier) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 3,
+        padding: 3,
+        borderRadius: 10,
+        background: "#fff",
+        border: `1px solid ${color}33`,
+        marginBottom: 8,
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      {(["basic", "advanced"] as const).map(t => {
+        const active = tier === t;
+        return (
+          <button
+            key={t}
+            type="button"
+            onClick={() => onChange(t)}
+            style={{
+              flex: 1,
+              minHeight: 32,
+              borderRadius: 8,
+              border: "none",
+              background: active ? light : "transparent",
+              color: active ? color : "var(--text-muted)",
+              fontSize: 10,
+              fontWeight: active ? 700 : 600,
+              cursor: "pointer",
+              textTransform: "capitalize",
+            }}
+          >
+            {t === "basic" ? "Basic" : "Advanced"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function GrammarCategoryGrid({ level, progress }: GrammarCategoryGridProps) {
   const color = levelColor(level);
   const light = levelLightColor(level);
+  const [tiers, setTiers] = useState<Record<GrammarCategory, GrammarTier>>(defaultTiers);
+
+  useEffect(() => {
+    setTiers(loadTiers(level));
+  }, [level]);
+
+  const setTier = (cat: GrammarCategory, tier: GrammarTier) => {
+    setTiers(prev => {
+      const next = { ...prev, [cat]: tier };
+      saveTiers(level, next);
+      return next;
+    });
+  };
 
   return (
     <div
@@ -52,20 +150,21 @@ export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGr
     >
       {GRAMMAR_CATEGORIES.map(cat => {
         const block = getCategoryBlock(level, cat);
-        const cp = progress.categoryProgress(cat);
+        const tier = tiers[cat];
+        const cp = progress.categoryProgress(cat, tier);
         const href = getCategoryHref(level, cat, tier);
+        const topicCount = getTierItems(level, cat, tier).length;
+        const status = block.appCoverage.status;
 
         return (
-          <Link
+          <div
             key={cat}
-            href={href}
             className="ui-card"
             style={{
               padding: "14px 12px",
-              textDecoration: "none",
               border: `1px solid ${color}33`,
               background: light,
-              minHeight: 120,
+              minHeight: 148,
               display: "flex",
               flexDirection: "column",
             }}
@@ -77,11 +176,19 @@ export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGr
                 fontWeight: 700,
                 color,
                 lineHeight: 1.25,
-                marginBottom: 4,
+                marginBottom: 8,
               }}
             >
               {CATEGORY_LABELS[cat]}
             </span>
+
+            <CategoryTierToggle
+              tier={tier}
+              color={color}
+              light={light}
+              onChange={t => setTier(cat, t)}
+            />
+
             <span
               style={{
                 fontSize: 10,
@@ -91,12 +198,22 @@ export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGr
                 marginBottom: 8,
               }}
             >
-              {categorySubtitle(level, cat, tier)}
+              {topicCount} Themen
+              {status === "EXISTS" ? " · Trainer" : status === "PARTIAL" ? " · In Arbeit" : ""}
             </span>
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color }}>
-                {STATUS_LABEL[block.appCoverage.status] ?? "Öffnen →"}
-              </span>
+              <Link
+                href={href}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color,
+                  textDecoration: "none",
+                }}
+              >
+                {STATUS_LABEL[status] ?? "Öffnen →"}
+              </Link>
               <span
                 style={{
                   fontSize: 9,
@@ -110,7 +227,7 @@ export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGr
                 {cp.pct}%
               </span>
             </div>
-          </Link>
+          </div>
         );
       })}
     </div>

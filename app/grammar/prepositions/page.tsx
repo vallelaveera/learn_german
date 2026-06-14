@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ExerciseShell } from "@/components/layout/ExerciseShell";
 import { VERIFIED_LEVELS, type VerifiedLevel } from "@/lib/grammar/verified-curriculum";
 
 function PrepositionsRedirect() {
@@ -17,15 +18,25 @@ function PrepositionsRedirect() {
   }, [level, router, tier]);
 
   return (
-    <p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>
-      Weiterleitung…
-    </p>
+    <ExerciseShell backHref="/grammar" showTabBar={false}>
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+        Weiterleitung…
+      </div>
+    </ExerciseShell>
   );
 }
 
 export default function GrammarPrepositionsPage() {
   return (
-    <Suspense fallback={<p style={{ padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Lädt...</p>}>
+    <Suspense
+      fallback={
+        <ExerciseShell backHref="/grammar" showTabBar={false}>
+          <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+            Lädt…
+          </div>
+        </ExerciseShell>
+      }
+    >
       <PrepositionsRedirect />
     </Suspense>
   );
