@@ -3,13 +3,8 @@
 import Link from "next/link";
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { PageShell } from "@/components/layout/PageShell";
-import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
-import { GrammarCategoryGrid } from "@/components/grammar/catalog/GrammarCategoryGrid";
-import { GrammarLevelTOC } from "@/components/grammar/catalog/GrammarLevelTOC";
 import { GrammarExerciseSession } from "@/components/grammar/catalog/GrammarExerciseSession";
 import { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
-import { defaultGrammarLevelId } from "@/lib/grammar/curriculum";
 import {
   CATEGORY_LABELS,
   GRAMMAR_CATEGORIES,
@@ -22,7 +17,7 @@ import {
   type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
-import { getCategoryTrainerLink } from "@/lib/grammar/trainer-routes";
+import { getInteractiveTrainerLink } from "@/lib/grammar/trainer-routes";
 
 function LearnPageInner() {
   const searchParams = useSearchParams();
@@ -40,13 +35,8 @@ function LearnPageInner() {
   const color = levelColor(level);
   const light = levelLightColor(level);
   const items = getTierItems(level, category, tier);
-  const trainer = getCategoryTrainerLink(level, category);
+  const interactiveTrainer = getInteractiveTrainerLink(level, category, tier);
   const progress = useGrammarCatalogProgress(level, tier);
-
-  useEffect(() => {
-    progress.markTrainerVisited(category);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per route
-  }, [category, level]);
 
   return (
     <div
@@ -80,9 +70,9 @@ function LearnPageInner() {
           {block.appCoverage.notes ?? block.appCoverage.status}
         </p>
 
-        {trainer?.ready && (
+        {interactiveTrainer && (
           <Link
-            href={trainer.href}
+            href={interactiveTrainer.href}
             className="ui-card"
             style={{
               display: "block",
@@ -93,7 +83,7 @@ function LearnPageInner() {
               background: light,
             }}
           >
-            <span style={{ fontSize: 13, fontWeight: 700, color }}>{trainer.label}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color }}>{interactiveTrainer.label}</span>
             <span style={{ display: "block", fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
               Interaktiver Trainer →
             </span>
@@ -136,6 +126,7 @@ function LearnPageInner() {
             exercises={block.exercises}
             levelColor={color}
             onExerciseDone={idx => progress.markExerciseDone(category, idx)}
+            onSessionStart={() => progress.markTrainerVisited(category)}
           />
         </section>
       </div>

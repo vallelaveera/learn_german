@@ -1,4 +1,9 @@
-import type { GrammarCategory, VerifiedLevel } from "./verified-curriculum";
+import {
+  getCategoryBlock,
+  type GrammarCategory,
+  type GrammarTier,
+  type VerifiedLevel,
+} from "./verified-curriculum";
 
 export interface TrainerLink {
   href: string;
@@ -6,13 +11,27 @@ export interface TrainerLink {
   ready: boolean;
 }
 
-/** Maps verified catalog category + level to existing or new trainer routes. */
+const VERIFIED_TRAINER_PATHS = [
+  "/grammar/a1-cases",
+  "/grammar/a2-cases",
+  "/grammar/a1-tenses",
+  "/grammar/a2-tenses",
+] as const;
+
+function isVerifiedTrainerPath(href: string): boolean {
+  return VERIFIED_TRAINER_PATHS.some(p => href.startsWith(p));
+}
+
+/** Legacy or verified interactive trainer (not the learn page). */
 export function getCategoryTrainerLink(
   level: VerifiedLevel,
   category: GrammarCategory,
 ): TrainerLink | null {
   switch (category) {
     case "derDieDas":
+      if (getCategoryBlock(level, category).appCoverage.status === "MISSING") {
+        return null;
+      }
       return { href: "/grammar/gender", label: "DER DIE DAS Üben", ready: true };
 
     case "cases":
@@ -40,17 +59,6 @@ export function getCategoryTrainerLink(
       return null;
 
     case "prepositions":
-      if (level === "A1") return null;
-      if (level === "A2") {
-        return {
-          href: `/grammar/learn?level=A2&category=prepositions`,
-          label: "Präpositionen A2",
-          ready: true,
-        };
-      }
-      if (level === "B1" || level === "B2" || level === "C1") {
-        return { href: "/grammar/prepositions", label: "Präpositionen", ready: true };
-      }
       return null;
 
     default:
@@ -61,7 +69,49 @@ export function getCategoryTrainerLink(
 export function getLearnHref(
   level: VerifiedLevel,
   category: GrammarCategory,
-  tier: "basic" | "advanced",
+  tier: GrammarTier,
 ): string {
   return `/grammar/learn?level=${level}&category=${category}&tier=${tier}`;
+}
+
+/** Primary navigation target from catalog — respects tier and coverage. */
+export function getCategoryHref(
+  level: VerifiedLevel,
+  category: GrammarCategory,
+  tier: GrammarTier,
+): string {
+  const block = getCategoryBlock(level, category);
+
+  if (tier === "advanced" || block.appCoverage.status === "MISSING") {
+    return getLearnHref(level, category, tier);
+  }
+
+  if (category === "prepositions") {
+    return getLearnHref(level, category, tier);
+  }
+
+  const trainer = getCategoryTrainerLink(level, category);
+  if (trainer?.ready) {
+    if (isVerifiedTrainerPath(trainer.href)) {
+      return `${trainer.href}?tier=${tier}`;
+    }
+    return trainer.href;
+  }
+
+  return getLearnHref(level, category, tier);
+}
+
+/** Shown on learn page — link to full interactive trainer when one exists. */
+export function getInteractiveTrainerLink(
+  level: VerifiedLevel,
+  category: GrammarCategory,
+  tier: GrammarTier,
+): TrainerLink | null {
+  if (tier === "advanced") return null;
+  const trainer = getCategoryTrainerLink(level, category);
+  if (!trainer?.ready) return null;
+  if (isVerifiedTrainerPath(trainer.href)) {
+    return { ...trainer, href: `${trainer.href}?tier=basic` };
+  }
+  return trainer;
 }

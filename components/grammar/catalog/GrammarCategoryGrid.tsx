@@ -6,13 +6,14 @@ import {
   CATEGORY_LABELS,
   GRAMMAR_CATEGORIES,
   getCategoryBlock,
+  getTierItems,
   levelColor,
   levelLightColor,
   type GrammarCategory,
   type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
-import { getCategoryTrainerLink, getLearnHref } from "@/lib/grammar/trainer-routes";
+import { getCategoryHref } from "@/lib/grammar/trainer-routes";
 import type { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
 
 interface GrammarCategoryGridProps {
@@ -27,9 +28,9 @@ const STATUS_LABEL: Record<string, string> = {
   MISSING: "Lernen →",
 };
 
-function categorySubtitle(level: VerifiedLevel, cat: GrammarCategory): string {
+function categorySubtitle(level: VerifiedLevel, cat: GrammarCategory, tier: GrammarTier): string {
   const block = getCategoryBlock(level, cat);
-  const n = block.basic.length + block.advanced.length;
+  const n = getTierItems(level, cat, tier).length;
   const status = block.appCoverage.status;
   if (status === "EXISTS") return `${n} Themen · Trainer verfügbar`;
   if (status === "PARTIAL") return `${n} Themen · In Arbeit`;
@@ -51,9 +52,8 @@ export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGr
     >
       {GRAMMAR_CATEGORIES.map(cat => {
         const block = getCategoryBlock(level, cat);
-        const trainer = getCategoryTrainerLink(level, cat);
         const cp = progress.categoryProgress(cat);
-        const href = trainer?.ready ? trainer.href : getLearnHref(level, cat, tier);
+        const href = getCategoryHref(level, cat, tier);
 
         return (
           <Link
@@ -91,7 +91,7 @@ export function GrammarCategoryGrid({ level, tier, progress }: GrammarCategoryGr
                 marginBottom: 8,
               }}
             >
-              {categorySubtitle(level, cat)}
+              {categorySubtitle(level, cat, tier)}
             </span>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 10, fontWeight: 700, color }}>

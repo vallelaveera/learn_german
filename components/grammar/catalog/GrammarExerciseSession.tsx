@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronRight, RotateCcw, X } from "lucide-react";
 import {
   answersMatch,
@@ -13,6 +13,7 @@ interface GrammarExerciseSessionProps {
   levelColor: string;
   onComplete?: (correct: number, total: number) => void;
   onExerciseDone?: (index: number) => void;
+  onSessionStart?: () => void;
 }
 
 type Phase = "active" | "feedback" | "done";
@@ -52,6 +53,7 @@ export function GrammarExerciseSession({
   levelColor,
   onComplete,
   onExerciseDone,
+  onSessionStart,
 }: GrammarExerciseSessionProps) {
   const parsed = useMemo(
     () => exercises.map(parseExerciseSpec).filter(e => e.kind !== "unknown" || e.prompt),
@@ -67,6 +69,11 @@ export function GrammarExerciseSession({
   const [built, setBuilt] = useState<string[]>([]);
   const [flashRevealed, setFlashRevealed] = useState(false);
   const [wasCorrect, setWasCorrect] = useState(false);
+
+  useEffect(() => {
+    onSessionStart?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount
+  }, []);
 
   const current: ParsedExercise | undefined = parsed[index];
   const mcOptions = useMemo(() => {
@@ -89,8 +96,10 @@ export function GrammarExerciseSession({
   const advance = useCallback(
     (correct: boolean) => {
       const nextCorrect = correct ? correctCount + 1 : correctCount;
-      if (correct) setCorrectCount(nextCorrect);
-      onExerciseDone?.(index);
+      if (correct) {
+        setCorrectCount(nextCorrect);
+        onExerciseDone?.(index);
+      }
 
       if (index + 1 >= parsed.length) {
         setPhase("done");
@@ -181,6 +190,12 @@ export function GrammarExerciseSession({
   }
 
   if (!current) return null;
+
+  const blankCount = (current.prompt.match(/___/g) ?? []).length;
+  const multiBlankHint =
+    blankCount > 1 || (current.answer.includes("/") && current.kind === "fill-blank")
+      ? "Mehrere Lücken: Antwort mit Leerzeichen oder / trennen."
+      : null;
 
   const progress = ((index + (phase === "feedback" ? 1 : 0)) / parsed.length) * 100;
 
@@ -341,6 +356,9 @@ export function GrammarExerciseSession({
             <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 12px", lineHeight: 1.5 }}>
               {renderPrompt(current.prompt)}
             </p>
+            {multiBlankHint && (
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 8px" }}>{multiBlankHint}</p>
+            )}
             <input
               type="text"
               value={input}

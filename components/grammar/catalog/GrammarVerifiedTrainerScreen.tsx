@@ -7,15 +7,18 @@ import { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
 import {
   CATEGORY_LABELS,
   getCategoryBlock,
+  getTierItems,
   levelColor,
   levelLightColor,
   type GrammarCategory,
+  type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
 
 interface GrammarVerifiedTrainerScreenProps {
   level: VerifiedLevel;
   category: GrammarCategory;
+  tier?: GrammarTier;
   title: string;
   subtitle?: string;
   backHref?: string;
@@ -24,6 +27,7 @@ interface GrammarVerifiedTrainerScreenProps {
 export function GrammarVerifiedTrainerScreen({
   level,
   category,
+  tier = "basic",
   title,
   subtitle,
   backHref = "/grammar",
@@ -31,7 +35,8 @@ export function GrammarVerifiedTrainerScreen({
   const block = getCategoryBlock(level, category);
   const color = levelColor(level);
   const light = levelLightColor(level);
-  const { markExerciseDone } = useGrammarCatalogProgress(level, "basic");
+  const items = getTierItems(level, category, tier);
+  const { markExerciseDone, markTrainerVisited } = useGrammarCatalogProgress(level, tier);
 
   return (
     <div
@@ -68,7 +73,7 @@ export function GrammarVerifiedTrainerScreen({
             textTransform: "uppercase",
           }}
         >
-          {level} · {CATEGORY_LABELS[category]}
+          {level} · {CATEGORY_LABELS[category]} · {tier === "basic" ? "Basic" : "Advanced"}
         </p>
         <h1 className="ui-title-serif" style={{ fontSize: 22, margin: "0 0 4px", lineHeight: 1.25 }}>
           {title}
@@ -78,9 +83,11 @@ export function GrammarVerifiedTrainerScreen({
         )}
 
         <section style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px", color }}>Grundlagen</h2>
+          <h2 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px", color }}>
+            {tier === "basic" ? "Grundlagen" : "Fortgeschritten"}
+          </h2>
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.55, color: "var(--text)" }}>
-            {block.basic.map((item, i) => (
+            {items.map((item, i) => (
               <li key={i} style={{ marginBottom: 6 }}>{item}</li>
             ))}
           </ul>
@@ -111,6 +118,7 @@ export function GrammarVerifiedTrainerScreen({
             exercises={block.exercises}
             levelColor={color}
             onExerciseDone={idx => markExerciseDone(category, idx)}
+            onSessionStart={() => markTrainerVisited(category)}
           />
         </section>
       </div>

@@ -166,8 +166,7 @@
         "FILL-BLANK: 'Ich fahre mit ___ Bus.' → 'dem'",
         "FILL-BLANK: 'Das Buch gehört ___ Frau.' → 'der'",
         "FILL-BLANK: 'Ich helfe ___ Studenten.' → 'dem'",
-        "MULTIPLE-CHOICE: 'Ich kaufe ___ Kollegen ein Geschenk.' → 'dem' (options: den, dem, der)",
-        "FILL-BLANK: 'Das Buch liegt auf ___ Tisch.' → 'dem'"
+        "MULTIPLE-CHOICE: 'Ich kaufe ___ Kollegen ein Geschenk.' → 'dem' (options: den, dem, der)"
       ],
       "appCoverage": {
         "status": "EXISTS",
@@ -221,10 +220,10 @@
         "in die Haus → ins Haus / in das Haus"
       ],
       "exercises": [
-        "FILL-BLANK: 'Das Buch liegt auf ___ Tisch.' → 'dem'",
-        "FILL-BLANK: 'Leg das Buch auf ___ Tisch.' → 'den'",
-        "FILL-BLANK: 'Ich stelle die Vase auf ___ Regal.' → 'das'",
-        "FILL-BLANK: 'Die Lampe hängt über ___ Sofa.' → 'dem'"
+        "FILL-BLANK: ⚠️ CONTEXT FLAG: 'Das Buch liegt auf ___ Tisch.' → 'dem'",
+        "FILL-BLANK: ⚠️ CONTEXT FLAG: 'Leg das Buch auf ___ Tisch.' → 'den'",
+        "FILL-BLANK: ⚠️ CONTEXT FLAG: 'Ich stelle die Vase auf ___ Regal.' → 'das'",
+        "FILL-BLANK: ⚠️ CONTEXT FLAG: 'Die Lampe hängt über ___ Sofa.' → 'dem'"
       ],
       "appCoverage": {
         "status": "PARTIAL",
@@ -381,7 +380,7 @@
       ],
       "exercises": [
         "MULTIPLE-CHOICE: 'Das Fenster ___ geöffnet.' (Zustand) → 'ist' (options: ist, wird, ist worden)",
-        "MULTIPLE-CHOICE: 'Das Fenster ___ geöffnet worden.' (Vorgang Perfekt) → 'ist'",
+        "MULTIPLE-CHOICE: 'Das Fenster ___ geöffnet worden.' → 'ist' (options: ist, hat, wird)",
         "MULTIPLE-CHOICE: 'Er sagte, sie ___ nach Hause.' (KI=Indik.) → 'gingen' (options: gehen, gingen, würden gehen)"
       ],
       "appCoverage": {

@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { GrammarCategory, GrammarTier, VerifiedLevel } from "@/lib/grammar/verified-curriculum";
-import { GRAMMAR_CATEGORIES, getTierItems } from "@/lib/grammar/verified-curriculum";
+import {
+  GRAMMAR_CATEGORIES,
+  getCategoryBlock,
+  getTierItems,
+} from "@/lib/grammar/verified-curriculum";
 
 const STORAGE_KEY = "grammar_catalog_progress_v1";
 
@@ -24,6 +28,15 @@ function exerciseKey(level: VerifiedLevel, category: GrammarCategory, index: num
 
 function trainerKey(level: VerifiedLevel, category: GrammarCategory): string {
   return `${level}:${category}:trainer`;
+}
+
+function countExercisesDone(
+  store: ProgressStore,
+  level: VerifiedLevel,
+  category: GrammarCategory,
+): number {
+  const prefix = `${level}:${category}:ex:`;
+  return Object.keys(store.exercises).filter(k => k.startsWith(prefix) && store.exercises[k]).length;
 }
 
 function loadStore(): ProgressStore {
@@ -64,13 +77,14 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
 
   const markTrainerVisited = useCallback(
     (category: GrammarCategory) => {
+      const items = getTierItems(level, category, tier);
       persist({
         ...store,
         visited: { ...store.visited, [trainerKey(level, category)]: true },
         items: {
           ...store.items,
           ...Object.fromEntries(
-            getTierItems(level, category, tier).map((_, i) => [
+            items.map((_, i) => [
               itemKey(level, category, tier, i),
               store.items[itemKey(level, category, tier, i)] === "done"
                 ? "done"
@@ -85,14 +99,30 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
 
   const markExerciseDone = useCallback(
     (category: GrammarCategory, exIndex: number) => {
+      const block = getCategoryBlock(level, category);
       const key = exerciseKey(level, category, exIndex);
+      const nextExercises = { ...store.exercises, [key]: true };
+      const exDone = Object.keys(nextExercises).filter(
+        k => k.startsWith(`${level}:${category}:ex:`) && nextExercises[k],
+      ).length;
+      const allExercisesDone = block.exercises.length > 0 && exDone >= block.exercises.length;
+
+      const tierItems = getTierItems(level, category, tier);
+      const nextItems = { ...store.items };
+      if (allExercisesDone) {
+        tierItems.forEach((_, i) => {
+          nextItems[itemKey(level, category, tier, i)] = "done";
+        });
+      }
+
       persist({
         ...store,
-        exercises: { ...store.exercises, [key]: true },
+        exercises: nextExercises,
+        items: nextItems,
         visited: { ...store.visited, [trainerKey(level, category)]: true },
       });
     },
-    [level, store, persist],
+    [level, tier, store, persist],
   );
 
   const itemStatus = useCallback(
@@ -104,31 +134,29 @@ export function useGrammarCatalogProgress(level: VerifiedLevel, tier: GrammarTie
 
   const categoryProgress = useCallback(
     (category: GrammarCategory): { done: number; total: number; pct: number } => {
-      const items = getTierItems(level, category, tier);
-      const exKeyPrefix = `${level}:${category}:ex:`;
-      const exDone = Object.keys(store.exercises).filter(
-        k => k.startsWith(exKeyPrefix) && store.exercises[k],
-      ).length;
-      const itemDone = items.filter((_, i) => itemStatus(category, i) === "done").length;
-      const visited = store.visited[trainerKey(level, category)] ? 1 : 0;
-      const done = Math.max(itemDone, visited, exDone > 0 ? 1 : 0);
-      const total = Math.max(items.length, 1);
-      return { done: Math.min(done, total), total, pct: Math.round((Math.min(done, total) / total) * 100) };
+      const block = getCategoryBlock(level, category);
+      const exerciseTotal = Math.max(block.exercises.length, 1);
+      const exDone = countExercisesDone(store, level, category);
+      const pct = Math.min(100, Math.round((exDone / exerciseTotal) * 100));
+      return { done: exDone, total: exerciseTotal, pct };
     },
-    [level, tier, store, itemStatus],
+    [level, store],
   );
 
   const levelProgress = useMemo(() => {
-    let done = 0;
-    let total = 0;
+    let sumPct = 0;
+    let complete = 0;
     for (const cat of GRAMMAR_CATEGORIES) {
-      const items = getTierItems(level, cat, tier);
-      total += items.length || 1;
       const cp = categoryProgress(cat);
-      done += cp.done;
+      sumPct += cp.pct;
+      if (cp.pct >= 100) complete += 1;
     }
-    return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
-  }, [level, tier, categoryProgress]);
+    return {
+      done: complete,
+      total: GRAMMAR_CATEGORIES.length,
+      pct: Math.round(sumPct / GRAMMAR_CATEGORIES.length),
+    };
+  }, [categoryProgress]);
 
   return {
     hydrated,

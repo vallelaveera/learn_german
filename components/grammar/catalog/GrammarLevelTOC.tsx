@@ -11,7 +11,7 @@ import {
   type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
-import { getCategoryTrainerLink, getLearnHref } from "@/lib/grammar/trainer-routes";
+import { getCategoryHref } from "@/lib/grammar/trainer-routes";
 import type { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
 
 interface GrammarLevelTOCProps {
@@ -56,8 +56,7 @@ export function GrammarLevelTOC({ level, tier, progress }: GrammarLevelTOCProps)
         {GRAMMAR_CATEGORIES.map(cat => {
           const cp = categoryProgress(cat);
           const items = getTierItems(level, cat, tier);
-          const trainer = getCategoryTrainerLink(level, cat);
-          const href = trainer?.ready ? trainer.href : getLearnHref(level, cat, tier);
+          const href = getCategoryHref(level, cat, tier);
 
           return (
             <Link
@@ -80,7 +79,6 @@ export function GrammarLevelTOC({ level, tier, progress }: GrammarLevelTOCProps)
                 <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{CATEGORY_LABELS[cat]}</span>
                 <span style={{ display: "block", fontSize: 11, color: "var(--text-muted)" }}>
                   {items.length} Themen
-                  {trainer && !trainer.ready ? " · bald" : ""}
                 </span>
               </span>
               <span

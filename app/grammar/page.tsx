@@ -1,17 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { GrammarCategoryGrid } from "@/components/grammar/catalog/GrammarCategoryGrid";
 import { GrammarLevelTOC } from "@/components/grammar/catalog/GrammarLevelTOC";
+import {
+  GrammarExplainerCollapsedBar,
+  GrammarLevelExplainer,
+} from "@/components/grammar/GrammarLevelExplainer";
 import { useGrammarCatalogProgress } from "@/hooks/useGrammarCatalogProgress";
-import { defaultGrammarLevelId } from "@/lib/grammar/curriculum";
+import {
+  defaultGrammarLevelId,
+  getGrammarLevel,
+  GRAMMAR_CALL_STORAGE_KEY,
+  type GrammarLevelId,
+} from "@/lib/grammar/curriculum";
+import {
+  getExplainerForLevel,
+  isExplainerCollapsed,
+  loadGrammarExplainers,
+  setExplainerCollapsed,
+  type GrammarExplainersFile,
+} from "@/lib/grammar/explainers";
+import { getGrammarFlashcardsHref } from "@/lib/grammar/highlight";
 import {
   VERIFIED_LEVELS,
   levelColor,
+  levelLightColor,
   type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
@@ -19,7 +37,6 @@ import {
   getArticleTrainerHref,
   getDefaultArticleTrainerPointForLevel,
 } from "@/lib/articles/scope";
-import type { GrammarLevelId } from "@/lib/grammar/curriculum";
 
 function mapToVerifiedLevel(levelId: GrammarLevelId): VerifiedLevel {
   return levelId;
@@ -30,6 +47,8 @@ export default function GrammarPage() {
   const [levelId, setLevelId] = useState<VerifiedLevel>("A1");
   const [tier, setTier] = useState<GrammarTier>("basic");
   const [levelReady, setLevelReady] = useState(false);
+  const [explainers, setExplainers] = useState<GrammarExplainersFile | null>(null);
+  const [explainerCollapsed, setExplainerCollapsedState] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -46,14 +65,56 @@ export default function GrammarPage() {
         }
       })
       .finally(() => setLevelReady(true));
+
+    void loadGrammarExplainers().then(setExplainers);
   }, [router]);
+
+  useEffect(() => {
+    setExplainerCollapsedState(isExplainerCollapsed(levelId));
+  }, [levelId]);
 
   const progress = useGrammarCatalogProgress(levelId, tier);
   const color = levelColor(levelId);
+  const light = levelLightColor(levelId);
+  const grammarLevel = getGrammarLevel(levelId as GrammarLevelId);
+  const explainer = useMemo(
+    () => getExplainerForLevel(explainers, levelId as GrammarLevelId),
+    [explainers, levelId],
+  );
+  const flashcardPoint = useMemo(
+    () => grammarLevel?.points.find(p => p.practiceTypes.includes("flashcard")),
+    [grammarLevel],
+  );
   const articleTablePointId = getDefaultArticleTrainerPointForLevel(levelId as GrammarLevelId);
   const articleTableHref = articleTablePointId
     ? getArticleTrainerHref(articleTablePointId, levelId as GrammarLevelId)
     : null;
+
+  const collapseExplainer = useCallback(() => {
+    setExplainerCollapsed(levelId, true);
+    setExplainerCollapsedState(true);
+  }, [levelId]);
+
+  const expandExplainer = useCallback(() => {
+    setExplainerCollapsed(levelId, false);
+    setExplainerCollapsedState(false);
+  }, [levelId]);
+
+  const practiceExplainerWithMaya = useCallback(() => {
+    if (!explainer) return;
+    sessionStorage.setItem(
+      GRAMMAR_CALL_STORAGE_KEY,
+      JSON.stringify({
+        id: `explainer-${levelId}`,
+        level: levelId,
+        title: explainer.title,
+        prompt: explainer.callContext,
+      }),
+    );
+    sessionStorage.setItem("maya_grammar_focus", `explainer-${levelId}`);
+    localStorage.setItem("maya_voice", "soniox");
+    router.push(`/call?grammar=${encodeURIComponent(`explainer-${levelId}`)}`);
+  }, [explainer, levelId, router]);
 
   return (
     <PageShell showTabBar title="Grammatik">
@@ -92,6 +153,25 @@ export default function GrammarPage() {
           </>
         )}
 
+        {explainer && grammarLevel && !explainerCollapsed && (
+          <GrammarLevelExplainer
+            explainer={explainer}
+            levelId={levelId as GrammarLevelId}
+            levelColor={color}
+            levelLightColor={light}
+            onCollapse={collapseExplainer}
+            onPracticeWithMaya={practiceExplainerWithMaya}
+          />
+        )}
+
+        {explainer && grammarLevel && explainerCollapsed && (
+          <GrammarExplainerCollapsedBar
+            title={explainer.title}
+            levelColor={color}
+            onExpand={expandExplainer}
+          />
+        )}
+
         {articleTableHref && (
           <Link
             href={articleTableHref}
@@ -102,6 +182,7 @@ export default function GrammarPage() {
               gap: 12,
               padding: "12px 14px",
               marginBottom: 10,
+              marginTop: explainer ? 10 : 0,
               textDecoration: "none",
               border: `1px solid ${color}44`,
             }}
@@ -115,6 +196,32 @@ export default function GrammarPage() {
               </span>
             </span>
             <span style={{ fontSize: 12, fontWeight: 600, color }}>Öffnen →</span>
+          </Link>
+        )}
+
+        {flashcardPoint && (
+          <Link
+            href={getGrammarFlashcardsHref(flashcardPoint.id, levelId as GrammarLevelId)}
+            className="ui-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              marginBottom: 10,
+              textDecoration: "none",
+              border: "1px solid var(--border-light)",
+            }}
+          >
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+                Karteikarten
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)" }}>
+                {flashcardPoint.title} — Classic-Übung
+              </span>
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>Üben →</span>
           </Link>
         )}
 
