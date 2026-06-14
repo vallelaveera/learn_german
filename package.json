@@ -14,7 +14,9 @@
     "cap:sync": "npx cap sync android",
     "cap:android": "npx cap open android",
     "cap:run:android": "npx cap run android",
-    "offline:sample": "node scripts/generate-offline-sample.mjs"
+    "offline:sample": "node scripts/generate-offline-sample.mjs",
+    "import:german-examples": "npx ts-node -P scripts/tsconfig.json scripts/import-german-examples.ts",
+    "verify:german-examples": "npx ts-node -P scripts/tsconfig.json scripts/verify-german-examples-import.ts"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",

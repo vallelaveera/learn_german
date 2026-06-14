@@ -1,4 +1,4 @@
-import verifiedData from "@/public/data/german_grammar_curriculum_verified.json";
+import verifiedData from "../../public/data/german_grammar_curriculum_verified.json";
 
 export type VerifiedLevel = "A1" | "A2" | "B1" | "B2" | "C1";
 export type GrammarCategory = "derDieDas" | "cases" | "tenses" | "prepositions";

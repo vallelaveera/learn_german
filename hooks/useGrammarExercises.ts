@@ -9,6 +9,7 @@ import {
   type GrammarTier,
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
+import { getVerifiedExamplesForBlock } from "@/lib/grammar/verified-examples";
 
 export type TierExerciseCounts = Record<GrammarCategory, { basic: number; advanced: number }>;
 
@@ -22,6 +23,33 @@ type CategoryBlocks = Partial<
   Record<GrammarCategory, { basic: TierBlock; advanced: TierBlock }>
 >;
 
+function mergeExerciseLists(base: string[], extras: string[]): string[] {
+  const seen = new Set(base.map(s => s.trim()));
+  const merged = [...base];
+  for (const spec of extras) {
+    const trimmed = spec.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    merged.push(trimmed);
+    seen.add(trimmed);
+  }
+  return merged;
+}
+
+function fallbackBlocks(level: VerifiedLevel): CategoryBlocks {
+  const blocks: CategoryBlocks = {};
+  for (const cat of GRAMMAR_CATEGORIES) {
+    const block = getCategoryBlock(level, cat);
+    const imported = getVerifiedExamplesForBlock(level, cat);
+    const basicEx = mergeExerciseLists(getBaseTierExercises(block, "basic"), imported);
+    const advEx = mergeExerciseLists(getBaseTierExercises(block, "advanced"), imported);
+    blocks[cat] = {
+      basic: { exercises: basicEx, baseCount: basicEx.length, extraCount: 0 },
+      advanced: { exercises: advEx, baseCount: advEx.length, extraCount: 0 },
+    };
+  }
+  return blocks;
+}
+
 function emptyCounts(): TierExerciseCounts {
   return {
     derDieDas: { basic: 0, advanced: 0 },
@@ -29,20 +57,6 @@ function emptyCounts(): TierExerciseCounts {
     tenses: { basic: 0, advanced: 0 },
     prepositions: { basic: 0, advanced: 0 },
   };
-}
-
-function fallbackBlocks(level: VerifiedLevel): CategoryBlocks {
-  const blocks: CategoryBlocks = {};
-  for (const cat of GRAMMAR_CATEGORIES) {
-    const block = getCategoryBlock(level, cat);
-    const basicEx = getBaseTierExercises(block, "basic");
-    const advEx = getBaseTierExercises(block, "advanced");
-    blocks[cat] = {
-      basic: { exercises: basicEx, baseCount: basicEx.length, extraCount: 0 },
-      advanced: { exercises: advEx, baseCount: advEx.length, extraCount: 0 },
-    };
-  }
-  return blocks;
 }
 
 export function useGrammarLevelExercises(level: VerifiedLevel) {

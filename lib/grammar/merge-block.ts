@@ -7,6 +7,7 @@ import {
   type VerifiedLevel,
 } from "./verified-curriculum";
 import { loadExtraExercises } from "./curriculum-kv";
+import { getVerifiedExamplesForBlock } from "./verified-examples";
 
 export function mergeExerciseLists(base: string[], extras: string[]): string[] {
   const seen = new Set(base.map(s => s.trim()));
@@ -20,19 +21,32 @@ export function mergeExerciseLists(base: string[], extras: string[]): string[] {
   return merged;
 }
 
+function mergeImportedSpecs(base: string[], imported: string[]): string[] {
+  return mergeExerciseLists(base, imported);
+}
+
 export async function getMergedExercises(
   level: VerifiedLevel,
   category: GrammarCategory,
   tier: GrammarTier,
-): Promise<{ exercises: string[]; baseCount: number; extraCount: number; tier: GrammarTier }> {
+): Promise<{
+  exercises: string[];
+  baseCount: number;
+  extraCount: number;
+  importedCount: number;
+  tier: GrammarTier;
+}> {
   const block = getCategoryBlock(level, category);
   const base = getBaseTierExercises(block, tier);
+  const imported = getVerifiedExamplesForBlock(level, category);
+  const withImported = mergeImportedSpecs(base, imported);
   const extras = await loadExtraExercises(level, category, tier);
-  const exercises = mergeExerciseLists(base, extras);
+  const exercises = mergeExerciseLists(withImported, extras);
   return {
     exercises,
     baseCount: base.length,
     extraCount: extras.length,
+    importedCount: imported.length,
     tier,
   };
 }

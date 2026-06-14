@@ -9,6 +9,8 @@ import {
   type ExerciseKind,
   type ParsedExercise,
 } from "@/lib/grammar/exercise-parser";
+import { getExerciseMeta } from "@/lib/grammar/exercise-meta";
+import { warmVerifiedExamplesMetaRegistry } from "@/lib/grammar/verified-examples";
 
 interface GrammarExerciseSessionProps {
   exercises: string[];
@@ -71,10 +73,22 @@ export function GrammarExerciseSession({
   onExerciseDone,
   onSessionStart,
 }: GrammarExerciseSessionProps) {
-  const parsed = useMemo(
-    () => exercises.map(parseExerciseSpec).filter(e => e.kind !== "unknown" || e.prompt),
-    [exercises],
-  );
+  const parsed = useMemo(() => {
+    warmVerifiedExamplesMetaRegistry();
+    return exercises
+      .map(raw => {
+        const ex = parseExerciseSpec(raw);
+        const meta = getExerciseMeta(raw);
+        if (!meta) return ex;
+        return {
+          ...ex,
+          explanation: meta.explanation ?? ex.explanation,
+          contextSentence: meta.contextSentence ?? ex.contextSentence,
+          contextNote: meta.contextNote ?? ex.contextNote,
+        };
+      })
+      .filter(e => e.kind !== "unknown" || e.prompt);
+  }, [exercises]);
 
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("active");
@@ -267,7 +281,7 @@ export function GrammarExerciseSession({
       </div>
 
       {current.contextFlag && (
-        <p
+        <div
           style={{
             fontSize: 12,
             color: "#9A3412",
@@ -279,8 +293,16 @@ export function GrammarExerciseSession({
             lineHeight: 1.45,
           }}
         >
-          Satzkontext beachten — das Verb bestimmt den Fall.
-        </p>
+          {current.contextSentence && (
+            <p style={{ margin: "0 0 6px", fontWeight: 600, color: "#7C2D12" }}>
+              {current.contextSentence}
+            </p>
+          )}
+          <p style={{ margin: 0 }}>
+            {current.contextNote ??
+              "Satzkontext beachten — das Verb bestimmt den Fall."}
+          </p>
+        </div>
       )}
 
       {current.kind === "flashcard" ? (
@@ -538,8 +560,34 @@ export function GrammarExerciseSession({
                 </strong>
               </p>
             )}
+            {current.explanation && (
+              <p
+                style={{
+                  fontSize: 12,
+                  margin: wasCorrect ? "4px 0 0" : "8px 0 0",
+                  color: "var(--text-muted)",
+                  lineHeight: 1.45,
+                }}
+              >
+                {current.explanation}
+              </p>
+            )}
           </div>
         </div>
+      )}
+
+      {phase === "feedback" && current.kind === "flashcard" && flashRevealed && current.explanation && (
+        <p
+          style={{
+            fontSize: 12,
+            margin: "0 0 14px",
+            color: "var(--text-muted)",
+            lineHeight: 1.45,
+            padding: "0 4px",
+          }}
+        >
+          {current.explanation}
+        </p>
       )}
 
       {phase === "active" ? (
