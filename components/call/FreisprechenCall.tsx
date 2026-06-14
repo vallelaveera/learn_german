@@ -862,51 +862,18 @@ export function FreisprechenCall({ onCallEnded, embedded, scenarioId, grammarId 
     messagesRef.current = updated;
 
     const userReplyCount = updated.filter(m => m.role === "user").length;
-    const assistantTexts = updated.filter(m => m.role === "assistant").map(m => m.content);
 
-    const onboardingStudentAsked = assistantTexts.some(t => t.includes("Student oder berufstätig"));
-    const onboardingWhyAsked = assistantTexts.some(t => t.includes("Warum möchtest du Deutsch lernen"));
-    const onboardingPracticeAsked = assistantTexts.some(t => t.includes("Was möchtest du heute üben"));
-
-    const isFirstOnboardingReply =
+    if (
       isOnboardingRef.current
       && userReplyCount === 1
-      && onboardingStudentAsked
-      && !onboardingWhyAsked;
-
-    const isSecondOnboardingReply =
-      isOnboardingRef.current
-      && userReplyCount === 2
-      && onboardingWhyAsked
-      && !onboardingPracticeAsked;
-
-    if (isFirstOnboardingReply && userWantsEnglishIntro(text)) {
+      && userWantsEnglishIntro(text)
+    ) {
       const englishIntro = buildOnboardingIntroEnglish(user?.name ?? "du");
       await speakLocal(englishIntro, {
         role: "assistant",
         content: englishIntro,
         timestamp: Date.now(),
       });
-      return;
-    }
-
-    if (isFirstOnboardingReply) {
-      const whyQ = openingWhyQuestionRef.current ?? ONBOARDING_WHY_GERMAN_QUESTION;
-      await speakOnboardingLine(
-        { role: "assistant", content: whyQ, timestamp: Date.now() },
-        "whyGerman",
-        true,
-      );
-      return;
-    }
-
-    if (isSecondOnboardingReply) {
-      const practiceQ = openingPracticeQuestionRef.current ?? ONBOARDING_PRACTICE_QUESTION;
-      await speakOnboardingLine(
-        { role: "assistant", content: practiceQ, timestamp: Date.now() },
-        "practice",
-        true,
-      );
       return;
     }
 

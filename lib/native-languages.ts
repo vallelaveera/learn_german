@@ -28,7 +28,7 @@ export function isEnglishNative(lang?: string): boolean {
 /** Maya reacts when the learner says Telugu — not from signup/profile alone. */
 export function buildTeluguMayaPromptBlock(context: "onboarding" | "call" = "call"): string {
   const after = context === "onboarding"
-    ? "Then continue onboarding with ONE short question (job, hobbies, etc.)."
+    ? "Then continue the conversation naturally — only ask a profile question if the chat has stalled."
     : "Use at most once per call — then normal conversation.";
 
   return `

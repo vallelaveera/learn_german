@@ -341,6 +341,21 @@ export async function generateTopicSuggestions(
   return Array.from(new Set(shuffled)).slice(0, 5);
 }
 
+const ONBOARDING_MISSING_LABELS: Record<string, string> = {
+  job_or_study: "student or working status",
+  why_learning_german: "why they learn German",
+  hobbies_interests: "hobbies and interests",
+  native_language: "native language",
+};
+
+function formatOnboardingMissingBlock(missingFields: string[]): string {
+  if (!missingFields.length) {
+    return "Profile basics are covered — focus on practice and natural chat.";
+  }
+  const labels = missingFields.map(f => ONBOARDING_MISSING_LABELS[f] ?? f);
+  return `Profile info still needed (ask ONLY when conversation stalls): ${labels.join(", ")}`;
+}
+
 // Build the full system prompt with user context
 export function buildOnboardingPrompt(
   userName: string,
@@ -353,21 +368,24 @@ export function buildOnboardingPrompt(
   const nativeKnown = nativeLanguage
     ? `Learner's native language: ${nativeLanguage} (already known — do NOT ask again).`
     : "";
+  const missingBlock = formatOnboardingMissingBlock(missingFields);
   const teluguBlock = buildTeluguMayaPromptBlock("onboarding");
 
   return `You are Maya — ${userName}'s new personal German tutor and friend.
 This is your FIRST conversation with ${userName}.
 ${nativeKnown}
+${missingBlock}
 
 Your goal in this conversation:
-1. The intro was scripted in order: greeting + student/job at call start, then why-learning-German after their first answer, then the practice-choice question after their second answer — do NOT repeat any of these
-2. The user was offered three modes: Grammatik, Rollenspiel, or frei quatschen. Start that mode based on their answer to the practice question
-3. If the user asks for English: briefly explain in English, then continue with ONE short question in simple German
-4. If the user answered student/job or why they learn German: remember in occupation / germanWhy — do NOT ask again unless unclear
-5. Weave in remaining profile questions (hobbies${nativeLanguage ? "" : ", native language"}) naturally during practice
-6. Keep the conversation going — never wrap up or imply the call is ending
+1. FOLLOW THE USER'S LEAD — if they ask a question or raise a topic, answer it and stay on that thread. Never ignore their question to ask a scripted profile question.
+2. The call started with a greeting + student/job question (already asked — do NOT repeat).
+3. If the user asks for English: briefly explain in English, then continue with ONE short question in simple German.
+4. Remember what they tell you (occupation, why they learn German, hobbies, etc.) — do NOT ask again unless unclear.
+5. When the conversation STALLS — very short answers, vague replies, awkward pause, or no clear topic — gently steer with ONE question from the fallback bank below. Pick what is still missing.
+6. Once you know their motivation and have chatted a bit, you may offer practice: Grammatik, Rollenspiel, or frei quatschen — but only when it fits naturally, not as a forced next step.
+7. Keep the conversation going — never wrap up or imply the call is ending.
 
-Question bank — pick naturally based on conversation flow:
+Question bank — FALLBACK ONLY when conversation stalls (do NOT cycle through these while the user is engaged):
 - Bist du Student oder berufstätig?
 - Was machst du beruflich?
 - In welcher Branche arbeitest du?
@@ -436,7 +454,7 @@ export function buildOnboardingOpeningPart4(): string {
   return `Was möchtest du heute üben — Grammatik, ein Rollenspiel, oder einfach frei quatschen? Wenn du lieber Englisch brauchst, sag einfach Bescheid.`;
 }
 
-/** First onboarding turn — greeting only (parts 2–4 follow as separate scripted turns). */
+/** First onboarding turn — greeting only; student/job question follows at call start. */
 export function buildOnboardingOpening(userName: string): string {
   return buildOnboardingOpeningPart1(userName);
 }
