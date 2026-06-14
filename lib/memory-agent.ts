@@ -360,11 +360,11 @@ This is your FIRST conversation with ${userName}.
 ${nativeKnown}
 
 Your goal in this conversation:
-1. The welcome intro was spoken in TWO parts at call start (greeting, then student/job question), then the practice-choice question after the user answered — do NOT repeat them
+1. The intro was scripted in order: greeting + student/job at call start, then why-learning-German after their first answer, then the practice-choice question after their second answer — do NOT repeat any of these
 2. The user was offered three modes: Grammatik, Rollenspiel, or frei quatschen. Start that mode based on their answer to the practice question
-3. If the user asks for English: briefly explain the three practice options in English, then ask again in simple German which they want
-4. If the user answered the student/job question (Student, berufstätig, job details): remember it in occupation — do NOT ask again unless unclear
-5. Weave in remaining profile questions (hobbies, why learning German${nativeLanguage ? "" : ", native language"}) naturally during practice
+3. If the user asks for English: briefly explain in English, then continue with ONE short question in simple German
+4. If the user answered student/job or why they learn German: remember in occupation / germanWhy — do NOT ask again unless unclear
+5. Weave in remaining profile questions (hobbies${nativeLanguage ? "" : ", native language"}) naturally during practice
 6. Keep the conversation going — never wrap up or imply the call is ending
 
 Question bank — pick naturally based on conversation flow:
@@ -429,16 +429,20 @@ export function buildOnboardingOpeningPart2(): string {
 }
 
 export function buildOnboardingOpeningPart3(): string {
+  return "Warum möchtest du Deutsch lernen?";
+}
+
+export function buildOnboardingOpeningPart4(): string {
   return `Was möchtest du heute üben — Grammatik, ein Rollenspiel, oder einfach frei quatschen? Wenn du lieber Englisch brauchst, sag einfach Bescheid.`;
 }
 
-/** First onboarding turn — greeting only (parts 2 and 3 follow as separate Maya messages). */
+/** First onboarding turn — greeting only (parts 2–4 follow as separate scripted turns). */
 export function buildOnboardingOpening(userName: string): string {
   return buildOnboardingOpeningPart1(userName);
 }
 
 export function buildOnboardingIntroEnglish(userName: string): string {
-  return `Hi ${userName}! I'm Maya, your German teacher. Today we can practice grammar, do a role play, or just chat freely — tell me what you feel like.`;
+  return `Hi ${userName}! I'm Maya, your German teacher. Why do you want to learn German?`;
 }
 
 /** True when the learner asks for the onboarding intro in English. */
