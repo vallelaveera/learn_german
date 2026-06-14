@@ -6,6 +6,7 @@ import { LogOut, Check, Flame, MessageSquare, TrendingUp, ChevronRight, MessageC
 import { PageShell } from "@/components/layout/PageShell";
 import { StatTile } from "@/components/ui/StatTile";
 import { FeedbackSheet } from "@/components/feedback/FeedbackSheet";
+import { PracticeReportsSection } from "@/components/profile/PracticeReportsSection";
 import { isBillingEnabledClient } from "@/lib/billing-config-client";
 
 export default function ProfilePage() {
@@ -118,6 +119,8 @@ export default function ProfilePage() {
             <StatTile label="Sessions" value={user.totalSessions ?? 0} icon={<MessageSquare size={18} />} />
             <StatTile label="Streak" value={user.streak ?? 0} icon={<Flame size={18} />} accent="var(--green)" />
           </div>
+
+          <PracticeReportsSection />
 
           <button
             type="button"

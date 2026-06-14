@@ -15,6 +15,8 @@ import {
   type SentenceExerciseCategory,
 } from "@/lib/exercises/categories";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { SessionReportActions } from "@/components/exercises/SessionReportActions";
+import { useSessionReportLog } from "@/hooks/useSessionReportLog";
 import { SentenceIllustration } from "@/components/illustrations/SentenceIllustration";
 import { resolveIllustrationId } from "@/lib/content/illustration-lookup";
 import { loadPreviewDurationSetting, resolvePreviewSeconds } from "@/lib/exercises/sentence-preview-duration";
@@ -94,6 +96,7 @@ function SentencesPractice({
     typeof window === "undefined" ? 5 : resolvePreviewSeconds(loadPreviewDurationSetting()),
   );
   const [previewAudioDone, setPreviewAudioDone] = useState(false);
+  const { items: reportItems, logItem, resetLog, getStartedAt } = useSessionReportLog();
 
   const current = exercises[index];
   const illustrationId = current
@@ -123,12 +126,13 @@ function SentencesPractice({
       setWrongId(null);
       setShowEnHint(false);
       setPhase("preview");
+      resetLog();
       return true;
     } finally {
       if (isMore) setLoadingMore(false);
       else setLoading(false);
     }
-  }, [exercisesUrl, router]);
+  }, [exercisesUrl, router, resetLog]);
 
   const playGerman = useCallback(() => {
     if (!current) return;
@@ -209,6 +213,14 @@ function SentencesPractice({
     if (!current || wrongId) return;
     const expected = current.words[built.length];
     if (chip.word !== expected) {
+      logItem({
+        prompt: current.german,
+        userAnswer: chip.word,
+        correctAnswer: expected ?? "",
+        correct: false,
+        english: current.english,
+        explanation: current.note,
+      });
       setWrongId(chip.id);
       setTimeout(() => setWrongId(null), 500);
       return;
@@ -218,6 +230,13 @@ function SentencesPractice({
     if (next.length === current.words.length) {
       setScore(s => s + 1);
       saveResult(true);
+      logItem({
+        prompt: current.german,
+        correctAnswer: current.german,
+        correct: true,
+        english: current.english,
+        explanation: current.note,
+      });
       setPhase("complete");
       setTimeout(() => nextSentence(), 2000);
     }
@@ -271,6 +290,17 @@ function SentencesPractice({
             Keine neuen Sätze gerade — schau in ein paar Tagen wieder vorbei.
           </p>
         )}
+        <SessionReportActions
+          meta={{
+            type: "sentences",
+            category,
+            title: meta?.label ?? "Sätze üben",
+          }}
+          score={score}
+          total={exercises.length}
+          items={reportItems}
+          startedAt={getStartedAt()}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
           {!noMore && (
             <button

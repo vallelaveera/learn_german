@@ -12,11 +12,27 @@ import {
 } from "@/lib/exercises/categories";
 import type { BinaryCard } from "@/lib/exercises/types";
 import { SuccessIllustration } from "@/components/illustrations/SuccessIllustration";
+import { SessionReportActions } from "@/components/exercises/SessionReportActions";
 import { reportVocabAnswer } from "@/lib/vocab/reportAnswer";
+import { useSessionReportLog } from "@/hooks/useSessionReportLog";
 
 interface WordsPracticeProps {
   category: WordExerciseCategory;
   scenarioId?: string | null;
+}
+
+function getCardOptionText(card: BinaryCard, direction: ExerciseDirection, option: "A" | "B"): string {
+  if (direction === "en-de") {
+    return option === "A" ? card.deOptionA : card.deOptionB;
+  }
+  return option === "A" ? card.optionA : card.optionB;
+}
+
+function getCardCorrectText(card: BinaryCard, direction: ExerciseDirection): string {
+  if (direction === "en-de") {
+    return card.deCorrectOption === "A" ? card.deOptionA : card.deOptionB;
+  }
+  return card.correctOption === "A" ? card.optionA : card.optionB;
 }
 
 export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
@@ -31,6 +47,7 @@ export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
   const [done, setDone] = useState(false);
   const [noMore, setNoMore] = useState(false);
   const [direction, setDirection] = useState<ExerciseDirection>("de-en");
+  const { items: reportItems, logItem, resetLog, getStartedAt } = useSessionReportLog();
 
   const loadCards = useCallback(async (isMore = false) => {
     if (isMore) setLoadingMore(true);
@@ -51,12 +68,13 @@ export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
       setScore(0);
       setFeedback(null);
       setDone(false);
+      resetLog();
       return true;
     } finally {
       if (isMore) setLoadingMore(false);
       else setLoading(false);
     }
-  }, [category, scenarioId, router]);
+  }, [category, scenarioId, router, resetLog]);
 
   useEffect(() => {
     void loadCards();
@@ -80,6 +98,14 @@ export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
     if (correct) setScore(s => s + 1);
     setFeedback(correct ? "correct" : "wrong");
     saveResult({ itemId: card.id, german: card.german, correct });
+    logItem({
+      prompt: direction === "de-en" ? card.german : card.english,
+      userAnswer: getCardOptionText(card, direction, option),
+      correctAnswer: getCardCorrectText(card, direction),
+      correct,
+      english: card.english,
+      explanation: direction === "de-en" ? card.english : card.german,
+    });
     const delay = correct ? 900 : 2000;
     setTimeout(() => {
       if (index + 1 >= cards.length) setDone(true);
@@ -134,6 +160,17 @@ export function WordsPractice({ category, scenarioId }: WordsPracticeProps) {
             Keine neuen Wörter gerade — probier eine andere Kategorie.
           </p>
         )}
+        <SessionReportActions
+          meta={{
+            type: "words",
+            category,
+            title: meta?.label ?? "Wörter üben",
+          }}
+          score={score}
+          total={cards.length}
+          items={reportItems}
+          startedAt={getStartedAt()}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
           {!noMore && (
             <button

@@ -7,6 +7,7 @@ import { useGrammarLevelExercises } from "@/hooks/useGrammarExercises";
 import {
   getCategoryBlock,
   getTierItems,
+  CATEGORY_LABELS,
   levelColor,
   levelLightColor,
   type GrammarCategory,
@@ -52,6 +53,11 @@ export function GrammarVerifiedTrainerScreen({
         exercises={exercises}
         levelColor={color}
         levelLightColor={light}
+        sessionReport={{
+          type: "grammar",
+          category,
+          title: `${level} · ${CATEGORY_LABELS[category]} (${tier === "basic" ? "Basis" : "Fortgeschritten"})`,
+        }}
         onExerciseDone={idx => markExerciseDone(category, tier, idx)}
         onSessionStart={() => markTrainerVisited(category, tier)}
       />

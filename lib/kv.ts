@@ -7,6 +7,7 @@ import { Session, VocabWord, UserProfile, UserFacts, UserFeatures, HomeworkAssig
 import type { CareerVocabUserProgress } from "./career-vocab/types";
 import type { UserFeedback } from "./feedback/types";
 import { normalizeGermanLevel } from "./levels";
+import type { PracticeReportSummary, PracticeSessionReport } from "./exercises/session-report-types";
 import { v4 as uuidv4 } from "uuid";
 import { getOrGenerateIcon } from "./vocab/icons";
 
@@ -572,6 +573,64 @@ export async function getExerciseExcludedKeys(
   }
 
   return excluded;
+}
+
+// ── Practice session reports ───────────────────────────────
+
+export async function savePracticeReport(
+  userId: string,
+  report: Omit<PracticeSessionReport, "id" | "userId">,
+): Promise<PracticeSessionReport> {
+  const id = uuidv4();
+  const full: PracticeSessionReport = { ...report, id, userId };
+  await redis.set(`practice_report:${userId}:${id}`, JSON.stringify(full));
+  await redis.zadd(`practice_reports:${userId}`, {
+    score: full.endedAt,
+    member: id,
+  });
+  return full;
+}
+
+export async function getPracticeReport(
+  userId: string,
+  id: string,
+): Promise<PracticeSessionReport | null> {
+  try {
+    const data = await redis.get<string>(`practice_report:${userId}:${id}`);
+    if (!data) return null;
+    return typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    return null;
+  }
+}
+
+export async function listPracticeReports(
+  userId: string,
+  limit = 30,
+): Promise<PracticeReportSummary[]> {
+  try {
+    const ids = await redis.zrange<string[]>(`practice_reports:${userId}`, 0, limit - 1, { rev: true });
+    if (!ids?.length) return [];
+    const reports = await Promise.all(ids.map(id => getPracticeReport(userId, id)));
+    return reports
+      .filter((r): r is PracticeSessionReport => Boolean(r))
+      .map(r => ({
+        id: r.id,
+        type: r.type,
+        category: r.category,
+        title: r.title,
+        score: r.score,
+        total: r.total,
+        endedAt: r.endedAt,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function deletePracticeReport(userId: string, id: string): Promise<void> {
+  await redis.del(`practice_report:${userId}:${id}`);
+  await redis.zrem(`practice_reports:${userId}`, id);
 }
 
 /** @deprecated use getExerciseExcludedKeys */

@@ -11,6 +11,7 @@ import {
   VERIFIED_LEVELS,
   getCategoryBlock,
   getTierItems,
+  CATEGORY_LABELS,
   levelColor,
   levelLightColor,
   type GrammarCategory,
@@ -55,6 +56,11 @@ function LearnPageInner() {
         exercises={exercises}
         levelColor={color}
         levelLightColor={light}
+        sessionReport={{
+          type: "grammar",
+          category,
+          title: `${level} · ${CATEGORY_LABELS[category]} (${tier === "basic" ? "Basis" : "Fortgeschritten"})`,
+        }}
         onExerciseDone={idx => progress.markExerciseDone(category, tier, idx)}
         onSessionStart={() => progress.markTrainerVisited(category, tier)}
       />

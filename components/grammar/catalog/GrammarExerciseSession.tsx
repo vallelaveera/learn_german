@@ -11,11 +11,15 @@ import {
 } from "@/lib/grammar/exercise-parser";
 import { getExerciseMeta } from "@/lib/grammar/exercise-meta";
 import { warmVerifiedExamplesMetaRegistry } from "@/lib/grammar/verified-examples";
+import { SessionReportActions } from "@/components/exercises/SessionReportActions";
+import { useSessionReportLog } from "@/hooks/useSessionReportLog";
+import type { SessionReportMeta } from "@/lib/exercises/session-report-types";
 
 interface GrammarExerciseSessionProps {
   exercises: string[];
   levelColor: string;
   levelLightColor?: string;
+  sessionReport?: SessionReportMeta;
   onComplete?: (correct: number, total: number) => void;
   onExerciseDone?: (index: number) => void;
   onSessionStart?: () => void;
@@ -69,6 +73,7 @@ export function GrammarExerciseSession({
   exercises,
   levelColor,
   levelLightColor = "#f5f5f5",
+  sessionReport,
   onComplete,
   onExerciseDone,
   onSessionStart,
@@ -100,6 +105,11 @@ export function GrammarExerciseSession({
   const [flashRevealed, setFlashRevealed] = useState(false);
   const [wasCorrect, setWasCorrect] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const { items: reportItems, logItem, resetLog, getStartedAt } = useSessionReportLog();
+
+  useEffect(() => {
+    resetLog();
+  }, [exercises, resetLog]);
 
   useEffect(() => {
     onSessionStart?.();
@@ -149,9 +159,24 @@ export function GrammarExerciseSession({
     [correctCount, index, onComplete, onExerciseDone, parsed, resetExerciseState],
   );
 
+  const recordAnswer = useCallback(
+    (ex: ParsedExercise, correct: boolean, userAnswer?: string) => {
+      if (!sessionReport) return;
+      logItem({
+        prompt: ex.prompt,
+        userAnswer,
+        correctAnswer: ex.answer || "(kein Artikel)",
+        correct,
+        explanation: ex.explanation,
+      });
+    },
+    [logItem, sessionReport],
+  );
+
   const checkAnswer = useCallback(() => {
     if (!current) return;
     let correct = false;
+    let userAnswer: string | undefined;
 
     if (current.kind === "flashcard") {
       setFlashRevealed(true);
@@ -161,12 +186,14 @@ export function GrammarExerciseSession({
     }
 
     if (current.kind === "multiple-choice") {
+      userAnswer = selected ?? undefined;
       correct = selected !== null && answersMatch(selected, current.answer);
     } else if (current.kind === "sentence-build") {
-      const builtSentence = built.join(" ");
-      correct = answersMatch(builtSentence, current.answer);
+      userAnswer = built.join(" ");
+      correct = answersMatch(userAnswer, current.answer);
     } else {
       const trimmed = input.trim();
+      userAnswer = trimmed || undefined;
       if (!trimmed && current.answer === "—") {
         correct = true;
       } else {
@@ -174,9 +201,10 @@ export function GrammarExerciseSession({
       }
     }
 
+    recordAnswer(current, correct, userAnswer);
     setWasCorrect(correct);
     setPhase("feedback");
-  }, [built, current, input, selected]);
+  }, [built, current, input, recordAnswer, selected]);
 
   const addToken = (token: string, poolIndex: number) => {
     if (phase !== "active") return;
@@ -211,12 +239,24 @@ export function GrammarExerciseSession({
         <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 16px" }}>
           {correctCount} von {parsed.length} richtig ({pct}%)
         </p>
+        {sessionReport && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            <SessionReportActions
+              meta={sessionReport}
+              score={correctCount}
+              total={parsed.length}
+              items={reportItems}
+              startedAt={getStartedAt()}
+            />
+          </div>
+        )}
         <button
           type="button"
           className="ui-btn ui-btn-primary"
           onClick={() => {
             setIndex(0);
             setCorrectCount(0);
+            resetLog();
             setPhase("active");
             resetExerciseState(parsed[0]);
           }}
@@ -619,7 +659,12 @@ export function GrammarExerciseSession({
         <button
           type="button"
           className="ui-btn ui-btn-primary"
-          onClick={() => advance(wasCorrect || current.kind === "flashcard")}
+          onClick={() => {
+            if (current.kind === "flashcard" && flashRevealed) {
+              recordAnswer(current, true, current.answer);
+            }
+            advance(wasCorrect || current.kind === "flashcard");
+          }}
           style={{
             width: "100%",
             minHeight: 48,
