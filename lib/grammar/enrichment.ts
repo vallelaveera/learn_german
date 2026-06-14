@@ -1,4 +1,5 @@
-import { callClaude, parseJsonArray } from "@/lib/content/generate";
+import { parseJsonArray } from "@/lib/content/generate";
+import { callAdminLlm, type AdminLlmProvider } from "@/lib/content/llm-provider";
 import type { GrammarCategory, GrammarTier, VerifiedLevel } from "./verified-curriculum";
 import { getMergedExercises, mergeExerciseLists } from "./merge-block";
 import { appendExtraExercises, loadExtraExercises } from "./curriculum-kv";
@@ -17,6 +18,7 @@ export interface GrammarEnrichmentResult {
   saved?: number;
   totalExtra?: number;
   tier?: GrammarTier;
+  provider?: AdminLlmProvider;
 }
 
 function validateExerciseSpec(spec: string): { ok: true } | { ok: false; issues: string[] } {
@@ -59,8 +61,10 @@ export async function previewGrammarExercises(params: {
   category: GrammarCategory;
   tier: GrammarTier;
   count: number;
+  provider?: AdminLlmProvider;
 }): Promise<GrammarEnrichmentResult> {
   const count = Math.min(Math.max(params.count, 1), 10);
+  const provider = params.provider ?? "claude";
   const { exercises: existing } = await getMergedExercises(params.level, params.category, params.tier);
 
   const userPrompt = buildGrammarEnrichmentUserPrompt({
@@ -71,7 +75,7 @@ export async function previewGrammarExercises(params: {
     existingExercises: existing,
   });
 
-  const raw = await callClaude(GRAMMAR_ENRICHMENT_SYSTEM, userPrompt, 4096);
+  const raw = await callAdminLlm(provider, GRAMMAR_ENRICHMENT_SYSTEM, userPrompt, 4096);
   const generated = parseJsonArray<string>(raw) ?? [];
   const passed: string[] = [];
   const rejected: { spec: string; issues: string[] }[] = [];
@@ -104,6 +108,7 @@ export async function previewGrammarExercises(params: {
     passed,
     rejected,
     tier: params.tier,
+    provider,
   };
 }
 

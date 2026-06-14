@@ -13,6 +13,12 @@ import { buildGrammarCoverageReport, tierBlockKey } from "@/lib/grammar/coverage
 import { loadAllExtraCounts } from "@/lib/grammar/curriculum-kv";
 import { getMergedExercises } from "@/lib/grammar/merge-block";
 import { previewGrammarExercises, saveGrammarExercises } from "@/lib/grammar/enrichment";
+import {
+  ADMIN_LLM_PROVIDERS,
+  getAvailableProviders,
+  parseAdminProvider,
+  providerLabel,
+} from "@/lib/content/llm-provider";
 
 export const runtime = "nodejs";
 
@@ -40,12 +46,19 @@ export async function GET(req: NextRequest) {
   const tier = parseTier(req.nextUrl.searchParams.get("tier"));
   const extraCounts = await loadAllExtraCounts();
   const report = buildGrammarCoverageReport(extraCounts);
+  const availableProviders = getAvailableProviders();
+  const providerOptions = ADMIN_LLM_PROVIDERS.filter(p => availableProviders.includes(p.id)).map(p => ({
+    id: p.id,
+    label: p.label,
+  }));
 
   if (level && category) {
     const block = getCategoryBlock(level, category);
     const merged = await getMergedExercises(level, category, tier);
     return NextResponse.json({
       report,
+      providers: providerOptions,
+      defaultProvider: availableProviders[0] ?? "claude",
       block: {
         level,
         category,
@@ -62,7 +75,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ report });
+  return NextResponse.json({
+    report,
+    providers: providerOptions,
+    defaultProvider: availableProviders[0] ?? "claude",
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -75,6 +92,14 @@ export async function POST(req: NextRequest) {
     const tier = parseTier(body.tier);
     const action = body.action === "save" ? "save" : "preview";
     const count = typeof body.count === "number" ? body.count : 5;
+    const provider = parseAdminProvider(body.provider);
+    const available = getAvailableProviders();
+    if (!available.includes(provider)) {
+      return NextResponse.json(
+        { error: `${providerLabel(provider)} is not configured on this deployment` },
+        { status: 400 },
+      );
+    }
 
     if (!level || !category) {
       return NextResponse.json({ error: "Invalid level or category" }, { status: 400 });
@@ -94,8 +119,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ action, ...result });
     }
 
-    const result = await previewGrammarExercises({ level, category, tier, count });
-    return NextResponse.json({ action, ...result });
+    const result = await previewGrammarExercises({ level, category, tier, count, provider });
+    return NextResponse.json({
+      action,
+      ...result,
+      providerLabel: providerLabel(provider),
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { createCallAudioContext } from "@/lib/audio/mobile-audio-context";
 import { isAndroidNative } from "@/lib/native/platform";
+import { ExitConfirmDialog } from "@/components/native/ExitConfirmDialog";
 
 interface NativeShellProps {
   children: ReactNode;

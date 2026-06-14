@@ -16,6 +16,8 @@ import {
   type VerifiedLevel,
 } from "@/lib/grammar/verified-curriculum";
 import { GRAMMAR_EXERCISE_TARGET, TIER_LABELS } from "@/lib/grammar/coverage";
+import { AdminProviderSelect, readStoredProvider } from "@/components/admin/AdminProviderSelect";
+import type { AdminLlmProvider } from "@/lib/content/llm-provider";
 
 interface CoverageReport {
   meta: { version: number; title: string; generatedAt?: string };
@@ -48,6 +50,13 @@ interface PreviewResult {
   rejected: { spec: string; issues: string[] }[];
   generated: number;
   requested: number;
+  provider?: AdminLlmProvider;
+  providerLabel?: string;
+}
+
+interface ProviderOption {
+  id: AdminLlmProvider;
+  label: string;
 }
 
 function AdminGrammarPageInner() {
@@ -66,6 +75,8 @@ function AdminGrammarPageInner() {
     tier: GrammarTier;
   } | null>(null);
   const [genCount, setGenCount] = useState(5);
+  const [provider, setProvider] = useState<AdminLlmProvider>(() => readStoredProvider());
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
 
   const loadReport = useCallback(async () => {
     setLoading(true);
@@ -79,6 +90,12 @@ function AdminGrammarPageInner() {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setReport(data.report);
+      if (data.providers?.length) {
+        setProviders(data.providers);
+        if (data.defaultProvider && !data.providers.some((p: ProviderOption) => p.id === provider)) {
+          setProvider(data.defaultProvider);
+        }
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -139,6 +156,7 @@ function AdminGrammarPageInner() {
           category: selected.category,
           tier: selected.tier,
           count: genCount,
+          provider,
         }),
       });
       const data = await res.json();
@@ -183,7 +201,7 @@ function AdminGrammarPageInner() {
     <AdminShell title="Grammatik">
       <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 16px", lineHeight: 1.55 }}>
         4 Bereiche × 2 Stufen (Basic / Advanced) = 8 Übungsslots pro Level. Theorie bleibt stabil — hier reichst du
-        <strong> Satz-Übungen mit mehr Vielfalt</strong> an. Claude nutzt nur die Theorie der gewählten Stufe.
+        <strong> Satz-Übungen mit mehr Vielfalt</strong> an. Wähle Claude oder GPT-4o zum Vergleich — nur echte Lehrbuch-Muster, keine Erfindungen.
       </p>
 
       {report && (
@@ -204,7 +222,7 @@ function AdminGrammarPageInner() {
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6, color: "var(--text-muted)" }}>
           <li>Mehr <strong>Satz-Vielfalt</strong> — verschiedene Verben, Kontexte, Satzmuster</li>
           <li>Nur Theorie der gewählten Stufe (Basic oder Advanced), nie beides vermischen</li>
-          <li>Keine erfundenen Regeln — nur CEFR / Goethe / Lehrbuch-Muster</li>
+          <li>Keine erfundenen Regeln — nur Goethe / telc / Lehrbuch-Muster (Schritte, Netzwerk, …)</li>
           <li>Doppelte Satzstämme werden automatisch abgelehnt</li>
         </ul>
       </AdminCard>
@@ -319,9 +337,15 @@ function AdminGrammarPageInner() {
               Satz-Übungen generieren ({TIER_LABELS[selected.tier]})
             </p>
             <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 10px" }}>
-              Claude erstellt neue Lückentexte, Satzbau- und Auswahlaufgaben — jeder Satz unterschiedlich.
+              Erstellt neue Lückentexte, Satzbau- und Auswahlaufgaben — jeder Satz unterschiedlich, quellenbasiert.
             </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "flex-end" }}>
+              <AdminProviderSelect
+                value={provider}
+                onChange={setProvider}
+                providers={providers.length ? providers : [{ id: "claude", label: "Claude Haiku 4.5" }]}
+                disabled={generating}
+              />
               <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
                 Anzahl
                 <input
@@ -358,6 +382,7 @@ function AdminGrammarPageInner() {
               <div style={{ marginTop: 12 }}>
                 <p style={{ fontSize: 12, margin: "0 0 8px" }}>
                   {preview.passed.length} gültig · {preview.rejected.length} abgelehnt (von {preview.generated} generiert)
+                  {preview.providerLabel ? ` · ${preview.providerLabel}` : ""}
                 </p>
                 {preview.passed.length > 0 && (
                   <>

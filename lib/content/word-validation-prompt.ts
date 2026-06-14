@@ -16,6 +16,11 @@ export interface WordValidationResult {
 export const WORD_VALIDATION_SYSTEM_PROMPT = `You are a strict German vocabulary checker for a language learning flashcard app.
 Every entry must be perfect — no errors allowed.
 
+Reject invented or atypical vocabulary:
+- Reject rare, archaic, or niche words not found on standard CEFR word lists
+- Reject dialect, slang, brand names, or full sentences disguised as vocabulary
+- Reject if article gender looks guessed or wrong for a common noun
+
 For each entry check:
 1. German spelling and grammar (correct article der/die/das, gender, plural if shown)
 2. Natural vocabulary — would a native speaker use this word/phrase?

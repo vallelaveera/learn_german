@@ -2,24 +2,25 @@ import type { GrammarCategory, GrammarTier, VerifiedLevel } from "./verified-cur
 import { CATEGORY_LABELS, getCategoryBlock, getTierItems } from "./verified-curriculum";
 import { TIER_LABELS } from "./coverage";
 import { getGrammarPoint } from "./curriculum";
+import { GRAMMAR_SOURCE_INTEGRITY } from "@/lib/content/source-integrity";
 
 export const GRAMMAR_ENRICHMENT_SYSTEM = `You are a German grammar curriculum editor for CallMeDaily, a CEFR-aligned learning app.
 
-CRITICAL — SOURCE INTEGRITY (non-negotiable):
-- Use ONLY grammar patterns and vocabulary that match the provided theory bullets for the requested tier (Basic OR Advanced — not both).
-- Base every sentence on real German textbook / Goethe-Institut / Gemeinsamer Europäischer Referenzrahmen practice — NOT on invention.
-- Do NOT invent new rules, rare exceptions, dialect, slang, or contrived sentences.
-- Do NOT introduce vocabulary or structures above the stated CEFR level.
-- If you cannot produce a verifiable standard example, omit that exercise.
-- Every sentence must be natural Hochdeutsch suitable for a classroom workbook.
+${GRAMMAR_SOURCE_INTEGRITY}
+
+AUTHORIZED SOURCES (mental checklist — do not cite URLs, but match their style):
+- Goethe-Institut Übungsmaterial for the stated level
+- telc / ÖSD Prüfungsvorbereitung grammar drills
+- Standard Lehrbuch exercise formats (Schritte, Netzwerk, Menschen, Aspekte)
+- Duden Rechtschreibung for spelling; standard Hochdeutsch grammar references
 
 PRACTICE GOAL — SENTENCE VARIETY (this is why we enrich):
-- Each exercise must use a DIFFERENT German sentence, verb, noun, or everyday context.
-- Prefer FILL-BLANK, MULTIPLE-CHOICE, and SENTENCE-BUILD with full sentences over repetitive FLASHCARD pairs.
-- Vary subjects, objects, places, and time expressions while staying inside the tier theory scope.
-- Do NOT reuse sentence stems from the exclude list — even with a different blank or answer.
-- Basic tier: short, clear sentences; core patterns only.
-- Advanced tier: nuance from advanced theory — typical mistakes, exceptions, register — still level-appropriate.
+- Each exercise must use a DIFFERENT German sentence, verb, noun, or everyday context
+- Prefer FILL-BLANK, MULTIPLE-CHOICE, and SENTENCE-BUILD with full sentences over repetitive FLASHCARD pairs
+- Vary subjects, objects, places, and time expressions while staying inside the tier theory scope
+- Do NOT reuse sentence stems from the exclude list — even with a different blank or answer
+- Basic tier: short, clear sentences; core patterns only — like Anfänger Lehrbuch drills
+- Advanced tier: nuance from advanced theory — typical mistakes, exceptions, register — still level-appropriate
 
 Exercise spec format (exact — one string per exercise):
 - FLASHCARD: 'der Mann' → 'the man'
@@ -33,6 +34,7 @@ Rules:
 - MULTIPLE-CHOICE: exactly one correct option; distractors must be plausible learner mistakes from the typical-mistakes list when provided.
 - SENTENCE-BUILD: tokens separated by / inside [ ].
 - Mix exercise types when generating more than one item.
+- If you cannot tie an exercise to a listed theory bullet, skip it — do not fill gaps with invented grammar.
 
 Output ONLY a JSON array of exercise spec strings. No markdown, no commentary.`;
 
@@ -84,5 +86,7 @@ ${curriculumPoints}
 Already present for ${TIER_LABELS[params.tier]} — do NOT duplicate sentences or stems:
 ${excludeList}
 
-Generate ${params.count} varied sentence-based exercises strictly aligned with ${TIER_LABELS[params.tier]} theory only.`;
+Each exercise must read like a drill from a real ${params.level} grammar workbook covering ${TIER_LABELS[params.tier]} only.
+Generate ${params.count} varied sentence-based exercises strictly aligned with ${TIER_LABELS[params.tier]} theory only.
+If a theory bullet has no standard exercise you can verify, skip it rather than inventing.`;
 }

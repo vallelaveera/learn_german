@@ -171,7 +171,7 @@ export default function AdminPage() {
             <Link href="/admin/generate" style={{ textDecoration: "none" }}>
               <AdminCard style={{ height: "100%", cursor: "pointer" }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 4 }}>Inhalt generieren</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Claude-Pipeline · Kategorien & Themen</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Claude / GPT-4o · Kategorien & Themen · quellenbasiert</div>
                 <div style={{ marginTop: 12, fontSize: 12, color: PURPLE }}>Generieren →</div>
               </AdminCard>
             </Link>
