@@ -148,7 +148,7 @@ export function AdminShell({ children, title, backHref, backLabel }: AdminShellP
         )}
       </header>
 
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "16px" }}>
+      <main style={{ maxWidth: 960, margin: "0 auto", padding: "16px", paddingBottom: "calc(32px + var(--sab, 0px))" }}>
         {children}
       </main>
     </div>

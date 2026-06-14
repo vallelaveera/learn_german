@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       title={
         pathname.startsWith("/admin/content") ? "Inhalt"
           : pathname.startsWith("/admin/generate") ? "Generieren"
+            : pathname.startsWith("/admin/grammar") ? "Grammatik"
             : pathname.startsWith("/admin/illustrations") ? "Illustrationen"
               : pathname.startsWith("/admin/feedback") ? "Feedback"
                 : isUserDetail ? "Nutzerprofil"
